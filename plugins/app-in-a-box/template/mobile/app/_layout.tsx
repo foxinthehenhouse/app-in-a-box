@@ -6,6 +6,8 @@
  * into a group to "log someone in"; change auth state and the guard redirects.
  * Sheets (formSheet routes) are registered here, once, and nowhere else.
  *
+ * Custom fonts (lib/fonts.ts) load here too; the splash stays up until they're in.
+ *
  * Also mounted here, once: the persisted TanStack Query cache (offline-first,
  * lib/query.ts), the offline banner, the OTA "update ready" prompt
  * (lib/updates.ts) and notification-tap routing (lib/push.ts). Deep links from
@@ -13,6 +15,7 @@
  */
 import { useEffect } from "react";
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -22,6 +25,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 
 import { OfflineBanner, ToastProvider, UpdateBanner } from "../components/ui";
 import { AuthProvider, useAuth } from "../lib/auth";
+import { fontAssets } from "../lib/fonts";
 import "../lib/i18n";
 import { usePendingLinkReplay } from "../lib/links";
 import { initMonitoring, wrapRoot } from "../lib/monitoring";
@@ -40,7 +44,10 @@ if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
 
 function RootStack() {
   const { user, loading } = useAuth();
-  const { ready } = useThemePreference();
+  const { ready: themeReady } = useThemePreference();
+  // A font that fails to load falls back to the system font rather than hanging the splash.
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
+  const ready = themeReady && (fontsLoaded || fontError !== null);
   const t = useTheme();
   const update = useUpdatePrompt();
   usePushNavigation(user !== null);
@@ -54,7 +61,7 @@ function RootStack() {
     if (!loading && ready) SplashScreen.hideAsync().catch(() => undefined);
   }, [loading, ready]);
 
-  if (loading || !ready) return null; // the splash stays up until auth + theme are known
+  if (loading || !ready) return null; // the splash stays up until auth, theme and fonts are known
 
   const signedIn = user !== null;
   return (

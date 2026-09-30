@@ -3,30 +3,40 @@
 # that the interview and the generated repo's market-watch skill read.
 VI="$KIT/skills/validate-idea/SKILL.md"
 
-# The orchestrator runs the idea check (1a) before the interview (1b).
+# The orchestrator shapes the idea (1a), checks the market (1b, in the background),
+# then prototypes (2) before anything is built.
 _phase_order() {
-  local t="$KIT/skills/new-app/SKILL.md" a b
-  a=$(grep -n '^| 1a | Idea check | `KIT/skills/validate-idea/SKILL.md`' "$t" | cut -d: -f1)
-  b=$(grep -n '^| 1b | Interview | `KIT/skills/interview/SKILL.md`' "$t" | cut -d: -f1)
-  [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]
+  local t="$KIT/skills/new-app/SKILL.md" a b c
+  a=$(grep -n '^| 1a | Shape | `KIT/skills/shape/SKILL.md`' "$t" | cut -d: -f1)
+  b=$(grep -n '^| 1b | Idea check (background, started by 1a) | `KIT/skills/validate-idea/SKILL.md`' "$t" | cut -d: -f1)
+  c=$(grep -n '^| 2 | Prototype | `KIT/skills/prototype/SKILL.md`' "$t" | cut -d: -f1)
+  [ -n "$a" ] && [ -n "$b" ] && [ -n "$c" ] && [ "$a" -lt "$b" ] && [ "$b" -lt "$c" ]
 }
-check "new-app runs the idea check (1a) before the interview (1b)" "_phase_order"
+check "new-app runs shape (1a), idea check (1b), then prototype (2)" "_phase_order"
 
 # Progress: a fresh project goes to 1a, a checked one to 1b, a parked one says so,
 # and a project from before 1a existed is not sent back to it.
 _progress_steps() {
   local y="$T/vi.yaml" out
   printf 'progress:\n  preflight: done\n' > "$y"
-  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 1a, Idea check' || return 1
-  printf 'progress:\n  preflight: done\n  validate: done\n' > "$y"
-  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 1b, Interview' || return 1
-  printf 'progress:\n  preflight: done\n  validate: parked\n' > "$y"
+  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 1a, Shape' || return 1
+  printf 'progress:\n  preflight: done\n  interview: done\n  validate: running\n' > "$y"
   out=$(python3 "$KIT/scripts/progress.py" "$y")
-  echo "$out" | grep -q '1a. Idea check.*(parked)' && echo "$out" | grep -q '^Parked at phase 1a' || return 1
+  echo "$out" | grep -q '^Next: phase 2, Prototype' && echo "$out" | grep -q '1b. Idea check.*(running)' \
+    && echo "$out" | grep -q '^Phase 1b, Idea check, is running in the background' || return 1
+  # pending (Codex runs it after shape, in the foreground): 1b is next, and not "legacy".
+  printf 'progress:\n  preflight: done\n  interview: done\n  validate: pending\n' > "$y"
+  out=$(python3 "$KIT/scripts/progress.py" "$y")
+  echo "$out" | grep -q '^Next: phase 1b, Idea check' && ! echo "$out" | grep -q 'predates' || return 1
+  printf 'progress:\n  preflight: done\n  interview: done\n  validate: done\n' > "$y"
+  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 2, Prototype' || return 1
+  printf 'progress:\n  preflight: done\n  interview: done\n  validate: parked\n' > "$y"
+  out=$(python3 "$KIT/scripts/progress.py" "$y")
+  echo "$out" | grep -q '1b. Idea check.*(parked)' && echo "$out" | grep -q '^Parked at phase 1b' || return 1
   printf 'progress:\n  preflight: done\n  interview: done\n' > "$y"
-  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 2, Design'
+  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 2, Prototype'
 }
-check "progress: 1a next when fresh, 1b after it, parked shown, legacy not sent back" "_progress_steps"
+check "progress: shape first, idea check can run in the background, parked shown, legacy not sent back" "_progress_steps"
 
 # The VALIDATION.md headings are a contract: validate-idea writes them, and the
 # interview and market-watch read sections by name.

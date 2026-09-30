@@ -1,9 +1,9 @@
 ---
 name: validate-idea
-description: Phase 1a of App in a Box, also usable on its own. Before any design or code, it researches the market to judge whether the idea meets a real, unmet user need. It finds competitors and workarounds, mines real complaints from reviews and forums, checks what people already pay for, and writes docs/product/VALIDATION.md, a cited scorecard with a Go / Sharpen / Rethink verdict and the riskiest assumptions. Advisory only; the user decides. Use when starting a new app, or when asked "is this idea any good?", "who else does this?" or "is there demand for…".
+description: Phase 1b of App in a Box (runs in the background while the founder shapes the idea), also usable on its own. Before any design or code, it researches the market to judge whether the idea meets a real, unmet user need. It finds competitors and workarounds, mines real complaints from reviews and forums, checks what people already pay for, and writes docs/product/VALIDATION.md, a cited scorecard with a Go / Sharpen / Rethink verdict and the riskiest assumptions. Advisory only; the user decides. Use when starting a new app, or when asked "is this idea any good?", "who else does this?" or "is there demand for…".
 ---
 
-# Phase 1a: Idea check
+# Phase 1b: Idea check (runs in the background during shape)
 
 Goal: in about 5 minutes, tell the user honestly whether people already have this
 problem, how they solve it today, and where the opening is, **before** they spend an
@@ -30,8 +30,10 @@ and not a gatekeeper.
 
 ## 1. Capture the idea (skip what's already known)
 
-If `appbox.yaml` → `product.problem` and `product.core_loop` are already filled,
-reuse them. Otherwise ask **interview Round 1** now, exactly as written in
+If `design/brief.json` exists (phase 1a wrote it), use it as your whole input and skip
+straight to step 2: you're running in the background and must not ask the founder
+anything. Otherwise, if `appbox.yaml` → `product.problem` and `product.core_loop` are
+already filled, reuse them. Otherwise ask **interview Round 1** now, exactly as written in
 `KIT/skills/interview/SKILL.md` (the idea + who it's for, then the core loop), and
 reflect each answer back. Also ask, in the same message, one optional question:
 **"Any apps or tricks you already know people use for this?"** (seeds the search).

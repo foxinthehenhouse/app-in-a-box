@@ -45,7 +45,7 @@ It runs `npx expo install` (so every version matches the SDK) for: `react-dom` +
 picks a newer React than the SDK pins and every install fails with ERESOLVE),
 `expo-router` + `react-native-screens` + `react-native-safe-area-context`,
 `react-native-reanimated` 4 + `react-native-worklets` + `react-native-gesture-handler`,
-`expo-haptics`, `expo-symbols`, `expo-splash-screen`, `expo-system-ui`, `expo-font`,
+`expo-haptics`, `expo-symbols`, `@expo/ui` (native segmented control), `expo-image`, `expo-splash-screen`, `expo-system-ui`, `expo-font` + `expo-asset` (its loader needs it),
 `@shopify/flash-list`, Supabase, PostHog, Sentry and friends, plus the v1.0 production
 set: TanStack Query + its AsyncStorage persister + NetInfo (offline), `expo-notifications`
 (push), `expo-updates` (OTA), `expo-clipboard` / `expo-sharing` / `expo-file-system`
@@ -66,7 +66,11 @@ Reanimated 4) and `setupFiles` (`jest.setup.ts`: NetInfo + AsyncStorage mocks). 
   Stack in `app/_layout.tsx`. `app/edit-name.tsx` is the pattern to copy.
 - **Light + dark** from `design/tokens.json`, following the OS with a user override
   (Settings → Appearance). A single-palette (v1) token file locks to its mode.
-- **Component library** in `components/ui/` and a dev-only `/gallery` of all of it.
+- **Component library** in `components/ui/` and a dev-only `/gallery` of all of it. Every
+  prototype block has one (SCREENS.md names the exact call): `StatCard`, `Media`
+  (expo-image), a native `SegmentedControl` (@expo/ui), `ProgressBar`, `EmptyState`...
+  SCREENS.md's Platform and Motion tables say which native piece and which
+  `lib/motion.ts` call reproduce each thing the founder clicked.
 - **Demo mode**: `EXPO_PUBLIC_DEMO=1` (in `mobile/.env`, or `npm run demo`) swaps in the
   in-memory fake in `lib/demo.ts`. Use it to click through the app before phase 5.
 - **Production capabilities, built in** (each with jest tests; see `mobile/AGENTS.md`):
@@ -111,7 +115,17 @@ Claude/Codex adapters (`.claude/skills`, `.codex/*`).
 
 ## 4. Make it *their* app (the part that needs judgement)
 
-The template is a correct skeleton. Now shape it to the brief:
+The template is a correct skeleton. Now shape it to the brief **and to the frozen
+prototype**: `docs/product/SCREENS.md` (from phase 2) lists every v1 screen, the layout
+the founder chose, which kit component each block maps to, the navigation and the
+states. Build those screens, in that layout, with those words (the chosen tone's copy
+goes into `locales/en.ts`). If a block has no kit component, compose it from
+`components/ui` rather than inventing a new style. The founder already approved this;
+the app should feel like the prototype they clicked, not a reinterpretation of it.
+Features marked out of v1 in SCREENS.md stay out. **No SCREENS.md** (a project that
+finished design before the prototype existed): run phase 2's freeze if
+`design/prototype.json` exists; otherwise build from BRIEF.md → "Screens (v1)" and say
+once that re-running the prototype phase would let them click it first.
 
 1. **Data model.** Add one migration per BRIEF table, named
    `supabase/migrations/<UTC timestamp>_<name>.sql`, following
@@ -125,8 +139,15 @@ The template is a correct skeleton. Now shape it to the brief:
    save, `Celebration` on the loop's payoff), with a `*Wire` type + adapter in
    `lib/api.ts`, analytics helpers for the core action (success + failure), and honest
    empty/error states. Add each new endpoint to `ROUTES` in `lib/demo.ts` with seeded
-   data from the brief, so demo mode keeps working. Add one `NativeTabs.Trigger` per v1
-   screen (keep it to 2–4) and use `FlashList` for any list that can outgrow a screen.
+   data from the brief, so demo mode keeps working. Add one `NativeTabs.Trigger` per tab
+   in SCREENS.md → Navigation (every other screen is a pushed route, every sheet a
+   formSheet route), take each icon's `sf` / `md` names from SCREENS.md → Icons, and use
+   `FlashList` for any list that can outgrow a screen.
+   **Fonts:** for each family in `design/tokens.json` → `font` that isn't built in,
+   install its `@expo-google-fonts/*` package and register every weight the type roles
+   use as `<Family>_<weight>` in `lib/fonts.ts` (the file's header shows how). An
+   unloaded face silently falls back to the system font, so
+   `lib/__tests__/fonts.test.ts` fails, naming the missing keys, until they're all there.
 4. **Analytics.** Add the 5 north-star events from the brief as typed helpers, each
    with a real call site.
 5. **Domain rules.** For each `sensitive_data` entry, copy

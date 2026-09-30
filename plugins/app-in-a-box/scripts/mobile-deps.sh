@@ -18,9 +18,12 @@ cd "${1:?usage: mobile-deps.sh <mobile dir>}"
 RUNTIME=(
   react-dom react-native-web
   expo-router react-native-screens react-native-safe-area-context expo-linking expo-constants
-  expo-status-bar expo-system-ui expo-splash-screen expo-font
+  expo-status-bar expo-system-ui expo-splash-screen expo-font expo-asset
   react-native-reanimated react-native-worklets react-native-gesture-handler
   expo-haptics expo-symbols @shopify/flash-list
+  # Native UI: @expo/ui gives the platform's own segmented control (SwiftUI / Compose,
+  # Liquid Glass on iOS 26); expo-image gives cached, placeholder-first images.
+  @expo/ui expo-image
   @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill
   posthog-react-native expo-file-system expo-application expo-device expo-localization
   @sentry/react-native
@@ -42,6 +45,9 @@ expo_install -- --save-dev "${DEV[@]}"
 
 # jest.resolver: Reanimated 4 / worklets load their JS fallbacks (not the native
 # module) under jest; without it any test importing a component crashes.
+# jest.testTimeout: a route test's first render transforms the whole app, which
+# takes ~10-20s on a cold cache (every fresh CI runner). Jest's 5s default failed
+# sign-in.test.tsx on exactly that, so allow 30s; a real hang still fails.
 npm pkg set main=expo-router/entry \
   scripts.lint="eslint ." scripts.typecheck="tsc --noEmit" scripts.test="jest" \
   scripts.web="expo start --web" scripts.demo="EXPO_PUBLIC_DEMO=1 expo start" \
@@ -49,3 +55,4 @@ npm pkg set main=expo-router/entry \
   "jest.setupFiles[0]=./jest.setup.ts" \
   scripts.check-strings="node scripts/check-hardcoded-strings.js" \
   scripts.gates="tsc --noEmit && eslint . && node scripts/check-analytics-coverage.js && node scripts/check-eas-shipping-env.js && node scripts/check-replay-unmask.js && node scripts/check-hardcoded-strings.js && jest --ci --passWithNoTests"
+npm pkg set jest.testTimeout=30000 --json  # a number, not the string "30000"

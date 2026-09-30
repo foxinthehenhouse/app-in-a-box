@@ -2,12 +2,13 @@
 
 # 📦 App in a Box
 
-**Go from an app idea to a production-grade mobile app repo in about an hour.**
+**Go from a rambled app idea to a beautiful, working MVP in an afternoon.**
+**A product-advisor team shapes it with you, and you click through a prototype before anything is built.**
 **Works in Claude Code and Codex.**
 
 [Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Status](#status--roadmap) · [FAQ](#faq)
 
-![status](https://img.shields.io/badge/status-alpha%20v0.1-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
+![status](https://img.shields.io/badge/status-alpha%20v0.6-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
 
 </div>
 
@@ -120,9 +121,9 @@ flowchart LR
 | Phase | Your agent does | You do |
 |---|---|---|
 | 0 Preflight | Checks and installs git, Node, Python 3.12 and the service CLIs | Approve installs |
-| 1a Idea check | ~5 min of market research: competitors, real user complaints, what people pay. A cited Go / Sharpen / Rethink verdict in `docs/product/VALIDATION.md` | Read it, then carry on, sharpen or park |
-| 1b Interview | ~12 questions → `docs/product/BRIEF.md` + `appbox.yaml`, with metrics aimed at the idea's riskiest assumption. You choose the outside services: Linear or GitHub Issues, and whether you want analytics and error monitoring | Answer |
-| 2 Design | Renders 3 directions of your core screen, then writes contrast-checked tokens | Pick one |
+| 1a Shape | Rae, your product advisor, lets you ramble (or paste notes), plays it back in one page, asks only what's missing and gently challenges what might not work. Writes the brief | Talk; answer a few questions |
+| 1b Idea check | Runs in the background while you talk: competitors, real complaints, what people pay. A cited Go / Sharpen / Rethink verdict | Read it; carry on, sharpen or park |
+| 2 Prototype | A team of design agents builds a clickable prototype of every screen. Switch the look, each screen's layout, minimal↔rich, calm↔playful and optional features, then freeze the one you love | Click, tune, approve |
 | 3 Accounts | Opens each free service's signup, then logs in the CLIs | Click "Continue with GitHub" ~6× |
 | 4 Scaffold | Creates the Expo app, overlays the template, and shapes the data model, API and screens to your brief | Nothing |
 | 5 Provision | Creates cloud resources idempotently and wires every secret (never into git) | Nothing |

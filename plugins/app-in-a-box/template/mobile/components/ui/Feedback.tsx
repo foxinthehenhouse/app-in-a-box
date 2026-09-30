@@ -99,7 +99,8 @@ export function ProgressBar({ value, label, testID }: { value: number; label: st
   useEffect(() => {
     progress.set(animateTo(clamped, "deliberate", "enter"));
   }, [clamped, progress]);
-  const fill = useAnimatedStyle(() => ({ width: `${progress.get() * 100}%` }));
+  // A transform, not width: it runs on the UI thread without re-laying-out the row.
+  const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: progress.get() }] }));
   return (
     <View
       style={s.track}
@@ -140,5 +141,5 @@ const useStyles = makeStyles((t) => ({
   dot: { width: 8, height: 8, borderRadius: 4 },
   avatar: { backgroundColor: t.color.accent, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   track: { height: 8, borderRadius: 4, backgroundColor: t.color.control, overflow: "hidden" },
-  fill: { height: 8, borderRadius: 4, backgroundColor: t.color.accent },
+  fill: { width: "100%", height: 8, borderRadius: 4, backgroundColor: t.color.accent, transformOrigin: "left" },
 }));

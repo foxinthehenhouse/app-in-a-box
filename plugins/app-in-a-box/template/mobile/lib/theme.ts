@@ -39,6 +39,7 @@ import {
   type ColorScheme,
   type Palette,
 } from "./tokens";
+import { fontFace } from "./fonts";
 
 export type { ColorName, ColorScheme, Palette } from "./tokens";
 export { font, minTapTarget, motion, opacity, radius, size, space };
@@ -84,11 +85,18 @@ const TONE_FOR_ROLE: Record<TypeRole, keyof Palette> = {
   mono: "ink",
 };
 
-function fontFamily(key: keyof typeof font): string | undefined {
+/**
+ * fontFamily + fontWeight for a role. "System" means the platform font: leave
+ * fontFamily unset so iOS uses SF and Android uses Roboto. A custom family renders
+ * the face registered for that exact weight in lib/fonts.ts, with no fontWeight on
+ * top (Android would fake-bold an already bold file).
+ */
+function fontStyle(key: keyof typeof font, weight: string): Pick<TextStyle, "fontFamily" | "fontWeight"> {
   const name = font[key];
-  // "System" means the platform font: leave fontFamily unset so iOS uses SF and
-  // Android uses Roboto. A named family must be loaded with expo-font first.
-  return name === "System" ? undefined : name;
+  const asWeight = { fontWeight: weight as TextStyle["fontWeight"] };
+  if (name === "System") return asWeight;
+  const face = fontFace(name, weight);
+  return face ? { fontFamily: face } : { fontFamily: name, ...asWeight };
 }
 
 export interface Theme {
@@ -123,10 +131,9 @@ export function buildTheme(scheme: ColorScheme): Theme {
       uppercase?: boolean;
     } = typeRoles[role];
     type[role] = {
-      fontFamily: fontFamily(spec.font as keyof typeof font),
+      ...fontStyle(spec.font as keyof typeof font, spec.weight),
       fontSize: spec.size,
       lineHeight: spec.lineHeight,
-      fontWeight: spec.weight as TextStyle["fontWeight"],
       letterSpacing: spec.letterSpacing,
       color: color[TONE_FOR_ROLE[role]],
       ...(spec.uppercase ? { textTransform: "uppercase" as const } : null),

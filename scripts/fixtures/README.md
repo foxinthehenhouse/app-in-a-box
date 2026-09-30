@@ -7,3 +7,5 @@ sample apps, they don't ship to users, and nothing in the plugin reads them.
   light/dark checks (`selftest.d/polish.sh`).
 - `sample/VALIDATION.md`: an idea-check report that follows the report contract
   (`selftest.d/validate.sh`).
+- `prototype.json`: a prototype spec for the renderer's render/check/freeze checks
+  (`selftest.d/prototype.sh`). A neutral placeholder app, not a product example.

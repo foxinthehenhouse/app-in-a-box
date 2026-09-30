@@ -13,13 +13,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# (key, phase number as shown, label, detail). Phase 1 has two steps: the idea check
-# (1a) runs before the rest of the interview (1b), so later phase numbers never moved.
+# (key, phase number as shown, label, detail). Phase 1 has two steps: shaping the idea
+# with the advisor (1a, which keeps the old `interview` key so older setups resume) and
+# the idea check (1b), which runs in the background while 1a is still going.
 PHASES = [
     ("preflight", "0", "Preflight", "tools installed"),
-    ("validate", "1a", "Idea check", "market researched, verdict + VALIDATION.md"),
-    ("interview", "1b", "Interview", "brief + appbox.yaml"),
-    ("design", "2", "Design", "direction picked, tokens written"),
+    ("interview", "1a", "Shape", "your idea in your words: brief + appbox.yaml"),
+    ("validate", "1b", "Idea check", "market researched, verdict + VALIDATION.md"),
+    ("design", "2", "Prototype", "clicked through, tuned and frozen: tokens + screens"),
     ("accounts", "3", "Accounts", "CLIs logged in"),
     ("scaffold", "4", "Scaffold", "app + backend generated"),
     ("provision", "5", "Provision", "cloud resources + secrets wired"),
@@ -54,8 +55,17 @@ def render(text: str, markdown: bool = False) -> str:
     # A project set up before the idea check existed has interview done and no
     # validate key: don't send it back to 1a (new-app offers it once instead).
     legacy = progress.get("interview") in DONE and "validate" not in progress
+    # A phase that is `running` works in the background (the idea check, started by
+    # shape): it isn't what the founder does next, so the one after it is.
+    running = [p for p in PHASES if progress.get(p[0]) == "running"]
     nxt = next(
-        (p for p in PHASES if progress.get(p[0]) not in DONE and not (legacy and p[0] == "validate")),
+        (
+            p
+            for p in PHASES
+            if progress.get(p[0]) not in DONE
+            and progress.get(p[0]) != "running"
+            and not (legacy and p[0] == "validate")
+        ),
         None,
     )
     title = f"{name}: setup progress" if name else "Setup progress"
@@ -68,7 +78,7 @@ def render(text: str, markdown: bool = False) -> str:
             mark = "[>]"
         else:
             mark = "[ ]"
-        suffix = f" ({state})" if state in ("skipped", "parked") else ""
+        suffix = f" ({state})" if state in ("skipped", "parked", "running", "pending") else ""
         if legacy and key == "validate":
             suffix = " (not run: this project predates it)"
         lines.append(f"{'- ' if markdown else '  '}{mark} {num}. {label}: {detail}{suffix}")
@@ -78,6 +88,8 @@ def render(text: str, markdown: bool = False) -> str:
         lines.append(f"Parked at phase {nxt[1]}, {nxt[2]}: re-run new-app to pick it back up.")
     elif nxt:
         lines.append(f"Next: phase {nxt[1]}, {nxt[2]}.")
+    for p in running:
+        lines.append(f"Phase {p[1]}, {p[2]}, is running in the background.")
     else:
         lines.append("Setup complete. From here, the `next` skill picks what to do.")
     return "\n".join(lines)

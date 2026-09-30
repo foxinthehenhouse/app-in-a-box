@@ -65,7 +65,9 @@ question to at most 3 options plus "you pick" so it fits both tools.
 8. **Show progress.** Right after each checkpoint, run
    `python3 "$KIT/scripts/progress.py" appbox.yaml` and show its checklist verbatim,
    followed by one line on what the next phase needs from the user (or "nothing:
-   I'll carry on"). The user should never have to ask "where are we?".
+   I'll carry on") and roughly how long it takes (shape ~20 min, prototype ~30–45
+   min, accounts ~15 min, build and provision ~60–90 min of mostly waiting, first
+   feature ~30 min). The target is one afternoon; say if a step is running long. The user should never have to ask "where are we?".
 9. **When something fails,** check `KIT/docs/TROUBLESHOOTING.md` for the symptom
    before improvising. Every entry there came from a real run.
 
@@ -73,7 +75,7 @@ question to at most 3 options plus "you pick" so it fits both tools.
 
 If `appbox.yaml` exists, read `progress:` and jump to the first phase not marked
 `done`. A project whose interview is done but that has no `progress.validate` key
-predates the idea check: don't send it back to 1a. Offer the check once (it's
+predates the idea check: don't send it back to 1b. Offer the check once (it's
 `validate-idea` on its own), and carry on from the next unfinished phase either way. Show the progress checklist (principle 8) and say in one line where you're
 resuming. If every phase is done, don't restart: go to "Keep going" below.
 
@@ -82,9 +84,9 @@ resuming. If every phase is done, don't restart: go to "Keep going" below.
 | # | Phase | Skill file | Exit check |
 |---|---|---|---|
 | 0 | Preflight | `KIT/skills/doctor/SKILL.md` (mode: preflight) | Required tools present; permission mode explained |
-| 1a | Idea check | `KIT/skills/validate-idea/SKILL.md` | `docs/product/VALIDATION.md` written; verdict shown; user chose continue / sharpen / park |
-| 1b | Interview | `KIT/skills/interview/SKILL.md` | `appbox.yaml` + `docs/product/BRIEF.md` written and confirmed |
-| 2 | Design | `KIT/skills/design-directions/SKILL.md` | User picked a direction; `design/tokens.json` written |
+| 1a | Shape | `KIT/skills/shape/SKILL.md` | `design/brief.json`, `appbox.yaml` + `docs/product/BRIEF.md` written; founder confirmed the reflection |
+| 1b | Idea check (background, started by 1a) | `KIT/skills/validate-idea/SKILL.md` | `docs/product/VALIDATION.md` written; verdict shown; founder chose continue / sharpen / park |
+| 2 | Prototype | `KIT/skills/prototype/SKILL.md` | Clickable prototype approved and frozen: `design/tokens.json` + `docs/product/SCREENS.md` written |
 | 3 | Accounts | `KIT/skills/accounts/SKILL.md` | Every required CLI reports logged in |
 | 4 | Scaffold | `KIT/skills/scaffold/SKILL.md` | App boots locally; backend tests green; first commit on `main` |
 | 5 | Provision | `KIT/skills/provision/SKILL.md` | Every resource in `appbox.yaml.resources` exists; secrets wired; migrations applied; `/health` 200 |
@@ -93,20 +95,26 @@ resuming. If every phase is done, don't restart: go to "Keep going" below.
 | 8 | First feature | `KIT/skills/first-feature/SKILL.md` | Backlog seeded; feature #1 PR open |
 
 If the user passed an idea as an argument (`$ARGUMENTS`), use it as the seed for
-phase 1a's first question rather than asking "what's your idea?" cold.
+phase 1a's opening (treat it as the start of their ramble) rather than asking cold.
 
-**Phase 1a is advisory.** Whatever the verdict, the user chooses. On "park", stop
-after showing progress; a later `new-app` run resumes at 1a with the report already
+**The team.** Phases 1–2 are run by the named agents in `KIT/agents/` (the advisor Rae
+talks; the others build from `design/brief.json`). In Claude Code spawn them as
+subagents (they're also installed as the plugin's agents); in Codex, read the agent file
+and do its job inline. Follow `KIT/docs/COST.md`: the brief is the only context
+helpers get, models are routed by job, at most 4 run at once.
+
+**The idea check (1b) is advisory.** Whatever the verdict, the user chooses. On "park", stop
+after showing progress; a later `new-app` run resumes at 1b with the report already
 there, so offer "re-check the market" or "carry on" rather than starting over.
 
 ## Opening message (say this, in your own words, briefly)
 
-> I'll turn your idea into a real app with a production setup around it: login,
-> database, analytics, crash reporting, CI and an AI dev team that follows a proper
-> spec → PR process. It's about an hour end to end. First I'll spend ~5 minutes
-> checking the market: who else solves this and whether people are asking for it.
-> Then you'll answer ~12 questions, pick a design, and click "sign in with GitHub" on
-> a few free services. I handle the rest.
+> I'm Rae. I'll help you shape your idea and turn it into a real, good-looking app
+> this afternoon, with everything a production app needs around it. You talk; my team
+> builds. First you tell me about it however it comes out, and I'll play it back and
+> ask only what's missing (about 20 minutes, while a colleague checks the market).
+> Then you'll click through a prototype of your whole app and tune it (about 30–45
+> minutes). Only once you love it do we build the real thing and set up the services.
 > Before we start: which permission mode are you running in? (If you get a lot of
 > prompts, see KIT/docs/PERMISSIONS.md.)
 

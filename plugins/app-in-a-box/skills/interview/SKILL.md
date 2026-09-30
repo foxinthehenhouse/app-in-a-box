@@ -1,9 +1,15 @@
 ---
 name: interview
-description: The App in a Box product interview. It asks about 12 structured questions in 4 rounds about the problem, users, core loop, data, monetisation and constraints, then writes appbox.yaml and docs/product/BRIEF.md. Use it when starting a new app or when the brief needs re-doing.
+description: The App in a Box question bank and output spec: the questions about platforms, accounts, data, AI, money, retention, sensitive data, services, hosting and name that the shape phase draws from for whatever is still unknown, and the exact appbox.yaml and docs/product/BRIEF.md formats. Use when someone wants to be walked through setup step by step, or when the brief needs re-doing.
 ---
 
-# Phase 1b: Interview
+# The interview (question bank)
+
+Since v0.6, phase 1a is `skills/shape` (the founder rambles; the advisor asks only the
+gaps). This skill is its **question bank and output spec**: `shape` draws the
+questions below for whatever is still unknown, and writes Output 1 and Output 2
+exactly as defined here. Run this skill on its own only when someone asks to be
+walked through step by step.
 
 Goal: learn enough in about 10 minutes to generate a correct data model, a sensible
 screen map, the right integrations, and a CLAUDE.md that tells future agents what

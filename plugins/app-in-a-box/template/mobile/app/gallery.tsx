@@ -23,6 +23,7 @@ import {
   Heading,
   IconButton,
   ListRow,
+  Media,
   Meta,
   ProgressBar,
   Screen,
@@ -31,6 +32,7 @@ import {
   SheetHeader,
   Skeleton,
   SkeletonCard,
+  StatCard,
   Text,
   closeSheet,
   useToast,
@@ -78,6 +80,14 @@ export default function Gallery() {
             <Meta>Meta label</Meta>
             <Text variant="mono">mono 1,234.56</Text>
           </Card>
+        </Section>
+
+        <Section title="Stats and media">
+          <View style={s.row}>
+            <StatCard label="This week" value={count} hint="entries" icon={{ sf: "checkmark", md: "check" }} />
+            <StatCard label="Streak" value="4 days" hint="best yet" icon={{ sf: "flame", md: "local_fire_department" }} />
+          </View>
+          <Media label="Cover photo" ratio="16:9" />
         </Section>
 
         <Section title="Buttons">

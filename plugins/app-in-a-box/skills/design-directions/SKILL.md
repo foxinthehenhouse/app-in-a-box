@@ -1,9 +1,14 @@
 ---
 name: design-directions
-description: Phase 2 of App in a Box. It renders 3 distinct design directions as phone-sized HTML mockups of the user's own core screen (with motion and a light/dark toggle), has them pick or mix one, then writes a design/tokens.json with BOTH a light and a dark palette, motion, type roles and elevation, contrast-validated in both modes, that the scaffold turns into the app's theme. Use it for initial design or a re-skin.
+description: App in a Box's design-direction reference: the six archetypes, how to derive a dark palette from a light one (and back), and the tokens v2 format with motion, type roles and elevation, contrast-checked in both modes. The prototype phase's visual designer follows it; also use it for a quick re-skin of an existing app.
 ---
 
-# Phase 2: Design directions
+# Design directions (reference)
+
+Since v0.6, phase 2 is `skills/prototype`: the founder picks a direction by switching
+between them in a clickable prototype of their whole app. This skill stays as the
+**direction reference** (the archetype table, how to derive the other mode, the tokens
+v2 shape) that `visual-designer` follows, and for a quick re-skin of an existing app.
 
 People can't choose a design system from adjectives. Show them their own app in
 three coats of paint, and let them point.
@@ -112,8 +117,8 @@ change values; keep every key.
   grow a lot; a 40pt display line less so.
 - `easing` values are cubic-bezier control points; `loop` must be symmetric (it runs
   the skeleton shimmer back and forth).
-- A named `font` family (not `System`) must be embedded with the `expo-font` config
-  plugin in the scaffold phase, or iOS silently falls back.
+- A named `font` family (not built in) gets each weight its type roles use registered in
+  the app's `lib/fonts.ts` in the scaffold phase, or it silently falls back.
 - The v1 shape (one flat `color` map) still works but locks the app to one mode.
 
 Rules, all enforced by the validator, **in each mode**:

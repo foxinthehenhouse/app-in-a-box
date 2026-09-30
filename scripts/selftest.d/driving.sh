@@ -99,10 +99,10 @@ progress_renders() {
   printf 'app:\n  name: "Penny Jar"   # comment\nprogress:\n  preflight: done\n  interview: done\n  design: skipped\n' > "$T/appbox-sample.yaml"
   local out; out=$(python3 "$KIT/scripts/progress.py" "$T/appbox-sample.yaml") || return 1
   echo "$out" | grep -q '^Penny Jar: setup progress' \
-    && echo "$out" | grep -q '\[x\] 2. Design.*(skipped)' \
+    && echo "$out" | grep -q '\[x\] 2. Prototype.*(skipped)' \
     && echo "$out" | grep -q '\[>\] 3. Accounts' \
     && echo "$out" | grep -q '3/10 steps done' \
-    && echo "$out" | grep -q '1a. Idea check.*not run' \
+    && echo "$out" | grep -q '1b. Idea check.*not run' \
     && python3 "$KIT/scripts/progress.py" "$T/nope.yaml" | grep -q 'Phase 0'
 }
 

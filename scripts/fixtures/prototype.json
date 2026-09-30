@@ -1,0 +1,747 @@
+{
+  "_comment": "TEST FIXTURE ONLY. A neutral placeholder app for scripts/selftest.d/prototype.sh; it is not an example product, and nothing in the plugin reads it.",
+  "version": 1,
+  "app": {
+    "name": "Fixture App",
+    "tagline": "Test-only spec that exercises every prototype feature."
+  },
+  "directions": [
+    {
+      "id": "calm",
+      "label": "Calm",
+      "why": "Soft sage neutrals and one muted accent; unhurried.",
+      "tokens": {
+        "name": "calm",
+        "version": 2,
+        "mode": "light",
+        "color": {
+          "light": {
+            "bg": "#F6F7F4",
+            "surface": "#FFFFFF",
+            "surfaceRaised": "#FFFFFF",
+            "control": "#EEF1EC",
+            "border": "#D9DED6",
+            "ink": "#17201B",
+            "inkDim": "#46514A",
+            "inkFaint": "#5A645D",
+            "accent": "#2F6B4F",
+            "onAccent": "#FFFFFF",
+            "success": "#1B7F55",
+            "warning": "#955800",
+            "danger": "#BE2E45",
+            "shadow": "#1C2A22"
+          },
+          "dark": {
+            "bg": "#0F1411",
+            "surface": "#171D19",
+            "surfaceRaised": "#1E2621",
+            "control": "#171D19",
+            "border": "#2C3630",
+            "ink": "#E8EEE9",
+            "inkDim": "#B3BEB6",
+            "inkFaint": "#97A39A",
+            "accent": "#6FCB9F",
+            "onAccent": "#0F1411",
+            "success": "#5BD69C",
+            "warning": "#F2B24C",
+            "danger": "#FF7A85",
+            "shadow": "#000000"
+          }
+        },
+        "font": {
+          "display": "Figtree",
+          "body": "Figtree",
+          "mono": "Menlo"
+        },
+        "radius": {
+          "sm": 10,
+          "md": 16,
+          "lg": 22,
+          "pill": 999
+        },
+        "motion": {
+          "duration": {
+            "instant": 100,
+            "fast": 160,
+            "standard": 260,
+            "screen": 360,
+            "deliberate": 520,
+            "ambient": 1600
+          },
+          "pressScale": 0.98
+        }
+      },
+      "icons": "rounded"
+    },
+    {
+      "id": "athletic",
+      "label": "Athletic dark",
+      "why": "Near-black field, warm ink, one hot accent; snappy.",
+      "tokens": {
+        "name": "athletic",
+        "version": 2,
+        "mode": "dark",
+        "color": {
+          "light": {
+            "bg": "#F7F6F3",
+            "surface": "#FFFFFF",
+            "surfaceRaised": "#FFFFFF",
+            "control": "#EFEDE8",
+            "border": "#DAD7D0",
+            "ink": "#16171A",
+            "inkDim": "#4A4D55",
+            "inkFaint": "#62656D",
+            "accent": "#C2410C",
+            "onAccent": "#FFFFFF",
+            "success": "#1B7F55",
+            "warning": "#A15C00",
+            "danger": "#C0283F",
+            "shadow": "#1A1A1A"
+          },
+          "dark": {
+            "bg": "#0C0D0F",
+            "surface": "#16181C",
+            "surfaceRaised": "#1D2025",
+            "control": "#16181C",
+            "border": "#2E3238",
+            "ink": "#EDE9E0",
+            "inkDim": "#B8B4AA",
+            "inkFaint": "#9A968D",
+            "accent": "#FF6B2C",
+            "onAccent": "#0C0D0F",
+            "success": "#3DDC97",
+            "warning": "#FFB020",
+            "danger": "#FF6B6B",
+            "shadow": "#000000"
+          }
+        },
+        "font": {
+          "display": "Inter Tight",
+          "body": "Inter",
+          "mono": "JetBrains Mono"
+        },
+        "type": {
+          "meta": {
+            "font": "mono",
+            "size": 11,
+            "lineHeight": 16,
+            "weight": "600",
+            "letterSpacing": 0.8,
+            "maxScale": 1.6,
+            "uppercase": true
+          }
+        },
+        "radius": {
+          "sm": 6,
+          "md": 10,
+          "lg": 12,
+          "pill": 999
+        },
+        "motion": {
+          "duration": {
+            "instant": 80,
+            "fast": 120,
+            "standard": 200,
+            "screen": 280,
+            "deliberate": 420,
+            "ambient": 1200
+          },
+          "spring": {
+            "snappy": {
+              "damping": 22,
+              "stiffness": 320,
+              "mass": 1
+            }
+          },
+          "pressScale": 0.96
+        }
+      },
+      "icons": "sharp"
+    },
+    {
+      "id": "editorial",
+      "label": "Editorial",
+      "why": "Serif headlines on paper tones; reads like a journal.",
+      "tokens": {
+        "name": "editorial",
+        "version": 2,
+        "mode": "light",
+        "color": {
+          "light": {
+            "bg": "#FBF8F2",
+            "surface": "#FFFFFF",
+            "surfaceRaised": "#FFFFFF",
+            "control": "#F3EEE4",
+            "border": "#E4DCCD",
+            "ink": "#1E1A16",
+            "inkDim": "#4D463E",
+            "inkFaint": "#625A51",
+            "accent": "#9A3412",
+            "onAccent": "#FFFFFF",
+            "success": "#2F7A4B",
+            "warning": "#955800",
+            "danger": "#B42336",
+            "shadow": "#2A2118"
+          },
+          "dark": {
+            "bg": "#151210",
+            "surface": "#1E1A17",
+            "surfaceRaised": "#26211D",
+            "control": "#1E1A17",
+            "border": "#3A332D",
+            "ink": "#F2ECE2",
+            "inkDim": "#C9BFB1",
+            "inkFaint": "#A89E91",
+            "accent": "#F08A5D",
+            "onAccent": "#151210",
+            "success": "#6CCB8F",
+            "warning": "#F0B252",
+            "danger": "#FF8A7A",
+            "shadow": "#000000"
+          }
+        },
+        "font": {
+          "display": "Fraunces",
+          "body": "Inter",
+          "mono": "Menlo"
+        },
+        "type": {
+          "title": {
+            "font": "display",
+            "size": 30,
+            "lineHeight": 36,
+            "weight": "600",
+            "letterSpacing": -0.3,
+            "maxScale": 1.4
+          },
+          "heading": {
+            "font": "display",
+            "size": 20,
+            "lineHeight": 26,
+            "weight": "600",
+            "letterSpacing": 0,
+            "maxScale": 1.6
+          }
+        },
+        "radius": {
+          "sm": 4,
+          "md": 6,
+          "lg": 8,
+          "pill": 999
+        },
+        "motion": {
+          "duration": {
+            "instant": 90,
+            "fast": 140,
+            "standard": 240,
+            "screen": 320,
+            "deliberate": 460,
+            "ambient": 1400
+          },
+          "pressScale": 0.99
+        }
+      },
+      "icons": "rounded"
+    }
+  ],
+  "defaults": {
+    "direction": "calm",
+    "mode": "light",
+    "density": "regular",
+    "temperature": "calm",
+    "tone": "calm"
+  },
+  "features": [
+    {
+      "id": "reminders",
+      "label": "Reminders",
+      "default": true,
+      "why": "A daily nudge brings people back."
+    },
+    {
+      "id": "insights",
+      "label": "Insights",
+      "default": false,
+      "why": "Trends are nice, but not needed on day one."
+    }
+  ],
+  "tabs": [
+    {
+      "screen": "home",
+      "label": "Home",
+      "icon": "home"
+    },
+    {
+      "screen": "insights",
+      "label": "Insights",
+      "icon": "chart"
+    },
+    {
+      "screen": "settings",
+      "label": "Settings",
+      "icon": "settings"
+    }
+  ],
+  "screens": [
+    {
+      "id": "home",
+      "title": "Home",
+      "tab": true,
+      "variants": [
+        {
+          "id": "list",
+          "label": "List",
+          "blocks": [
+            {
+              "type": "header",
+              "eyebrow": {
+                "calm": "Tuesday",
+                "playful": "Happy Tuesday"
+              },
+              "title": {
+                "calm": "Today",
+                "playful": "Hey, today!"
+              },
+              "subtitle": {
+                "calm": "Two entries so far.",
+                "playful": "Two down. Keep it rolling."
+              }
+            },
+            {
+              "type": "card",
+              "icon": "bell",
+              "eyebrow": "Reminder",
+              "title": "Daily check-in at 6pm",
+              "body": {
+                "calm": "We'll nudge you once, quietly.",
+                "playful": "One friendly ping. That's it."
+              },
+              "feature": "reminders",
+              "note": "Opt-in local notification"
+            },
+            {
+              "type": "list",
+              "title": "Recent entries",
+              "items": [
+                {
+                  "title": "Morning entry",
+                  "meta": "Today \u00b7 08:10",
+                  "trailing": "3 min",
+                  "icon": "star",
+                  "action": {
+                    "go": "detail"
+                  }
+                },
+                {
+                  "title": "Lunch break entry",
+                  "meta": "Today \u00b7 12:45",
+                  "trailing": "5 min",
+                  "icon": "heart",
+                  "action": {
+                    "go": "detail"
+                  }
+                },
+                {
+                  "title": "Evening entry",
+                  "meta": "Yesterday \u00b7 19:30",
+                  "trailing": "2 min",
+                  "icon": "calendar",
+                  "action": {
+                    "go": "detail"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "button",
+              "label": {
+                "calm": "Add entry",
+                "playful": "Add one more"
+              },
+              "style": "primary",
+              "icon": "plus",
+              "action": {
+                "sheet": "add"
+              }
+            }
+          ]
+        },
+        {
+          "id": "cards",
+          "label": "Cards",
+          "blocks": [
+            {
+              "type": "header",
+              "eyebrow": {
+                "calm": "Tuesday",
+                "playful": "Happy Tuesday"
+              },
+              "title": {
+                "calm": "Today",
+                "playful": "Hey, today!"
+              },
+              "subtitle": {
+                "calm": "Two entries so far.",
+                "playful": "Two down. Keep it rolling."
+              }
+            },
+            {
+              "type": "stat",
+              "label": "This week",
+              "value": "12",
+              "icon": "check",
+              "hint": "entries"
+            },
+            {
+              "type": "stat",
+              "label": "Streak",
+              "value": "4 days",
+              "icon": "star",
+              "hint": "best yet"
+            },
+            {
+              "type": "card",
+              "icon": "star",
+              "eyebrow": "08:10",
+              "title": "Morning entry",
+              "body": "Three minutes, logged before breakfast.",
+              "action": {
+                "go": "detail"
+              }
+            },
+            {
+              "type": "card",
+              "icon": "heart",
+              "eyebrow": "12:45",
+              "title": "Lunch break entry",
+              "body": "Five minutes between meetings.",
+              "action": {
+                "go": "detail"
+              }
+            },
+            {
+              "type": "card",
+              "icon": "bell",
+              "eyebrow": "Reminder",
+              "title": "Daily check-in at 6pm",
+              "body": {
+                "calm": "We'll nudge you once, quietly.",
+                "playful": "One friendly ping. That's it."
+              },
+              "feature": "reminders",
+              "note": "Opt-in local notification"
+            },
+            {
+              "type": "button",
+              "label": {
+                "calm": "Add entry",
+                "playful": "Add one more"
+              },
+              "style": "primary",
+              "icon": "plus",
+              "action": {
+                "sheet": "add"
+              }
+            }
+          ]
+        },
+        {
+          "id": "focus",
+          "label": "Focus",
+          "blocks": [
+            {
+              "type": "header",
+              "eyebrow": {
+                "calm": "Tuesday",
+                "playful": "Happy Tuesday"
+              },
+              "title": {
+                "calm": "Today",
+                "playful": "Hey, today!"
+              },
+              "subtitle": {
+                "calm": "Two entries so far.",
+                "playful": "Two down. Keep it rolling."
+              }
+            },
+            {
+              "type": "progress",
+              "label": "Weekly goal",
+              "value": 0.6,
+              "hint": {
+                "calm": "3 of 5 days done.",
+                "playful": "3 of 5. You're on a roll."
+              }
+            },
+            {
+              "type": "text",
+              "body": "One thing at a time: log today's entry, then you're done.",
+              "style": "secondary"
+            },
+            {
+              "type": "button",
+              "label": {
+                "calm": "Add entry",
+                "playful": "Add one more"
+              },
+              "style": "primary",
+              "icon": "plus",
+              "action": {
+                "sheet": "add"
+              }
+            },
+            {
+              "type": "button",
+              "label": "See the last entry",
+              "style": "ghost",
+              "action": {
+                "go": "detail"
+              }
+            }
+          ]
+        }
+      ],
+      "states": {
+        "empty": [
+          {
+            "type": "empty",
+            "icon": "plus",
+            "title": {
+              "calm": "No entries yet",
+              "playful": "A blank page!"
+            },
+            "body": "Your first entry takes under a minute. It shows up here.",
+            "action": {
+              "label": {
+                "calm": "Add your first entry",
+                "playful": "Let's go"
+              },
+              "sheet": "add"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "detail",
+      "title": "Entry",
+      "variants": [
+        {
+          "id": "default",
+          "label": "Default",
+          "blocks": [
+            {
+              "type": "header",
+              "eyebrow": "Today \u00b7 08:10",
+              "title": "Morning entry"
+            },
+            {
+              "type": "image",
+              "label": "Photo attached to the entry",
+              "ratio": "16:9"
+            },
+            {
+              "type": "text",
+              "body": "Three minutes, logged before breakfast. Felt steady."
+            },
+            {
+              "type": "divider",
+              "label": "Details"
+            },
+            {
+              "type": "stat",
+              "label": "Duration",
+              "value": "3 min"
+            },
+            {
+              "type": "stat",
+              "label": "Tag",
+              "value": "Routine"
+            },
+            {
+              "type": "button",
+              "label": "Edit entry",
+              "style": "secondary",
+              "action": {
+                "toast": {
+                  "calm": "Changes saved",
+                  "playful": "Saved, nice one"
+                }
+              }
+            },
+            {
+              "type": "button",
+              "label": "Back to today",
+              "style": "ghost",
+              "action": {
+                "back": true
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "insights",
+      "title": "Insights",
+      "tab": true,
+      "variants": [
+        {
+          "id": "default",
+          "label": "Default",
+          "blocks": [
+            {
+              "type": "header",
+              "title": "Insights",
+              "subtitle": "How your week is going."
+            },
+            {
+              "type": "segmented",
+              "label": "Range",
+              "options": [
+                "Week",
+                "Month",
+                "Year"
+              ],
+              "selected": 0
+            },
+            {
+              "type": "stat",
+              "label": "Entries",
+              "value": "12",
+              "icon": "check"
+            },
+            {
+              "type": "stat",
+              "label": "Average",
+              "value": "4 min",
+              "icon": "chart",
+              "feature": "insights"
+            },
+            {
+              "type": "progress",
+              "label": "Monthly goal",
+              "value": 0.35,
+              "feature": "insights"
+            },
+            {
+              "type": "image",
+              "label": "Weekly chart",
+              "ratio": "4:3",
+              "feature": "insights"
+            },
+            {
+              "type": "toast",
+              "text": {
+                "calm": "Updated just now",
+                "playful": "Fresh numbers!"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "tab": true,
+      "variants": [
+        {
+          "id": "default",
+          "label": "Default",
+          "blocks": [
+            {
+              "type": "header",
+              "title": "Settings"
+            },
+            {
+              "type": "input",
+              "label": "Display name",
+              "placeholder": "What should we call you?"
+            },
+            {
+              "type": "chips",
+              "label": "Reminder time",
+              "options": [
+                "Morning",
+                "Midday",
+                "Evening"
+              ],
+              "selected": 2,
+              "feature": "reminders"
+            },
+            {
+              "type": "card",
+              "icon": "user",
+              "title": "Account",
+              "body": "Email sign-in, export, delete.",
+              "action": {
+                "toast": "Account settings are out of scope for the prototype"
+              }
+            },
+            {
+              "type": "button",
+              "label": "Save settings",
+              "style": "primary",
+              "action": {
+                "toast": {
+                  "calm": "Settings saved",
+                  "playful": "All set!"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sheets": [
+    {
+      "id": "add",
+      "title": {
+        "calm": "New entry",
+        "playful": "What's new?"
+      },
+      "blocks": [
+        {
+          "type": "input",
+          "label": "Title",
+          "placeholder": "What happened?"
+        },
+        {
+          "type": "chips",
+          "label": "Tag",
+          "options": [
+            "Routine",
+            "Work",
+            "Personal"
+          ]
+        },
+        {
+          "type": "segmented",
+          "label": "Duration",
+          "options": [
+            "2 min",
+            "5 min",
+            "10 min"
+          ],
+          "selected": 1
+        },
+        {
+          "type": "button",
+          "label": {
+            "calm": "Save entry",
+            "playful": "Save it"
+          },
+          "style": "primary",
+          "action": {
+            "toast": {
+              "calm": "Entry saved",
+              "playful": "Nice, saved!"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

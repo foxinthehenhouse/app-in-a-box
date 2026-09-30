@@ -24,8 +24,9 @@ template says src/app; this kit doesn't use it).
 - `components/ui/`: the component library, imported from `components/ui` only:
   `Screen` `Card` `Section` · `Text variant=` / `Display` `Title` `Heading` `Body` `Meta`
   `ErrorText` · `Button` `IconButton` `PressableScale` · `Field` · `Chip`
-  `SegmentedControl` · `ListRow` · `EmptyState` `Skeleton` `SkeletonCard` · `Toast`
-  (`useToast`) · `Badge` `Avatar` `ProgressBar` `AnimatedNumber` · `Celebration` ·
+  `SegmentedControl` (native via @expo/ui on iOS / Android) · `ListRow` · `EmptyState`
+  `Skeleton` `SkeletonCard` · `Toast` (`useToast`) · `Badge` `Avatar` `ProgressBar`
+  `AnimatedNumber` `StatCard` · `Media` (expo-image) · `Celebration` ·
   `SheetHeader` · `Icon` · `FormField` (Field bound to react-hook-form) · `ErrorNotice`
   (error + copyable support reference + retry) · `OfflineBanner` · `UpdateBanner`.
 - `lib/tokens.ts`: **generated** from `../design/tokens.json` (both palettes, type
@@ -88,8 +89,10 @@ template says src/app; this kit doesn't use it).
   payoff, never routine saves.
 - **Lists:** use `@shopify/flash-list` (v2, no size estimates needed) for anything that
   can grow past a screenful.
-- **Custom fonts:** a non-`System` family in `tokens.json` → `font` must be embedded with
-  the `expo-font` config plugin, or iOS falls back to the system font with a warning.
+- **Custom fonts:** every weight of a non-built-in family in `tokens.json` → `font` is
+  registered in `lib/fonts.ts` as `<Family>_<weight>` (loaded before the splash hides);
+  `lib/__tests__/fonts.test.ts` fails while one is missing, since an unloaded face falls
+  back to the system font silently.
 - **Device-only bugs:** navigation dismissal and scroll-driven state need one real
   Release-build pass before merge; jest can't see native back resolution or scroll timing.
 
