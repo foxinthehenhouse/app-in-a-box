@@ -1,0 +1,43 @@
+# gitleaks config for .github/workflows/security.yml (and `gitleaks dir .` locally).
+# Starts from gitleaks' ~200 built-in rules (Anthropic, GitHub, AWS, Stripe, JWTs,
+# private keys...) and adds the stack-specific keys it doesn't know.
+# False positive? Prefer a narrow `[[allowlists]]` entry with a reason over a broad path.
+
+title = "app secrets"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Supabase secret API key (server-only; bypasses RLS)"
+regex = '''sb_secret_[A-Za-z0-9_-]{16,}'''
+keywords = ["sb_secret_"]
+
+[[rules]]
+id = "supabase-service-role-jwt"
+description = "Supabase legacy service_role JWT assigned to a variable"
+regex = '''(?i)service_?role[^\n]{0,40}eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}'''
+keywords = ["service_role", "servicerole", "service-role"]
+
+[[rules]]
+id = "posthog-personal-api-key"
+description = "PostHog personal API key (the project key phc_ is public; this one is not)"
+regex = '''phx_[A-Za-z0-9]{20,}'''
+keywords = ["phx_"]
+
+[[rules]]
+id = "sentry-auth-token"
+description = "Sentry auth token (DSNs are public; auth tokens are not)"
+regex = '''sntrys_[A-Za-z0-9+/=_-]{40,}'''
+keywords = ["sntrys_"]
+
+[[rules]]
+id = "expo-access-token"
+description = "Expo / EAS access token"
+regex = '''(?i)expo[_-]?token[^\n]{0,10}[=:]\s*["']?[A-Za-z0-9_-]{30,}'''
+keywords = ["expo_token", "expo-token", "expotoken"]
+
+[[allowlists]]
+description = "Env templates hold names, never values"
+paths = ['''(^|/)\.env\.example$''']

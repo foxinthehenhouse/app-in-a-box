@@ -1,0 +1,16 @@
+{
+  "name": "app-in-a-box",
+  "version": "0.4.0",
+  "description": "Turn an app idea into a provisioned, instrumented, CI-gated Expo + FastAPI + Supabase repo with a full agent harness.",
+  "keywords": ["scaffold", "expo", "react-native", "fastapi", "supabase", "harness", "starter", "mobile"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "App in a Box",
+    "shortDescription": "Idea → production-grade mobile app repo in about an hour",
+    "longDescription": "Interviews you about the idea, renders design directions, walks you through free-tier accounts, scaffolds Expo + FastAPI + Supabase with auth, analytics and error monitoring, provisions the cloud resources, and installs CI, PR review, skills, subagents, hooks and memory that work in both Codex and Claude Code.",
+    "developerName": "Kyle Fox",
+    "category": "Developer Tools",
+    "defaultPrompt": "Use $new-app to build my app idea in this folder."
+  }
+}

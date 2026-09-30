@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lonely Socks: design directions</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Figtree:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --page: #f3f1ec; --pageInk: #1d1c1a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #121212; --pageInk: #eee; } }
+  :root[data-theme="dark"] { --page: #121212; --pageInk: #eee; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--pageInk); font-family: Figtree, system-ui, sans-serif; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { opacity: .7; margin: 0 0 24px; font-size: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; }
+  .col { width: min(360px, 100%); }
+  .label { font-weight: 700; margin: 0 0 2px; }
+  .why { font-size: 13px; opacity: .75; margin: 0 0 10px; min-height: 34px; }
+  .phone { width: 100%; aspect-ratio: 390 / 780; border-radius: 40px; overflow: hidden; border: 8px solid #0b0b0b; position: relative; display: flex; flex-direction: column; }
+  .screen { flex: 1; padding: 48px 18px 0; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+  .tabs { display: flex; justify-content: space-around; padding: 10px 0 18px; font-size: 12px; font-weight: 600; }
+  .sock { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+  .dot { width: 34px; height: 34px; border-radius: 50%; flex: none; }
+  .meta { font-size: 12px; }
+  .cta { min-height: 48px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 8px; }
+
+  /* A: Playful */
+  .a { background: #FFF7EC; color: #2B1B3D; font-family: "Baloo 2", system-ui; }
+  .a .hello { font-size: 30px; font-weight: 800; line-height: 1; }
+  .a .count { background: #7B3FE4; color: #fff; border-radius: 24px; padding: 14px 16px; font-size: 15px; }
+  .a .count b { font-size: 34px; display: block; line-height: 1; }
+  .a .sock { background: #fff; border-radius: 20px; box-shadow: 0 2px 0 #EADFCF; }
+  .a .meta { color: #6A5A7D; }
+  .a .match { outline: 3px solid #FF8A3D; }
+  .a .badge { background: #FF8A3D; color: #2B1B3D; border-radius: 999px; }
+  .a .cta { background: #FF8A3D; color: #2B1B3D; border-radius: 18px; font-size: 18px; }
+  .a .tabs { background: #fff; color: #6A5A7D; } .a .tabs .on { color: #7B3FE4; }
+
+  /* B: Calm */
+  .b { background: #F4F6F5; color: #1F2A27; }
+  .b .hello { font-size: 24px; font-weight: 700; }
+  .b .count { color: #4D5C57; font-size: 14px; } .b .count b { color: #1F2A27; font-size: 22px; }
+  .b .sock { background: #fff; border-radius: 16px; }
+  .b .meta { color: #5B6A65; }
+  .b .match { box-shadow: inset 4px 0 0 #2F7A67; }
+  .b .badge { background: #DDEFE9; color: #1F5A4B; border-radius: 6px; }
+  .b .cta { background: #2F7A67; color: #fff; border-radius: 14px; }
+  .b .tabs { background: #fff; color: #5B6A65; } .b .tabs .on { color: #2F7A67; }
+
+  /* C: Neo-brutal */
+  .c { background: #FFE94D; color: #111; font-family: "Space Grotesk", system-ui; }
+  .c .hello { font-size: 32px; font-weight: 700; text-transform: uppercase; letter-spacing: -1px; }
+  .c .count { border: 3px solid #111; background: #fff; padding: 10px 12px; font-weight: 700; } .c .count b { font-size: 28px; }
+  .c .sock { background: #fff; border: 3px solid #111; }
+  .c .meta { color: #333; }
+  .c .match { background: #7CF0FF; }
+  .c .badge { background: #111; color: #FFE94D; }
+  .c .cta { background: #111; color: #FFE94D; border: 3px solid #111; text-transform: uppercase; }
+  .c .tabs { border-top: 3px solid #111; background: #fff; } .c .tabs .on { text-decoration: underline 3px; }
+</style>
+</head>
+<body>
+<h1>Lonely Socks: three directions for the Drawer screen</h1>
+<p class="sub">This is the same screen and the same data (11 lonely socks, 2 possible matches) in three coats of paint. Pick one, or mix them.</p>
+<div class="row">
+  <div class="col">
+    <p class="label">A · Playful</p>
+    <p class="why">Chunky, warm and a little absurd, which suits a silly app. Reunions feel like a party.</p>
+    <div class="phone a"><div class="screen">
+      <div class="hello">Your drawer 🧦</div>
+      <div class="count"><b>7</b>socks reunited this month</div>
+      <div class="sock match"><div class="dot" style="background:#E23D6A"></div><div style="flex:1"><div>Pink, spotted</div><div class="meta">Found Tuesday</div></div><span class="badge">MATCH!</span></div>
+      <div class="sock match"><div class="dot" style="background:#E23D6A"></div><div style="flex:1"><div>Pink, spotted</div><div class="meta">Found 3 weeks ago</div></div><span class="badge">MATCH!</span></div>
+      <div class="sock"><div class="dot" style="background:#2F6BFF"></div><div style="flex:1"><div>Blue, striped</div><div class="meta">Still waiting…</div></div></div>
+      <div class="sock"><div class="dot" style="background:#2B2B2B"></div><div style="flex:1"><div>Black, plain</div><div class="meta">Honestly, good luck</div></div></div>
+      <div class="cta">Reunite the pinks 🎉</div>
+    </div><div class="tabs"><span class="on">Drawer</span><span>Log</span><span>Reunions</span><span>Settings</span></div></div>
+  </div>
+  <div class="col">
+    <p class="label">B · Calm</p>
+    <p class="why">Quiet and tidy, like a well-folded drawer. It lets the matches do the talking.</p>
+    <div class="phone b"><div class="screen">
+      <div class="hello">Drawer</div>
+      <div class="count"><b>7</b> reunited this month · 11 still single</div>
+      <div class="sock match"><div class="dot" style="background:#C2456B"></div><div style="flex:1"><div>Pink, spotted</div><div class="meta">Found Tuesday</div></div><span class="badge">Match</span></div>
+      <div class="sock match"><div class="dot" style="background:#C2456B"></div><div style="flex:1"><div>Pink, spotted</div><div class="meta">Found 3 weeks ago</div></div><span class="badge">Match</span></div>
+      <div class="sock"><div class="dot" style="background:#3B63C4"></div><div style="flex:1"><div>Blue, striped</div><div class="meta">Found last month</div></div></div>
+      <div class="sock"><div class="dot" style="background:#333"></div><div style="flex:1"><div>Black, plain</div><div class="meta">Found in June</div></div></div>
+      <div class="cta">Reunite pair</div>
+    </div><div class="tabs"><span class="on">Drawer</span><span>Log</span><span>Reunions</span><span>Settings</span></div></div>
+  </div>
+  <div class="col">
+    <p class="label">C · Neo-brutal</p>
+    <p class="why">Loud and meme-able. Great for screenshots, but it gets tiring for a daily habit.</p>
+    <div class="phone c"><div class="screen">
+      <div class="hello">Sock drawer</div>
+      <div class="count"><b>7</b> REUNITED</div>
+      <div class="sock match"><div class="dot" style="background:#FF2E88;border:3px solid #111"></div><div style="flex:1"><div>PINK / SPOTTED</div><div class="meta">Tue</div></div><span class="badge">MATCH</span></div>
+      <div class="sock match"><div class="dot" style="background:#FF2E88;border:3px solid #111"></div><div style="flex:1"><div>PINK / SPOTTED</div><div class="meta">3 wks</div></div><span class="badge">MATCH</span></div>
+      <div class="sock"><div class="dot" style="background:#2F6BFF;border:3px solid #111"></div><div style="flex:1"><div>BLUE / STRIPED</div><div class="meta">1 mo</div></div></div>
+      <div class="sock"><div class="dot" style="background:#111;border:3px solid #111"></div><div style="flex:1"><div>BLACK / PLAIN</div><div class="meta">forever</div></div></div>
+      <div class="cta">Reunite</div>
+    </div><div class="tabs"><span class="on">Drawer</span><span>Log</span><span>Reunions</span><span>Settings</span></div></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,231 @@
+/**
+ * The ONLY way the app talks to the backend.
+ *
+ * - Adds the Supabase access token.
+ * - Sends an `X-Request-ID` on every call. The backend echoes it on the response,
+ *   stamps it on every log line and tags Sentry with it, so one id joins the
+ *   client error, the server logs and the Sentry issue.
+ * - Turns non-2xx responses into a typed ApiError carrying the server's error_id
+ *   and the request id. `errorReference(e)` is the short code a screen shows
+ *   (<ErrorNotice>) and support greps for.
+ * - Fires analytics for failures, so a silent failure still leaves a trail.
+ * - In demo mode (EXPO_PUBLIC_DEMO=1) the same path answers from lib/demo.ts.
+ *
+ * A generic `apiFetch<T>()` ASSERTS a shape; it never checks one. When the wire
+ * shape differs from what a screen wants, write an adapter function here
+ * (`xxxWire` type -> UI type) with a test. Never pass raw responses into UI.
+ */
+import { analytics, startTimer } from "./analytics";
+import { DEMO, demoFetch } from "./demo";
+import { i18n } from "./i18n";
+import type * as SessionModule from "./session";
+import { supabase } from "./supabase";
+
+const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/$/, "");
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly errorId?: string,
+    public readonly requestId?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+/**
+ * A v4-shaped UUID for X-Request-ID. Correlation only, not a secret, so
+ * Math.random is fine (and needs no native module). The backend accepts
+ * `[A-Za-z0-9._-]{8,128}` and replaces anything else with its own id.
+ */
+export function newRequestId(): string {
+  const hex = (n: number) =>
+    Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+  const variant = "89ab"[Math.floor(Math.random() * 4)];
+  return `${hex(8)}-${hex(4)}-4${hex(3)}-${variant}${hex(3)}-${hex(12)}`;
+}
+
+async function authHeader(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new ApiError("Not signed in", 401);
+  return { Authorization: `Bearer ${token}` };
+}
+
+function field(body: unknown, key: string): string | undefined {
+  return body && typeof body === "object" && key in body ? String((body as Record<string, unknown>)[key]) : undefined;
+}
+
+export interface RawResponse {
+  status: number;
+  body: unknown;
+  /** The id the server logged this request under (its echo, else the one we sent). */
+  requestId: string;
+}
+
+async function send(path: string, init: RequestInit, requestId: string): Promise<RawResponse> {
+  if (DEMO) {
+    const res = await demoFetch(path, init);
+    return { ...res, requestId };
+  }
+  if (!API_URL) throw new ApiError("EXPO_PUBLIC_API_URL is not set", 0, undefined, requestId);
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...(init.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+    ...(await authHeader()),
+    ...((init.headers as Record<string, string>) ?? {}),
+    "X-Request-ID": requestId,
+  };
+  const res = await fetch(`${API_URL}${path}`, { ...init, headers });
+  const echoed = res.headers?.get?.("x-request-id") ?? requestId;
+  if (res.status === 204) return { status: 204, body: undefined, requestId: echoed };
+  return { status: res.status, body: await res.json().catch(() => null), requestId: echoed };
+}
+
+/**
+ * The server says this session is over: run the SAME cleanup as signing out
+ * (forget the push token, clear the cache, sign out this device) so nothing of
+ * this user's is left for the next one. No push unregister: it would 401 too.
+ * Required lazily: lib/session.ts -> lib/query.ts -> this module.
+ */
+async function expireSession(): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy, breaks an import cycle (see above)
+    const { endSession } = require("./session") as typeof SessionModule;
+    await endSession({ unregisterPush: false });
+  } catch {
+    // best effort: the caller still gets the 401
+  }
+}
+
+export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const elapsed = startTimer();
+  const requestId = newRequestId();
+  let res: RawResponse;
+  try {
+    res = await send(path, init, requestId);
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    analytics.apiFailed({ path, status: 0, duration_ms: elapsed() });
+    throw new ApiError(e instanceof Error ? e.message : "Network error", 0, undefined, requestId);
+  }
+  if (res.status < 200 || res.status >= 300) {
+    analytics.apiFailed({ path, status: res.status, duration_ms: elapsed() });
+    if (res.status === 401) await expireSession();
+    throw new ApiError(
+      `Request failed (${res.status})`,
+      res.status,
+      field(res.body, "error_id"),
+      field(res.body, "request_id") ?? res.requestId,
+    );
+  }
+  return res.body as T;
+}
+
+/** A short, human message for any error a screen catches. */
+export function errorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.status === 0) return i18n.t("errors.offline");
+    if (e.status === 401) return i18n.t("errors.sessionEnded");
+    return i18n.t("errors.status", { status: e.status });
+  }
+  return i18n.t("errors.generic");
+}
+
+/**
+ * The short code a user can read out to support: the server's error_id when there
+ * is one (a 500), else the request id. First 8 characters: enough to grep logs,
+ * short enough to read aloud. Null when there's nothing to correlate (offline).
+ */
+export function errorReference(e: unknown): string | null {
+  if (!(e instanceof ApiError) || e.status === 0) return null;
+  const id = e.errorId ?? e.requestId;
+  return id ? id.replace(/-/g, "").slice(0, 8) : null;
+}
+
+// ---- Adapters -------------------------------------------------------------
+
+/** Mirrors backend/routers/me.py `Profile` (camelCase aliases). */
+export interface ProfileWire {
+  id: string;
+  displayName: string | null;
+  onboarded: boolean;
+}
+
+export interface Profile {
+  id: string;
+  displayName: string;
+  onboarded: boolean;
+}
+
+export function toProfile(w: ProfileWire): Profile {
+  return { id: w.id, displayName: w.displayName ?? "", onboarded: w.onboarded };
+}
+
+export async function getMe(): Promise<Profile> {
+  return toProfile(await apiFetch<ProfileWire>("/api/v1/me"));
+}
+
+export type ProfilePatch = Partial<Pick<Profile, "displayName" | "onboarded">>;
+
+export async function updateMe(patch: ProfilePatch): Promise<Profile> {
+  return toProfile(
+    await apiFetch<ProfileWire>("/api/v1/me", { method: "PATCH", body: JSON.stringify(patch) }),
+  );
+}
+
+/** Mirrors backend/routers/me.py `AccountDeletion`: the literal confirm is required. */
+export interface AccountDeletionWire {
+  confirm: "DELETE";
+}
+
+/** DELETE /api/v1/me -> 204. The caller must sign out right after (the token lives ~1h). */
+export async function deleteAccount(): Promise<void> {
+  const body: AccountDeletionWire = { confirm: "DELETE" };
+  await apiFetch<void>("/api/v1/me", { method: "DELETE", body: JSON.stringify(body) });
+}
+
+/** Mirrors backend/routers/push.py `PushTokenIn` / `PushTokenOut`. */
+export interface PushTokenWire {
+  token: string;
+  platform?: "ios" | "android" | "web" | null;
+}
+
+export async function registerPushToken(token: string, platform: PushTokenWire["platform"]): Promise<void> {
+  const body: PushTokenWire = { token, platform };
+  await apiFetch<void>("/api/v1/me/push-token", { method: "POST", body: JSON.stringify(body) });
+}
+
+export async function unregisterPushToken(token: string): Promise<void> {
+  const body: PushTokenWire = { token };
+  await apiFetch<void>("/api/v1/me/push-token", { method: "DELETE", body: JSON.stringify(body) });
+}
+
+/** Mirrors backend/routers/export.py `DataExport`. */
+export interface DataExportWire {
+  formatVersion: number;
+  exportedAt: string;
+  userId: string;
+  tables: Record<string, Record<string, unknown>[]>;
+}
+
+export interface DataExport {
+  exportedAt: string;
+  userId: string;
+  /** Row count per table, for a summary line. */
+  counts: Record<string, number>;
+  /** The full export, pretty-printed, ready to write to a file. */
+  json: string;
+}
+
+export function toDataExport(w: DataExportWire): DataExport {
+  const counts: Record<string, number> = {};
+  for (const [table, rows] of Object.entries(w.tables ?? {})) counts[table] = Array.isArray(rows) ? rows.length : 0;
+  return { exportedAt: w.exportedAt, userId: w.userId, counts, json: JSON.stringify(w, null, 2) };
+}
+
+export async function exportMyData(): Promise<DataExport> {
+  return toDataExport(await apiFetch<DataExportWire>("/api/v1/me/export"));
+}

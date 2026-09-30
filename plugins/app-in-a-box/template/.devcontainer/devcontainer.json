@@ -1,0 +1,15 @@
+{
+  "name": "__APP_NAME__ (agent sandbox)",
+  "image": "mcr.microsoft.com/devcontainers/base:bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "20" },
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "postCreateCommand": "npm i -g @anthropic-ai/claude-code @openai/codex eas-cli supabase @railway/cli && git config core.hooksPath .githooks",
+  "remoteEnv": { "APP_ENV": "development" },
+  "forwardPorts": [8000, 8081],
+  "customizations": {
+    "vscode": { "extensions": ["anthropic.claude-code", "openai.chatgpt", "ms-python.python", "dbaeumer.vscode-eslint"] }
+  }
+}

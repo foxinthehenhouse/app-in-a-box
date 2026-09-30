@@ -1,0 +1,50 @@
+[tool.pytest.ini_options]
+# Every guard under tests/ (including tests/harness/) is wired by THIS line and nothing
+# else. tests/harness/test_guards_wired.py fails if it is narrowed or if addopts starts
+# deselecting by path or name.
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --tb=short -m 'not integration'"
+markers = [
+    "integration: needs a real Postgres with supabase/migrations applied; excluded by default",
+]
+
+[tool.coverage.run]
+# Scoped to the code we own. CI runs `pytest --cov` and fails under the floor below.
+source = ["backend"]
+branch = true
+
+[tool.coverage.report]
+# A floor, not a target: it stops a PR landing a module with no tests at all. Raise
+# it as the app grows; never lower it to get a PR green.
+fail_under = 85
+show_missing = true
+skip_covered = true
+
+[tool.pyright]
+# Basic mode: catches wrong attribute/argument types and missing imports without
+# demanding annotations on every test fake. CI runs `pyright` from the dev venv.
+include = ["backend", "tests", "scripts"]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+reportMissingModuleSource = false
+# Diagnostics suppressed per file, each with a reason. Shrink, don't grow.
+#   backend/observability.py: sentry-sdk types `before_send` with its Event TypedDict;
+#   scrub_event takes a plain dict. Correct at runtime; fix with typing.cast, then drop.
+ignore = ["backend/observability.py"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# Pinned so a ruff upgrade can't change what CI enforces underneath you.
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection defaults are intentional, not a mutable-default bug.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Body", "fastapi.Header"]

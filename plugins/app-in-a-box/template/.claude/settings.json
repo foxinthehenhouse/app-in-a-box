@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
+      "Bash(git branch:*)", "Bash(git switch:*)", "Bash(git add:*)", "Bash(git commit:*)",
+      "Bash(git worktree:*)", "Bash(git fetch:*)", "Bash(git rev-parse:*)",
+      "Bash(gh pr view:*)", "Bash(gh pr list:*)", "Bash(gh pr checks:*)", "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)", "Bash(gh run view:*)", "Bash(gh run list:*)",
+      "Bash(ls:*)", "Bash(grep:*)", "Bash(rg:*)", "Bash(wc:*)", "Bash(head:*)", "Bash(tail:*)",
+      "Bash(python3:*)", "Bash(scripts/dev-venv.sh:*)", "Bash(./run.sh:*)",
+      "Bash(npm run:*)", "Bash(npm test:*)", "Bash(npx tsc:*)", "Bash(npx jest:*)",
+      "Bash(npx expo:*)", "Bash(node:*)", "Bash(maestro test:*)",
+      "Bash(supabase status:*)", "Bash(supabase projects list:*)", "Bash(eas whoami:*)",
+      "Bash(eas env:list:*)", "Bash(railway status:*)", "Bash(curl -fsS:*)"
+    ],
+    "deny": [
+      "Read(./.env)", "Read(./.env.*)", "Read(./mobile/.env)",
+      "Bash(git push --force:*)", "Bash(git push -f:*)",
+      "Bash(rm -rf /)", "Bash(rm -rf ~)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"" } ] },
+      { "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/harness-healthcheck.py\" --session" } ] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/memory_recall.py\"" } ] },
+      { "hooks": [ { "type": "command", "async": true, "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/capture-activity.sh\"" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/bash-safety.sh\"" } ] },
+      { "matcher": "Write|Edit|MultiEdit", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-path-rules.py\"" } ] }
+    ],
+    "PostToolUse": [
+      { "hooks": [ { "type": "command", "async": true, "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/capture-activity.sh\"" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-reflect.sh\"" } ] }
+    ]
+  }
+}

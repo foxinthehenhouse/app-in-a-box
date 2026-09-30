@@ -1,0 +1,24 @@
+# Free-tier Supabase pauses after 7 idle days. Touch one row daily.
+# Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
+name: Supabase keep-alive
+on:
+  schedule: [{ cron: "17 7 * * *" }]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          [ -n "$URL" ] || { echo "SUPABASE_URL secret not set"; exit 1; }
+          body=$(curl -fsS -X PATCH "$URL/rest/v1/keep_alive?id=eq.1" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" \
+            -H "Content-Type: application/json" -H "Prefer: return=representation" \
+            -d "{\"last_ping_at\":\"$(date -u +%FT%TZ)\"}")
+          echo "$body" | grep -q last_ping_at || { echo "keep_alive row missing: $body"; exit 1; }

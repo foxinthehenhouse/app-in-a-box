@@ -1,0 +1,35 @@
+# secrets
+.env
+.env.*
+!.env.example
+!mobile/.env.example
+
+# python
+.venv
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# node / expo
+node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/
+mobile/android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# claude local state
+.claude/settings.local.json
+.claude/worktrees/
+.claude/memory/_journal/
+
+# os
+.DS_Store
+
+# skill eval outputs
+.agents/evals/results/
