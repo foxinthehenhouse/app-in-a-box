@@ -86,7 +86,7 @@ A repo that's ready to ship on day one, not a starter you'll spend a week harden
 | **🎨 Design** | Three rendered design directions of *your* core screen. The one you pick becomes `design/tokens.json`, and a WCAG contrast gate rejects unreadable palettes before any code exists. |
 | **🛡️ Guards** | Git hooks that bind every agent and human: no commits on `main`, no staged `.env`, no key-shaped strings, gates before push. Mobile guard scripts: every screen instrumented, every env var wired for shipping builds, replay never unmasked. |
 | **🔁 CI/CD** | Backend (ruff + pyright + pytest), mobile (tsc + eslint + guards + jest), migrations + RLS tested with pgTAP on a throwaway Postgres (Supabase Branching opt-in), gitleaks + CodeQL, workflow lint (actionlint + zizmor) and harness lint for prompts/hooks, AI PR review (Claude or Codex), EAS build/OTA workflows, scheduled jobs behind a secret, and a Supabase keep-alive. |
-| **🤖 Agent harness** | `AGENTS.md` (Claude reads it via `CLAUDE.md`). 12 skills: backlog, next, feature-discovery, build-feature, pr-review, new-worktree, ship, north-star-report, routines, reflect, harness-optimize, harness-check. 10 subagent roles on routed models, with a `chair` for irreversible calls. Path rules that inject when you touch migrations, API contracts or screens. A git-tracked memory vault. |
+| **🤖 Agent harness** | `AGENTS.md` (Claude reads it via `CLAUDE.md`). 13 skills: backlog, next, feature-discovery, build-feature, pr-review, new-worktree, ship, north-star-report, market-watch, routines, reflect, harness-optimize, harness-check. 10 subagent roles on routed models, with a `chair` for irreversible calls. Path rules that inject when you touch migrations, API contracts or screens. A git-tracked memory vault. |
 | **🧠 Self-learning loop** | Every tool call is captured. `reflect` turns corrections into memory, and a pattern extractor mines transcripts for repeated failures. `harness-optimize` then proposes harness changes as a PR, with a protected-components manifest and a sunset protocol. |
 
 ### One harness, two agents
@@ -120,7 +120,8 @@ flowchart LR
 | Phase | Your agent does | You do |
 |---|---|---|
 | 0 Preflight | Checks and installs git, Node, Python 3.12 and the service CLIs | Approve installs |
-| 1 Interview | ~12 questions → `docs/product/BRIEF.md` + `appbox.yaml` | Answer |
+| 1a Idea check | ~5 min of market research: competitors, real user complaints, what people pay. A cited Go / Sharpen / Rethink verdict in `docs/product/VALIDATION.md` | Read it, then carry on, sharpen or park |
+| 1b Interview | ~12 questions → `docs/product/BRIEF.md` + `appbox.yaml`, with metrics aimed at the idea's riskiest assumption | Answer |
 | 2 Design | Renders 3 directions of your core screen, then writes contrast-checked tokens | Pick one |
 | 3 Accounts | Opens each free service's signup, then logs in the CLIs | Click "Continue with GitHub" ~6× |
 | 4 Scaffold | Creates the Expo app, overlays the template, and shapes the data model, API and screens to your brief | Nothing |
@@ -169,9 +170,10 @@ plugins/app-in-a-box/
   .claude-plugin/plugin.json         Claude Code manifest
   .codex-plugin/plugin.json          Codex manifest (same skills/)
   .mcp.json                          MCP servers used while provisioning
-  skills/                            the 9 phases: new-app (start here), doctor,
-                                     interview, design-directions, accounts,
-                                     scaffold, provision, harness, first-feature
+  skills/                            the phases: new-app (start here), doctor,
+                                     validate-idea, interview, design-directions,
+                                     accounts, scaffold, provision, harness,
+                                     first-feature (+ recipe-* add-ons)
   scripts/render.py                  deterministic renderer + Claude/Codex adapter generator
   scripts/check_contrast.py          WCAG gate for design/tokens.json
   scripts/doctor.sh                  tools / logins / gates health check

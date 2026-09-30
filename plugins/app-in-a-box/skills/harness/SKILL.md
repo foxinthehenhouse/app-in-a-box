@@ -13,9 +13,9 @@ passes.
 
 - `AGENTS.md` (+ `mobile/`, `backend/`) is the instructions every agent reads.
   `CLAUDE.md` files import it.
-- `.agents/`: 12 skills (backlog, next, feature-discovery, build-feature, pr-review,
-  ship, new-worktree, reflect, north-star-report, routines, harness-check,
-  harness-optimize), 10 subagent roles with routed models, path rules, a memory
+- `.agents/`: 13 skills (backlog, next, feature-discovery, build-feature, pr-review,
+  ship, new-worktree, reflect, north-star-report, market-watch, routines,
+  harness-check, harness-optimize), 10 subagent roles with routed models, path rules, a memory
   vault and skill evals. Claude Code also gets opt-in Workflows in `.claude/workflows/`.
 - Adapters: `.claude/` (settings, hooks, symlinks) and `.codex/` (agents, MCP config,
   hooks), both generated from `.agents/`.

@@ -28,6 +28,7 @@ RITUALS = [  # (ritual, manifest cadence key, default days)
     ("reflect", "reflect_days", 10),
     ("harness-optimize", "optimize_days", 7),
     ("north-star-report", "north_star_days", 7),
+    ("market-watch", "market_watch_days", 30),  # only once the owner sets the cadence
 ]
 
 

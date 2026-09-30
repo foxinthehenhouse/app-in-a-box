@@ -41,7 +41,7 @@ subagent (Haiku, cheap); in Codex, read them inline.
 | 3 | Your open PR has failing checks or requested changes | Fix that PR (`pr-review` on it) |
 | 4 | Uncommitted or unpushed work on a feature branch | Finish it: gates, then PR |
 | 5 | Open PR with green CI, not yet reviewed | `pr-review` it |
-| 6 | Ritual overdue by 2× its cadence | Run that ritual (`reflect`, `harness-optimize`, `north-star-report`) |
+| 6 | Ritual overdue by 2× its cadence | Run that ritual (`reflect`, `harness-optimize`, `north-star-report`, `market-watch`) |
 | 7 | Security or major dependency PR | `triage` it, then `pr-review` |
 | 8 | A `p0` ticket, or the ticket at the funnel's worst step | `feature-discovery` on it (or `build-feature` if it's specced) |
 | 9 | Next ticket by priority (`p0` > `p1` > `p2`, `ready` first) | `feature-discovery` / `build-feature` |

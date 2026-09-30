@@ -1,8 +1,8 @@
 {
   "name": "app-in-a-box",
   "displayName": "App in a Box",
-  "version": "0.4.0",
-  "description": "Turn an app idea into a provisioned, instrumented, CI-gated Expo + FastAPI + Supabase repo with a self-driving Claude Code harness: next-action loop, routed models, evals, routines and opt-in workflows.",
+  "version": "0.5.0",
+  "description": "Check the market for an app idea, then turn it into a provisioned, instrumented, CI-gated Expo + FastAPI + Supabase repo with a self-driving Claude Code harness: next-action loop, routed models, evals, routines and opt-in workflows.",
   "author": {
     "name": "Kyle Fox"
   },

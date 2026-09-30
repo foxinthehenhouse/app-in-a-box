@@ -101,7 +101,8 @@ progress_renders() {
   echo "$out" | grep -q '^Penny Jar: setup progress' \
     && echo "$out" | grep -q '\[x\] 2. Design.*(skipped)' \
     && echo "$out" | grep -q '\[>\] 3. Accounts' \
-    && echo "$out" | grep -q '3/9 phases done' \
+    && echo "$out" | grep -q '3/10 steps done' \
+    && echo "$out" | grep -q '1a. Idea check.*not run' \
     && python3 "$KIT/scripts/progress.py" "$T/nope.yaml" | grep -q 'Phase 0'
 }
 

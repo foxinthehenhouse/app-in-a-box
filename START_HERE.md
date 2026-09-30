@@ -83,7 +83,8 @@ run the same instructions in either agent.
 | Phase | What your agent does | What you do | Time |
 |---|---|---|---|
 | 0. Preflight | Checks your machine for git, Node, Python 3.12 and the service CLIs, and installs what's missing | Approve installs | 5 min |
-| 1. Interview | Asks about 12 questions on the problem, users, core loop, money and constraints, then writes `docs/product/BRIEF.md` and `appbox.yaml` | Answer | 10 min |
+| 1a. Idea check | Researches the market on its own: competitors, workarounds, real complaints from reviews and forums, what people already pay. Writes a cited scorecard with a Go / Sharpen / Rethink verdict (`docs/product/VALIDATION.md`). Advisory: you always decide | Read the verdict; carry on, sharpen or park | 5 min (20 for the deep pass) |
+| 1b. Interview | Asks about 12 questions on the problem, users, core loop, money and constraints, then writes `docs/product/BRIEF.md` and `appbox.yaml` | Answer | 10 min |
 | 2. Design | Renders 3 design directions as HTML mockups of *your* core screen | Pick one, or mix | 5 min |
 | 3. Accounts | Opens each free service's signup page, then logs the CLIs in | Click "Continue with GitHub" about 6 times | 10 min |
 | 4. Scaffold | Generates the app, backend, migrations, design tokens and harness from your answers | Nothing | 10 min |
@@ -98,7 +99,8 @@ checklist like this one, so you always know where you are:
 
 ```
   [x] 0. Preflight: tools installed
-  [x] 1. Interview: brief + appbox.yaml
+  [x] 1a. Idea check: market researched, verdict + VALIDATION.md
+  [x] 1b. Interview: brief + appbox.yaml
   [>] 2. Design: direction picked, tokens written
   [ ] 3. Accounts: CLIs logged in
   ...
@@ -115,6 +117,9 @@ Setup ends, the guidance doesn't. The generated repo ships with:
   starts with a one-line version of it.
 - **`north-star-report`**: a weekly readout of your 5 key events from PostHog, with
   the biggest drop-off turned into proposed tickets.
+- **`market-watch`**: a monthly re-check of the market against your idea check:
+  new competitors, price changes, new complaint themes. It proposes a ticket only
+  when something actually changed.
 - **`ship`**: the release checklist (version, EAS build/submit, OTA, store listing,
   privacy label, account deletion).
 - **`routines`**: puts the weekly rituals on a schedule (Claude Code Routines, or cron

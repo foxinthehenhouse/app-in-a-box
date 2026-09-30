@@ -1,6 +1,6 @@
 ---
 name: routines
-description: Put the project's recurring rituals on a schedule, with the owner's consent. Weekly north-star report, dependency triage, Supabase advisor sweep, reflect and harness-optimize. Uses Claude Code Routines (cloud cron) where they fit, and documents the Codex / local cron equivalent. Use when asked to automate, schedule or "keep the project moving on its own", or after setup finishes.
+description: Put the project's recurring rituals on a schedule, with the owner's consent. Weekly north-star report, monthly market watch, dependency triage, Supabase advisor sweep, reflect and harness-optimize. Uses Claude Code Routines (cloud cron) where they fit, and documents the Codex / local cron equivalent. Use when asked to automate, schedule or "keep the project moving on its own", or after setup finishes.
 disable-model-invocation: true
 ---
 
@@ -16,6 +16,7 @@ for each routine**, because every run spends tokens and can open PRs/issues.
 |---|---|---|---|
 | `north-star-report` | Mon 08:xx | Report file + proposed tickets (issue comment; files nothing unapproved) | Cloud (needs the PostHog connector on the Routine) |
 | Dependency triage | Mon 08:xx | `triage` pass over open dependency PRs + `npm audit` / `pip-audit`; one summary issue | Cloud |
+| `market-watch` | 1st Tue of the month, 09:xx | Re-checks competitors and complaint themes against `docs/product/VALIDATION.md`; one issue only if something changed | Cloud |
 | Supabase advisor sweep | Wed 08:xx | Security/performance advisors → one issue per new finding | Cloud (needs the Supabase connector) |
 | `harness-optimize` | Fri 16:xx | Harness-change PR from the week's session signal | **Local**: it reads session transcripts on the machine where you work |
 | `reflect` | Fri 16:xx | Memory notes PR | **Local**, same reason |

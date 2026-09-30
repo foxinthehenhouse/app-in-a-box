@@ -95,6 +95,11 @@
       "removal_rule": "The product-analytics feedback loop into the backlog. Removable only if funnel drop-offs reach the backlog some strictly-better way."
     },
     {
+      "file": ".agents/skills/market-watch/SKILL.md",
+      "load_bearing": false,
+      "removal_rule": "Keeps the setup-time market check (docs/product/VALIDATION.md) current. Monthly by design; low use is expected, not dormancy."
+    },
+    {
       "file": ".agents/skills/ship/SKILL.md",
       "load_bearing": false,
       "removal_rule": "Release checklist (store requirements, OTA safety). Low use between releases is expected, not dormancy."
@@ -179,6 +184,7 @@
     "reflect_days": 10,
     "optimize_days": 7,
     "north_star_days": 7,
+    "market_watch_days": 30,
     "capture_stale_days": 3,
     "scheduled": []
   },

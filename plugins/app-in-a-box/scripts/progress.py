@@ -13,16 +13,19 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# (key, phase number as shown, label, detail). Phase 1 has two steps: the idea check
+# (1a) runs before the rest of the interview (1b), so later phase numbers never moved.
 PHASES = [
-    ("preflight", "Preflight", "tools installed"),
-    ("interview", "Interview", "brief + appbox.yaml"),
-    ("design", "Design", "direction picked, tokens written"),
-    ("accounts", "Accounts", "CLIs logged in"),
-    ("scaffold", "Scaffold", "app + backend generated"),
-    ("provision", "Provision", "cloud resources + secrets wired"),
-    ("harness", "Harness", "guards on and smoke-tested"),
-    ("verify", "Verify", "gates green, first PR, first event"),
-    ("first_feature", "First feature", "backlog seeded, feature #1 PR"),
+    ("preflight", "0", "Preflight", "tools installed"),
+    ("validate", "1a", "Idea check", "market researched, verdict + VALIDATION.md"),
+    ("interview", "1b", "Interview", "brief + appbox.yaml"),
+    ("design", "2", "Design", "direction picked, tokens written"),
+    ("accounts", "3", "Accounts", "CLIs logged in"),
+    ("scaffold", "4", "Scaffold", "app + backend generated"),
+    ("provision", "5", "Provision", "cloud resources + secrets wired"),
+    ("harness", "6", "Harness", "guards on and smoke-tested"),
+    ("verify", "7", "Verify", "gates green, first PR, first event"),
+    ("first_feature", "8", "First feature", "backlog seeded, feature #1 PR"),
 ]
 DONE = {"done", "true", "yes", "skipped"}
 
@@ -47,11 +50,17 @@ def read_progress(text: str) -> tuple[str, dict[str, str]]:
 
 def render(text: str, markdown: bool = False) -> str:
     name, progress = read_progress(text)
-    done = [k for k, _, _ in PHASES if progress.get(k) in DONE]
-    nxt = next((p for p in PHASES if progress.get(p[0]) not in DONE), None)
+    done = [k for k, _, _, _ in PHASES if progress.get(k) in DONE]
+    # A project set up before the idea check existed has interview done and no
+    # validate key: don't send it back to 1a (new-app offers it once instead).
+    legacy = progress.get("interview") in DONE and "validate" not in progress
+    nxt = next(
+        (p for p in PHASES if progress.get(p[0]) not in DONE and not (legacy and p[0] == "validate")),
+        None,
+    )
     title = f"{name}: setup progress" if name else "Setup progress"
     lines = [f"## {title}" if markdown else title, ""]
-    for i, (key, label, detail) in enumerate(PHASES):
+    for key, num, label, detail in PHASES:
         state = progress.get(key, "")
         if state in DONE:
             mark = "[x]"
@@ -59,12 +68,16 @@ def render(text: str, markdown: bool = False) -> str:
             mark = "[>]"
         else:
             mark = "[ ]"
-        suffix = " (skipped)" if state == "skipped" else ""
-        lines.append(f"{'- ' if markdown else '  '}{mark} {i}. {label}: {detail}{suffix}")
+        suffix = f" ({state})" if state in ("skipped", "parked") else ""
+        if legacy and key == "validate":
+            suffix = " (not run: this project predates it)"
+        lines.append(f"{'- ' if markdown else '  '}{mark} {num}. {label}: {detail}{suffix}")
     lines.append("")
-    lines.append(f"{len(done)}/{len(PHASES)} phases done.")
-    if nxt:
-        lines.append(f"Next: phase {PHASES.index(nxt)}, {nxt[1]}.")
+    lines.append(f"{len(done)}/{len(PHASES)} steps done.")
+    if nxt and progress.get(nxt[0]) == "parked":
+        lines.append(f"Parked at phase {nxt[1]}, {nxt[2]}: re-run new-app to pick it back up.")
+    elif nxt:
+        lines.append(f"Next: phase {nxt[1]}, {nxt[2]}.")
     else:
         lines.append("Setup complete. From here, the `next` skill picks what to do.")
     return "\n".join(lines)

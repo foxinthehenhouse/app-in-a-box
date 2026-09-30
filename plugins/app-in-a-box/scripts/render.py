@@ -57,7 +57,7 @@ TEXT_SUFFIXES = {
     "",
 }
 # User decisions: written by the interview/design phases, never clobbered by --force.
-PROTECTED = {"design/tokens.json", "appbox.yaml", "docs/product/BRIEF.md"}
+PROTECTED = {"design/tokens.json", "appbox.yaml", "docs/product/BRIEF.md", "docs/product/VALIDATION.md"}
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")
 BUNDLE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*){2,}$")
 

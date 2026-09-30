@@ -72,7 +72,9 @@ question to at most 3 options plus "you pick" so it fits both tools.
 ## Resume logic
 
 If `appbox.yaml` exists, read `progress:` and jump to the first phase not marked
-`done`. Show the progress checklist (principle 8) and say in one line where you're
+`done`. A project whose interview is done but that has no `progress.validate` key
+predates the idea check: don't send it back to 1a. Offer the check once (it's
+`validate-idea` on its own), and carry on from the next unfinished phase either way. Show the progress checklist (principle 8) and say in one line where you're
 resuming. If every phase is done, don't restart: go to "Keep going" below.
 
 ## Phases
@@ -80,7 +82,8 @@ resuming. If every phase is done, don't restart: go to "Keep going" below.
 | # | Phase | Skill file | Exit check |
 |---|---|---|---|
 | 0 | Preflight | `KIT/skills/doctor/SKILL.md` (mode: preflight) | Required tools present; permission mode explained |
-| 1 | Interview | `KIT/skills/interview/SKILL.md` | `appbox.yaml` + `docs/product/BRIEF.md` written and confirmed |
+| 1a | Idea check | `KIT/skills/validate-idea/SKILL.md` | `docs/product/VALIDATION.md` written; verdict shown; user chose continue / sharpen / park |
+| 1b | Interview | `KIT/skills/interview/SKILL.md` | `appbox.yaml` + `docs/product/BRIEF.md` written and confirmed |
 | 2 | Design | `KIT/skills/design-directions/SKILL.md` | User picked a direction; `design/tokens.json` written |
 | 3 | Accounts | `KIT/skills/accounts/SKILL.md` | Every required CLI reports logged in |
 | 4 | Scaffold | `KIT/skills/scaffold/SKILL.md` | App boots locally; backend tests green; first commit on `main` |
@@ -90,14 +93,20 @@ resuming. If every phase is done, don't restart: go to "Keep going" below.
 | 8 | First feature | `KIT/skills/first-feature/SKILL.md` | Backlog seeded; feature #1 PR open |
 
 If the user passed an idea as an argument (`$ARGUMENTS`), use it as the seed for
-phase 1's first question rather than asking "what's your idea?" cold.
+phase 1a's first question rather than asking "what's your idea?" cold.
+
+**Phase 1a is advisory.** Whatever the verdict, the user chooses. On "park", stop
+after showing progress; a later `new-app` run resumes at 1a with the report already
+there, so offer "re-check the market" or "carry on" rather than starting over.
 
 ## Opening message (say this, in your own words, briefly)
 
 > I'll turn your idea into a real app with a production setup around it: login,
 > database, analytics, crash reporting, CI and an AI dev team that follows a proper
-> spec → PR process. It's about an hour end to end. You'll answer ~12 questions, pick
-> a design, and click "sign in with GitHub" on a few free services. I handle the rest.
+> spec → PR process. It's about an hour end to end. First I'll spend ~5 minutes
+> checking the market: who else solves this and whether people are asking for it.
+> Then you'll answer ~12 questions, pick a design, and click "sign in with GitHub" on
+> a few free services. I handle the rest.
 > Before we start: which permission mode are you running in? (If you get a lot of
 > prompts, see KIT/docs/PERMISSIONS.md.)
 
@@ -116,7 +125,7 @@ Give the user, in this order:
    project, backend URL + `/health`.
 3. "What I need from you", a short list of anything that truly needs a human
    (Apple enrolment, merging the first PR, adding a teammate).
-4. The final progress checklist (all 9 ticked).
+4. The final progress checklist (all 10 steps ticked).
 
 ## Keep going (after phase 8, and whenever setup is already complete)
 

@@ -3,7 +3,7 @@ name: interview
 description: The App in a Box product interview. It asks about 12 structured questions in 4 rounds about the problem, users, core loop, data, monetisation and constraints, then writes appbox.yaml and docs/product/BRIEF.md. Use it when starting a new app or when the brief needs re-doing.
 ---
 
-# Phase 1: Interview
+# Phase 1b: Interview
 
 Goal: learn enough in about 10 minutes to generate a correct data model, a sensible
 screen map, the right integrations, and a CLAUDE.md that tells future agents what
@@ -28,6 +28,12 @@ matters. You are a senior PM running a crisp kickoff, not a form.
 - Tell them at the start: about 12 questions in 4 short rounds, roughly 10 minutes.
 
 ## Round 1: the idea (open, in chat)
+
+**Skip this round if phase 1a (`validate-idea`) already asked it:** `appbox.yaml` →
+`product.problem` and `product.core_loop` are filled. Reflect the one-liner back in a
+sentence and go straight to Round 2. Read `docs/product/VALIDATION.md` first if it
+exists; its alternatives, complaints and riskiest assumptions sharpen every
+recommendation below.
 
 1. **"In a sentence or two: what's the app, and who is it for?"**
    Then reflect back: *"So: [user] who [struggle] will use [app] to [outcome]. Right?"*
@@ -73,6 +79,10 @@ matters. You are a senior PM running a crisp kickoff, not a form.
     3 suggestions derived from the core loop, e.g. "users who complete the core
     action 3× in week 1"). *Why:* the 5 analytics events, the weekly north-star
     report and the `next` skill all steer by this one number.
+    *If VALIDATION.md exists:* recommend a metric, and choose the 5 events, so that
+    at least one event measures the **top riskiest assumption** in its "How the app
+    will measure it" column. The app's first week of data then answers the question
+    the idea check couldn't.
 
 ## Round 4: build constraints (ask, structured)
 
@@ -130,10 +140,15 @@ stack:
 design:
   direction: null             # filled in by phase 2
 resources: {}                 # filled in by phase 5: IDs/URLs only, never secrets
+validation: {}               # written by phase 1a (verdict, depth, decision, report)
 progress:
   preflight: done
+  validate: done              # set by phase 1a (done|parked); leave as it is
   interview: done
 ```
+
+`appbox.yaml` may already exist from phase 1a. **Merge into it**: keep `validation`,
+`product.*` and `progress.validate` exactly as 1a wrote them.
 
 ## Output 2: `docs/product/BRIEF.md`
 
@@ -155,6 +170,14 @@ History/Progress · Settings. One line on each screen's job.
 ## Data model (v1)
 Tables with key columns, derived from the core loop. Every table has `user_id`
 and RLS.
+
+## Positioning
+(Only if VALIDATION.md exists.) One or two lines: for <target user> who <problem>,
+unlike <the named alternatives>, this app <the angle>. Link VALIDATION.md.
+
+## Riskiest assumptions
+(Only if VALIDATION.md exists.) Copy its table, and name the analytics event that
+measures each one.
 
 ## North-star metric + the 5 analytics events that measure it
 ## Out of scope for v1

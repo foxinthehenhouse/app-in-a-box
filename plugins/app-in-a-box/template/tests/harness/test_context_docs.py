@@ -40,6 +40,7 @@ CONTEXT_DOCS = [
 # must exist like everything else.
 LATER_PHASE = {
     "docs/product/BRIEF.md": "written by the interview phase",
+    "docs/product/VALIDATION.md": "written by the idea check (phase 1a)",
     "docs/product/": "created with BRIEF.md by the interview phase",
     "appbox.yaml": "the setup record, written by the interview phase",
 }

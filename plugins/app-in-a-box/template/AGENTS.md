@@ -100,7 +100,8 @@ also pick them up automatically from their descriptions.
 
 **Keeping it moving.** Not sure what to do, or the owner asks "what's next?" → the
 `next` skill (it ranks CI, PRs, backlog, rituals and analytics; the session-start
-line is its one-line version). Weekly: `north-star-report`. Releases: `ship`.
+line is its one-line version). Weekly: `north-star-report`. Monthly: `market-watch`
+(re-checks competitors against `docs/product/VALIDATION.md`). Releases: `ship`.
 Scheduling rituals: `routines`. Subagents run on routed models (Opus judges, Sonnet
 builds, Haiku sweeps, `chair` on Fable rules on irreversible calls): don't override
 `model:` without a reason. Claude Code also has opt-in Workflows
