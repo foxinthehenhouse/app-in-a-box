@@ -84,10 +84,10 @@ _agents_md_lint_fails() {
   rm -rf "$c" && mkdir -p "$c/.claude"
   cp -R "$APP/.agents" "$APP/tests" "$APP/AGENTS.md" "$APP/backend" "$APP/mobile" "$APP/supabase" "$c/" 2>/dev/null
   cp -R "$APP/.claude/harness" "$c/.claude/"
-  touch "$c/backend/routers/plants.py"
+  touch "$c/backend/routers/widgets.py"
   (cd "$c" && "$APP/.venv/bin/python" -m pytest -q -p no:cacheprovider tests/harness/test_agents_md_current.py > "$T/amd.out" 2>&1) && return 1
-  grep -q "API router routers/plants.py" "$T/amd.out" || return 1
-  rm "$c/backend/routers/plants.py" && printf 'progress:\n  scaffold: done\n' > "$c/appbox.yaml"
+  grep -q "API router routers/widgets.py" "$T/amd.out" || return 1
+  rm "$c/backend/routers/widgets.py" && printf 'progress:\n  scaffold: done\n' > "$c/appbox.yaml"
   (cd "$c" && "$APP/.venv/bin/python" -m pytest -q -p no:cacheprovider tests/harness/test_agents_md_current.py > "$T/amd.out" 2>&1) && return 1
   grep -q "appbox:product" "$T/amd.out"
 }

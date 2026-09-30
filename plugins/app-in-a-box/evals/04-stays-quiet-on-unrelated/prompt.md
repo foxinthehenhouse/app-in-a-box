@@ -4,4 +4,4 @@ timeout_seconds: 120
 allowed_tools: [Read, Glob, Grep, Skill]
 runs: 3
 ---
-Suggest three short, friendly names for an app that helps people find the twin of a lost sock. Just the names, one line each.
+Suggest three short, friendly names for an app that helps housemates share a grocery list. Just the names, one line each.

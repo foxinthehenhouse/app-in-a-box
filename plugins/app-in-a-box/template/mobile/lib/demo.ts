@@ -48,12 +48,10 @@ function freshState(): DemoState {
 
 const state: DemoState = freshState();
 
-/** Reset between tests. */
+/** Reset between tests: every field back to its seed, except the auth listeners. Adding
+ * demo state? Add it to DemoState and freshState() only; this picks it up. */
 export function resetDemo(): void {
-  const fresh = freshState();
-  state.user = fresh.user;
-  state.profile = fresh.profile;
-  state.pushTokens = fresh.pushTokens;
+  Object.assign(state, freshState(), { listeners: state.listeners });
 }
 
 /** Read-only view for tests and the gallery. */

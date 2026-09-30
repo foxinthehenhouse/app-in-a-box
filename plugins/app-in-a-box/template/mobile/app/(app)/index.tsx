@@ -4,6 +4,9 @@
  * query hook in lib/query.ts (cached, works offline) over a lib/api.ts adapter,
  * a skeleton while loading, an honest empty/error state (never fake data), pull
  * to refresh, and every string through t().
+ *
+ * Keep the `home-screen` and `home-skeleton` testIDs when you replace this screen:
+ * __tests__/demo-flow and i18n-pseudo wait on them ("home has loaded"), not on copy.
  */
 import { useEffect } from "react";
 import { router } from "expo-router";

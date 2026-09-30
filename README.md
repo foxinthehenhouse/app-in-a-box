@@ -5,7 +5,7 @@
 **Go from an app idea to a production-grade mobile app repo in about an hour.**
 **Works in Claude Code and Codex.**
 
-[Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Example](#example-lonely-socks) · [Status](#status--roadmap) · [FAQ](#faq)
+[Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Status](#status--roadmap) · [FAQ](#faq)
 
 ![status](https://img.shields.io/badge/status-alpha%20v0.1-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
 
@@ -143,25 +143,6 @@ need your consent, email verification and often a CAPTCHA. It automates everythi
 GitHub · Supabase · Expo/EAS · Railway (about $5/mo after the trial) · PostHog ·
 Sentry · optionally Linear, Anthropic/OpenAI · Apple Developer.
 
-## Example: Lonely Socks
-
-The kit was dogfooded end to end on a deliberately silly idea: an app for logging
-single socks and celebrating when you reunite a pair.
-
-- [`examples/lonely-socks/BRIEF.md`](examples/lonely-socks/BRIEF.md) is the one-page
-  brief the interview produced.
-- [`examples/lonely-socks/directions.html`](examples/lonely-socks/directions.html) is
-  the three design directions (Playful won).
-- [`examples/lonely-socks/tokens.json`](examples/lonely-socks/tokens.json) is the
-  chosen palette. The contrast gate rejected the first draft (4.20:1).
-- [`examples/lonely-socks/1-undo-reunion.md`](examples/lonely-socks/1-undo-reunion.md)
-  is the first feature spec, built tests-first, then reviewed by the kit's own
-  correctness-reviewer role.
-
-That run found five bugs in the kit (a ruff default change, light-theme typing, a
-React purity lint, phantom `/health` features, and preflight strictness). All five are
-fixed and pinned by regression checks.
-
 ## Repository layout
 
 ```
@@ -179,7 +160,7 @@ plugins/app-in-a-box/
   scripts/doctor.sh                  tools / logins / gates health check
   template/                          everything that lands in your new repo
   docs/                              PERMISSIONS.md, SOCIAL_AUTH.md
-examples/lonely-socks/               a full dogfood run's outputs
+scripts/fixtures/                    test-only inputs for the selftest (not example apps)
 scripts/selftest.sh                  proves the kit works (see below)
 ```
 

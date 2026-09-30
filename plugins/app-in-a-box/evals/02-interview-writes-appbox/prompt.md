@@ -8,13 +8,14 @@ Run the App in a Box interview skill. I can't answer interactively in this sessi
 so here are all my answers up front. Don't ask me anything; write `appbox.yaml` and
 `docs/product/BRIEF.md` now (the kit root is wherever this plugin lives).
 
-- Idea: "Lonely Socks": people with odd socks photograph a single sock and get matched
-  with someone nearby who has its twin.
-- Core loop: photograph a lonely sock → the app suggests likely matches → you confirm a
-  match → you get a "reunited" streak; you come back when laundry day produces another orphan.
+- Idea (a neutral test fixture, not an example app): "Sample List", a shared grocery
+  list for people who live together.
+- Core loop: someone adds an item → housemates see it → whoever shops ticks it off →
+  everyone sees the list is done; you come back when the next item runs out.
 - Platforms: iOS + Android. Accounts: email magic link + Apple + Google.
 - Data: users type/photograph it. AI: no.
-- Money: free while validating. Retention: streaks. Sensitive data: location (approximate).
-- North star: users who make 2 confirmed reunions in their first 14 days.
-- Tracker: GitHub Issues. Hosting: Railway. Name: Lonely Socks, handle `alexk`.
+- Money: free while validating. Retention: notifications. Sensitive data: none.
+- North star: households that tick off 5 items in their first 14 days.
+- Tracker: GitHub Issues. Analytics: PostHog. Errors: Sentry. Hosting: Railway.
+  Name: Sample List, handle `tester`.
 - Just me for now.

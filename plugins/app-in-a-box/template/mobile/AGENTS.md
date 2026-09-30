@@ -2,6 +2,13 @@
 
 Auto-loaded under `mobile/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). See `../AGENTS.md`.
 
+**Expo changes every SDK: don't trust memory** (Expo's own advice). Before writing code
+against an Expo, EAS or React Native API, read the expo major version in this folder's
+package.json and the matching versioned docs (`https://docs.expo.dev/versions/v<major>.0.0/`,
+index at `https://docs.expo.dev/llms.txt`). Add native packages with `npx expo install`,
+never `npm install`, so versions match the SDK. Routes live in `app/` here (Expo's own
+template says src/app; this kit doesn't use it).
+
 ## Structure
 
 - `app/`: Expo Router routes. `(auth)/` = signed-out, `(app)/` = signed-in **native

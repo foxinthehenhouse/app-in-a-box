@@ -21,9 +21,11 @@ it("signs in with any 6-digit code and lands on home with seeded data", async ()
   await fireEvent.changeText(await screen.findByTestId("signin-code-input"), "123456");
   await fireEvent.press(screen.getByTestId("signin-verify-button"));
 
-  // Signed in: the guard swaps to the tabs, home loads the seeded profile.
+  // Signed in: the guard swaps to the tabs and home finishes loading. Anchored on the
+  // home-screen / home-skeleton testIDs, not on Home's copy, so replacing the template
+  // Home with your core loop doesn't break this test (keep those two testIDs).
   expect(await screen.findByTestId("home-screen")).toBeTruthy();
-  await waitFor(() => expect(screen.getByText("Hi, Sam")).toBeTruthy());
+  await waitFor(() => expect(screen.queryByTestId("home-skeleton")).toBeNull());
 
   // The sheet opens seeded with the REAL name (not a blank captured at mount),
   // saves through the demo backend, closes, and confirms with a toast.

@@ -5,20 +5,25 @@
  * are the only exceptions (they're not translatable copy).
  */
 import { router } from "expo-router";
-import { act, fireEvent, renderRouter, screen } from "expo-router/testing-library";
+import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
 import { APP } from "../lib/app";
 import { PSEUDO_LOCALE, SUPPORTED_LANGUAGES, i18n, pseudoLocalize, setLanguage } from "../lib/i18n";
 import { en } from "../locales/en";
 
 process.env.EXPO_PUBLIC_DEMO = "1";
+// Required AFTER the env var: a static import is hoisted above it and demo mode loads off.
+const { DEMO_SEED } = require("../lib/demo") as typeof import("../lib/demo");
 
 type Node = NonNullable<typeof screen.root>;
 
-const DATA = new Set<string>([APP.name, APP.oneLiner, "Sam", "sam@example.com"]);
+// User data isn't copy: the app name, the typed email, and EVERY string seeded in demo
+// mode, so seeding your own demo data (plant names, habits...) never trips this test.
+const DATA = new Set<string>([APP.name, APP.oneLiner, "sam@example.com", ...leaves(DEMO_SEED).map(([, v]) => v)]);
 
 function leaves(value: unknown, path: string[] = []): [string, string][] {
   if (typeof value === "string") return [[path.join("."), value]];
+  if (value === null || typeof value !== "object") return [];
   return Object.entries(value as Record<string, unknown>).flatMap(([k, v]) => leaves(v, [...path, k]));
 }
 
@@ -83,7 +88,7 @@ describe("screens in the pseudo-locale", () => {
     await fireEvent.press(screen.getByTestId("signin-verify-button"));
 
     await screen.findByTestId("home-screen");
-    await screen.findByText(i18n.t("home.greeting", { name: "Sam" }));
+    await waitFor(() => expect(screen.queryByTestId("home-skeleton")).toBeNull()); // loaded, whatever Home shows
     expect(untranslated()).toEqual([]);
 
     await act(async () => router.navigate("/settings"));

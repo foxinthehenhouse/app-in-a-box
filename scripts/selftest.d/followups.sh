@@ -7,16 +7,16 @@ _capture_redacts() {
   rm -rf "$st" && mkdir -p "$st"
   for payload in \
     '{"tool_name":"Bash","tool_input":{"command":"curl -H \"Authorization: Basic c2VrcmV0UGxhbnQx\" https://api.x.io"}}' \
-    '{"tool_name":"Bash","tool_input":{"command":"curl https://api.x.io/v1?access_token=sekretPlant2&x=1"}}' \
-    '{"tool_name":"Grep","tool_input":{"pattern":"sk-ant-sekretPlant3abc"}}' \
-    '{"tool_name":"WebFetch","tool_input":{"url":"https://hooks.x.io/in?token=sekretPlant4","prompt":"x"}}' \
-    '{"tool_name":"Bash","tool_input":{"command":"gh secret set X --body sekretPlant5"}}'; do
+    '{"tool_name":"Bash","tool_input":{"command":"curl https://api.x.io/v1?access_token=sekretValue2&x=1"}}' \
+    '{"tool_name":"Grep","tool_input":{"pattern":"sk-ant-sekretValue3abc"}}' \
+    '{"tool_name":"WebFetch","tool_input":{"url":"https://hooks.x.io/in?token=sekretValue4","prompt":"x"}}' \
+    '{"tool_name":"Bash","tool_input":{"command":"gh secret set X --body sekretValue5"}}'; do
     printf '%s' "$payload" | APPBOX_STATE_DIR="$st" CLAUDE_PROJECT_DIR="$APP" bash "$APP/.claude/hooks/capture-activity.sh" || return 1
   done
   local log; log=$(find "$st" -name "*-activity.md" -exec cat {} + 2>/dev/null) || return 1
   [ -n "$log" ] || return 1                       # something was logged at all
   echo "$log" | grep -q 'redacted' || return 1     # and redaction ran
-  ! echo "$log" | grep -q 'sekretPlant'
+  ! echo "$log" | grep -q 'sekretValue'
 }
 check "capture hook redacts Basic auth, URL tokens, Grep patterns, fetched URLs, --body" "_capture_redacts"
 

@@ -62,10 +62,10 @@ check "market-watch is registered (manifest, cadence, routines, next signals)" \
    && grep -q '\"market-watch\", \"market_watch_days\"' '$APP/.agents/skills/next/signals.py' \
    && [ -e '$APP/.claude/skills/market-watch/SKILL.md' ]"
 
-# The shipped example is a real output: it must satisfy the same contract, and an
-# Unverified report must say so on every claim and in its verdict line.
+# The fixture report must satisfy the same contract, and an Unverified report must
+# say so on every claim and in its verdict line.
 _example_contract() {
-  local ex="$KIT/../../examples/plant-pal/VALIDATION.md" h
+  local ex="$KIT/../../scripts/fixtures/sample/VALIDATION.md" h
   [ -f "$ex" ] || return 1
   for h in "## The idea" "## Verdict" "## Scorecard" "## Alternatives today" \
            "## What users say" "## Riskiest assumptions" "## Suggested angle" "## Sources"; do
@@ -76,4 +76,4 @@ _example_contract() {
     ! grep -A30 '^## Sources' "$ex" | grep '^[0-9]\+\. http' | grep -qv '(unverified'
   fi
 }
-check "examples/plant-pal/VALIDATION.md follows the report contract" "_example_contract"
+check "fixture VALIDATION.md follows the report contract" "_example_contract"

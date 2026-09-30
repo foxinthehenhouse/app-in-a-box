@@ -8,23 +8,29 @@ description: Phase 4 of App in a Box. Generates the app from the interview and d
 Everything here runs locally. No secrets are needed yet. Read `appbox.yaml` and
 `docs/product/BRIEF.md` first.
 
-## 1. Repo
+## 1. Expo app first (versions come from Expo, not from this kit)
+
+Create it **before** `git init`, with stdin closed: in a dogfood run,
+`create-expo-app` inside an already-initialised repo wrote every file and then hung
+(it waits on a finishing step that never returns). If it still hangs after
+`App.tsx` and `package.json` exist, kill it: the project is complete.
 
 ```
-git init -b main
+npx --yes create-expo-app@latest mobile --template blank-typescript --no-install </dev/null
 ```
 
-(Skip it if `.git` exists.) Everything in this phase lands in one bootstrap commit on
-`main`. That's the only commit ever made on `main` directly.
-
-## 2. Expo app (versions come from Expo, not from this kit)
-
-```
-npx --yes create-expo-app@latest mobile --template blank-typescript --no-install
-```
+The Expo template ships its own `mobile/AGENTS.md` (routes in `src/app/`, which this
+kit doesn't use) and `mobile/.claude/settings.json` (enables Expo's official Claude
+plugin, but only when an agent starts inside `mobile/`). The renderer replaces the
+AGENTS.md with the kit's (which keeps Expo's "read the versioned docs" rule); remove
+the nested settings so the repo has ONE harness:
 
 ```
-cd mobile && rm -f App.tsx index.ts && npm install --no-audit --no-fund
+rm -rf mobile/.claude
+```
+
+```
+cd mobile && rm -f App.tsx index.ts && npm install --no-audit --no-fund </dev/null
 ```
 
 Then install everything the template uses, with one script (it is the single list,
@@ -75,6 +81,15 @@ Reanimated 4) and `setupFiles` (`jest.setup.ts`: NetInfo + AsyncStorage mocks). 
   `locales/en.ts`, `check-hardcoded-strings.js` in the gates, an `en-XA` pseudo-locale
   test). Still recipes: social sign-in, payments, PowerSync, AI features, and the push
   **credentials** (`recipe-push`).
+
+## 2. Repo
+
+```
+git init -b main
+```
+
+(Skip it if `.git` exists.) Everything in this phase lands in one bootstrap commit on
+`main`. That's the only commit ever made on `main` directly.
 
 ## 3. Overlay the template
 

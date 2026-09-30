@@ -77,7 +77,7 @@ done
 if [ "$MOBILE" = 1 ]; then
   echo "Mobile (real Expo app)"
   M="$T/m"; mkdir -p "$M" && cd "$M"
-  if npx --yes create-expo-app@latest mobile --template blank-typescript --no-install >/dev/null 2>&1 && cd mobile \
+  if npx --yes create-expo-app@latest mobile --template blank-typescript --no-install </dev/null >/dev/null 2>&1 && rm -rf mobile/.claude && cd mobile \
      && rm -f App.tsx index.ts && npm pkg set main=expo-router/entry \
      && npm install --no-audit --no-fund --loglevel=error >/dev/null 2>&1 \
      && bash "$KIT/scripts/mobile-deps.sh" . >/dev/null 2>&1 \

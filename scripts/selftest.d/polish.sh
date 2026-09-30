@@ -2,13 +2,13 @@
 # check/refuses helpers). Fast: python + node only, no npm installs.
 P="python3 -c"
 TOK="$KIT/template/design/tokens.json"
-EXT="$KIT/../../examples/lonely-socks/tokens.json"
+EXT="$KIT/../../scripts/fixtures/sample/tokens.json"  # test-only alternate direction
 
-check "default + example tokens ship light AND dark palettes" \
+check "default + fixture tokens ship light AND dark palettes" \
   "for f in '$TOK' '$EXT'; do $P \"import json;d=json.load(open('\$f'));c=d['color'];assert isinstance(c['light'],dict) and isinstance(c['dark'],dict) and set(c['light'])==set(c['dark'])\"; done"
 check "tokens carry motion, type roles, elevation, opacity" \
   "$P \"import json;d=json.load(open('$TOK'));assert d['motion']['duration'] and d['motion']['spring'] and len(d['type'])==7 and d['elevation'] and d['opacity']\""
-check "contrast passes in both modes (default + Lonely Socks)" \
+check "contrast passes in both modes (default + fixture direction)" \
   "python3 '$KIT/scripts/check_contrast.py' '$TOK' && python3 '$KIT/scripts/check_contrast.py' '$EXT'"
 refuses "contrast catches a dim DARK-mode ink" \
   "$P \"import json;d=json.load(open('$TOK'));d['color']['dark']['inkFaint']='#4E525B';json.dump(d,open('$T/bad-dark.json','w'))\" && python3 '$KIT/scripts/check_contrast.py' '$T/bad-dark.json'"
@@ -44,5 +44,5 @@ refuses "env guard refuses demo mode in a shipping eas.json profile" \
 check "analytics guard passes on the template (gallery + sheet instrumented)" \
   "node '$APP/mobile/scripts/check-analytics-coverage.js'"
 
-check "demo.sh renders Lonely Socks (--no-install) with demo mode on" \
-  "'$KIT/scripts/demo.sh' '$T/demo' --no-install && grep -q 'Lonely Socks' '$T/demo/mobile/lib/app.ts' && grep -q '\"name\": \"playful\"' '$T/demo/design/tokens.json' && grep -q '^EXPO_PUBLIC_DEMO=1' '$T/demo/mobile/.env'"
+check "demo.sh renders the template app (--no-install) with demo mode on, no repo files needed" \
+  "'$KIT/scripts/demo.sh' '$T/demo' --no-install && grep -q 'Demo App' '$T/demo/mobile/lib/app.ts' && grep -q '^EXPO_PUBLIC_DEMO=1' '$T/demo/mobile/.env' && ! grep -q 'examples/' '$KIT/scripts/demo.sh'"
