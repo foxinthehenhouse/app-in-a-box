@@ -95,6 +95,11 @@ for pat, msg in DANGER:
         block(msg)
 
 # --- .env guard ---------------------------------------------------------------
+# A GUARDRAIL, NOT A BOUNDARY: it stops the obvious, accidental ways an agent would
+# print secrets into its transcript. It matches command text, so a multi-step route
+# (`cp .env /tmp/x; cat /tmp/x`, a script that reads it) gets through. The real
+# protections are that secrets never enter git (pre-commit + gitleaks) and that
+# nobody pastes them into chat.
 # settings.json denies the Read tool on .env, but Bash can print it just as well
 # (`head .env`, `python3 -c "print(open('.env').read())"`, `curl -d @.env`), and a
 # printed secret lands in the transcript. Allowed: sourcing it into the shell

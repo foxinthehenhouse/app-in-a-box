@@ -19,7 +19,7 @@ import { analytics, startTimer } from "./analytics";
 import { DEMO, demoFetch } from "./demo";
 import { i18n } from "./i18n";
 import type * as SessionModule from "./session";
-import { supabase } from "./supabase";
+import { currentUserId, supabase } from "./supabase";
 
 const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
@@ -47,11 +47,11 @@ export function newRequestId(): string {
   return `${hex(8)}-${hex(4)}-4${hex(3)}-${variant}${hex(3)}-${hex(12)}`;
 }
 
-async function authHeader(): Promise<Record<string, string>> {
+async function authHeader(): Promise<{ header: Record<string, string>; userId: string | undefined }> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new ApiError("Not signed in", 401);
-  return { Authorization: `Bearer ${token}` };
+  return { header: { Authorization: `Bearer ${token}` }, userId: data.session?.user?.id };
 }
 
 function field(body: unknown, key: string): string | undefined {
@@ -63,6 +63,8 @@ export interface RawResponse {
   body: unknown;
   /** The id the server logged this request under (its echo, else the one we sent). */
   requestId: string;
+  /** Whose token this request carried, so a late 401 can't end someone else's session. */
+  sentAs?: string;
 }
 
 async function send(path: string, init: RequestInit, requestId: string): Promise<RawResponse> {
@@ -71,17 +73,19 @@ async function send(path: string, init: RequestInit, requestId: string): Promise
     return { ...res, requestId };
   }
   if (!API_URL) throw new ApiError("EXPO_PUBLIC_API_URL is not set", 0, undefined, requestId);
+  const auth = await authHeader();
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(init.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
-    ...(await authHeader()),
+    ...auth.header,
     ...((init.headers as Record<string, string>) ?? {}),
     "X-Request-ID": requestId,
   };
   const res = await fetch(`${API_URL}${path}`, { ...init, headers });
   const echoed = res.headers?.get?.("x-request-id") ?? requestId;
-  if (res.status === 204) return { status: 204, body: undefined, requestId: echoed };
-  return { status: res.status, body: await res.json().catch(() => null), requestId: echoed };
+  const sentAs = auth.userId;
+  if (res.status === 204) return { status: 204, body: undefined, requestId: echoed, sentAs };
+  return { status: res.status, body: await res.json().catch(() => null), requestId: echoed, sentAs };
 }
 
 /**
@@ -113,7 +117,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   if (res.status < 200 || res.status >= 300) {
     analytics.apiFailed({ path, status: res.status, duration_ms: elapsed() });
-    if (res.status === 401) await expireSession();
+    // Only end the session this request was made under. A slow request from user A
+    // can 401 after B has signed in on this device; that must not sign B out.
+    if (res.status === 401 && (!res.sentAs || res.sentAs === (await currentUserId()))) {
+      await expireSession();
+    }
     throw new ApiError(
       `Request failed (${res.status})`,
       res.status,

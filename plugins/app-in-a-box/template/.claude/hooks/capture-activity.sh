@@ -73,10 +73,12 @@ def command_of(ti):
 
 
 # Secrets must never reach the activity log: redact values passed on the command line
-# (`--value X`, `--body X`, `-p X`, `Bearer X`, `KEY=value` for secret-looking keys)
-# and anything shaped like a known token, before a command is summarised.
+# (`--value X`, `--body X`, `-p X`, `Bearer X`, `Basic X`, `KEY=value` for secret-looking
+# keys, `?token=X` style URL params) and anything shaped like a known token, before a
+# command, Grep pattern or fetched URL is summarised.
 SECRET_ARG = re.compile(
-    r"(--(?:value|body|token|password|db-password|secret|api-key)[= ]|-p\s+|Bearer\s+|"
+    r"(--(?:value|body|token|password|db-password|secret|api-key)[= ]|-p\s+|Bearer\s+|Basic\s+|"
+    r"[?&](?:access_token|token|api_?key|key|secret|password|signature|sig)=|"
     r"\b[A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|DSN)[A-Z0-9_]*=)"
     r"(\"[^\"]*\"|'[^']*'|\S+)"
 )
@@ -113,7 +115,7 @@ elif tool in ("Edit", "Write", "MultiEdit", "NotebookEdit", "apply_patch"):
     fp = ti.get("file_path") or ti.get("notebook_path") or ""
     summary = f"{tool} {fp}" if fp else (f"{tool}" if tool == "apply_patch" else None)
 elif tool == "Grep":
-    summary = f"Grep '{short(ti.get('pattern', ''), 60)}'" + (f" in {ti.get('path')}" if ti.get("path") else "")
+    summary = f"Grep '{short(redact(ti.get('pattern', '')), 60)}'" + (f" in {ti.get('path')}" if ti.get("path") else "")
 elif tool == "Glob":
     summary = f"Glob '{short(ti.get('pattern', ''), 60)}'"
 elif tool in ("Bash", "shell", "local_shell", "exec_command"):
@@ -139,7 +141,7 @@ elif tool.startswith("mcp__"):
                 if isinstance(ti.get(k), str) and ti.get(k)), "")
     summary = f"MCP {server}:{op}" + (f" {short(key, 60)}" if key else "")
 elif tool in ("WebSearch", "WebFetch"):
-    summary = f"{tool} {short(ti.get('query') or ti.get('url', ''), 80)}"
+    summary = f"{tool} {short(redact(ti.get('query') or ti.get('url', '')), 80)}"
 # Everything else (todo lists, tool-search plumbing) is noise.
 
 if not summary:

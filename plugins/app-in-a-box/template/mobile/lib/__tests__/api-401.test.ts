@@ -51,3 +51,33 @@ it("a failing cleanup still surfaces the 401 to the caller", async () => {
   })) as unknown as typeof fetch;
   await expect(api.getMe()).rejects.toMatchObject({ status: 401 });
 });
+
+describe("a late 401 only ends the session it was sent under", () => {
+  const supa = jest.requireMock("../supabase") as {
+    supabase: { auth: { getSession: jest.Mock } };
+    currentUserId: jest.Mock;
+  };
+  const as = (id: string) => ({ data: { session: { access_token: `tok-${id}`, user: { id } } } });
+  const unauthorized = () =>
+    jest.fn(async () => ({ status: 401, headers: { get: () => null }, json: async () => ({}) })) as unknown as typeof fetch;
+
+  beforeEach(() => session.endSession.mockClear());
+
+  it("A's request 401s after B signed in: B stays signed in", async () => {
+    const api = loadApi();
+    supa.supabase.auth.getSession.mockResolvedValueOnce(as("user-a")); // the request carries A's token
+    supa.currentUserId.mockResolvedValueOnce("user-b"); // …but B is signed in when it answers
+    globalThis.fetch = unauthorized();
+    await expect(api.getMe()).rejects.toMatchObject({ status: 401 });
+    expect(session.endSession).not.toHaveBeenCalled();
+  });
+
+  it("the signed-in user's own request 401s: their session ends", async () => {
+    const api = loadApi();
+    supa.supabase.auth.getSession.mockResolvedValueOnce(as("user-a"));
+    supa.currentUserId.mockResolvedValueOnce("user-a");
+    globalThis.fetch = unauthorized();
+    await expect(api.getMe()).rejects.toMatchObject({ status: 401 });
+    expect(session.endSession).toHaveBeenCalledWith({ unregisterPush: false });
+  });
+});
