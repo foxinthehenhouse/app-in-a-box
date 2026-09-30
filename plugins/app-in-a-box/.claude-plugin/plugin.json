@@ -13,8 +13,8 @@
       "type": "string",
       "title": "Default backlog tool",
       "description": "Pre-selected (as Recommended) in the interview's backlog question. You can still pick the other one per app.",
-      "options": ["github", "linear"],
-      "default": "github"
+      "options": ["linear", "github"],
+      "default": "linear"
     },
     "default_hosting": {
       "type": "string",

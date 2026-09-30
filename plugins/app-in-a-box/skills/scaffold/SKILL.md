@@ -117,9 +117,23 @@ The template is a correct skeleton. Now shape it to the brief:
 5. **Domain rules.** For each `sensitive_data` entry, copy
    `.agents/rules/optional/<domain>.md` up to `.agents/rules/` and add a row to the
    path-rules table in `AGENTS.md`.
-6. **Fill the AGENTS.md markers:** `appbox:critical-rules` (2–4 domain rules from
-   the brief), `appbox:ai-fence`, `appbox:voice`, `appbox:domain-rules`. Delete each
-   marker comment once it's filled.
+6. **Draft AGENTS.md from the interview.** It's the file every future agent reads
+   first, so write it from the brief, not from memory:
+   - `appbox:product`: who it's for, their problem in their words, the core loop,
+     the positioning line (BRIEF → Positioning), the north-star metric and the top
+     riskiest assumption (VALIDATION.md). At most 10 lines.
+   - `appbox:critical-rules` (2–4 domain rules from the brief), `appbox:ai-fence`,
+     `appbox:voice`, `appbox:domain-rules`.
+   - **Stack line:** drop PostHog / Sentry from it if `stack.analytics` /
+     `stack.errors` is `none`, and say "(declined: no-op until enabled)".
+   - **`## Where things live`:** one row per core-loop resource you added in steps
+     1–3 (its screens, router, service, tables). Keep the template's rows.
+   Delete each marker comment once it's filled. Then **show the owner the Product
+   section and the map and ask (structured): "Does this describe your app? Anything
+   wrong or missing?"** Apply edits before committing. From here on the harness lint
+   keeps it honest: `tests/harness/test_agents_md_current.py` fails CI on any
+   unfilled marker (once `progress.scaffold` is done) or any screen, router, service
+   or table missing from the map, so every feature PR updates it.
 7. **AI (only if `ai.enabled`).** Add `backend/services/<name>_service.py` as the
    only module that calls the model API, register `ANTHROPIC_API_KEY` (or the
    provider's key) in `FEATURE_CONFIG`, and state the fence in AGENTS.md rule 8.

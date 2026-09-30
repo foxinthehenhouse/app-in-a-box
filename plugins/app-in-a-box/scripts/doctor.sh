@@ -60,8 +60,25 @@ accounts() {
   if have railway; then
     if railway whoami >/dev/null 2>&1; then ok railway "$(railway whoami 2>/dev/null | head -1)"; else miss railway "run: railway login"; fi
   fi
-  [ -n "${POSTHOG_PERSONAL_API_KEY:-}" ] && ok posthog "personal key in env" || warn posthog "no POSTHOG_PERSONAL_API_KEY in env (MCP OAuth also works)"
-  [ -n "${SENTRY_AUTH_TOKEN:-}" ] && ok sentry "auth token in env" || warn sentry "no SENTRY_AUTH_TOKEN in env (MCP OAuth also works)"
+  # Opt-in services: only checked when appbox.yaml's stack chose them (no file yet = check).
+  if stack_wants analytics posthog; then
+    [ -n "${POSTHOG_PERSONAL_API_KEY:-}" ] && ok posthog "personal key in env" || warn posthog "no POSTHOG_PERSONAL_API_KEY in env (MCP OAuth also works)"
+  else ok posthog "not in the stack (analytics declined; the app's calls stay no-ops)"; fi
+  if stack_wants errors sentry; then
+    [ -n "${SENTRY_AUTH_TOKEN:-}" ] && ok sentry "auth token in env" || warn sentry "no SENTRY_AUTH_TOKEN in env (MCP OAuth also works)"
+  else ok sentry "not in the stack (error monitoring declined; monitoring stays a no-op)"; fi
+  if stack_wants tracker linear; then
+    warn linear "authorise the Linear MCP: /mcp in Claude Code, or codex mcp login linear (restart after)"
+  fi
+}
+
+# stack_wants <key> <value>: true when appbox.yaml has no stack yet, or stack.<key> is <value>.
+stack_wants() {
+  [ -f appbox.yaml ] || return 0
+  local v
+  # Same reading as render.py's read_stack: skip comment lines, strip quotes.
+  v=$(awk -v k="$1" '/^[[:space:]]*#/{next} /^stack:/{s=1;next} /^[^ ]/{s=0} s && $1==k":"{gsub(/["\047]/,"",$2); print $2; exit}' appbox.yaml)
+  [ -z "$v" ] || [ "$v" = "$2" ]
 }
 
 full() {

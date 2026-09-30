@@ -18,6 +18,7 @@ Then it generates the per-agent adapters from the shared, agent-neutral sources:
     .claude/skills, .claude/agents  -> symlinks into .agents/     (Claude Code)
     .codex/agents/*.toml            <- .agents/agents/*.md        (Codex)
     .codex/config.toml              <- .mcp.json (+ sandbox network for provisioning)
+    .mcp.json                       synced to the services appbox.yaml's stack chose
     .codex/hooks.json               <- .claude/settings.json hooks (same scripts)
     mobile/lib/tokens.ts            <- design/tokens.json
 
@@ -412,9 +413,63 @@ def codex_hooks_json(claude_settings: dict) -> str:
     return json.dumps({"hooks": hooks}, indent=2) + "\n"
 
 
+# An MCP server that only serves an opt-in service. It's dropped from the generated
+# .mcp.json when appbox.yaml's stack declines that service, so nobody is asked to
+# authorise a server they said no to. (The app's typed no-op calls stay.)
+OPTIONAL_MCP = {
+    "posthog": ("analytics", "posthog"),
+    "sentry": ("errors", "sentry"),
+    "linear": ("tracker", "linear"),
+}
+
+
+def read_stack(target: Path) -> dict[str, str]:
+    """The flat `stack:` mapping from appbox.yaml (stdlib only, like progress.py)."""
+    box = target / "appbox.yaml"
+    if not box.is_file():
+        return {}
+    stack, inside = {}, False
+    for raw in box.read_text().splitlines():
+        line = raw.split(" #", 1)[0].rstrip()
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if not line.startswith(" "):
+            inside = line.split(":", 1)[0] == "stack"
+            continue
+        if inside and line.startswith("  ") and not line.startswith("   "):
+            key, _, value = line.strip().partition(":")
+            stack[key] = value.strip().strip("\"'")
+    return stack
+
+
+def sync_mcp(target: Path) -> list[str]:
+    """Make the opt-in MCP servers match the stack: drop declined ones, and restore a
+    chosen one (from the template) that an earlier render dropped, so switching a
+    service on later is `stack.<key>: <service>` in appbox.yaml + `--adapters-only`."""
+    mcp, stack = target / ".mcp.json", read_stack(target)
+    if not mcp.is_file() or not stack:
+        return []  # no appbox.yaml yet (a bare render): keep every server
+    data = json.loads(mcp.read_text())
+    servers = data.setdefault("mcpServers", {})
+    shipped = json.loads((TEMPLATE / ".mcp.json").read_text()).get("mcpServers", {})
+    changed = []
+    for name, (key, wanted) in OPTIONAL_MCP.items():
+        if key not in stack:
+            continue
+        if stack[key] != wanted and name in servers:
+            del servers[name]
+            changed.append(f"dropped {name} (not in the stack)")
+        elif stack[key] == wanted and name not in servers and name in shipped:
+            servers[name] = shipped[name]
+            changed.append(f"restored {name} (back in the stack)")
+    if changed:
+        mcp.write_text(json.dumps(data, indent=2) + "\n")
+    return changed
+
+
 def adapters(target: Path) -> list[str]:
     """Generate Claude Code + Codex adapters from the shared .agents/ sources."""
-    made: list[str] = []
+    made: list[str] = [f".mcp.json: {c}" for c in sync_mcp(target)]
     agents_dir = target / ".agents"
     if (agents_dir / "skills").is_dir():
         made.append(_link(target, ".claude/skills", "../.agents/skills"))

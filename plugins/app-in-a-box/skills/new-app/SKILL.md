@@ -89,7 +89,7 @@ resuming. If every phase is done, don't restart: go to "Keep going" below.
 | 4 | Scaffold | `KIT/skills/scaffold/SKILL.md` | App boots locally; backend tests green; first commit on `main` |
 | 5 | Provision | `KIT/skills/provision/SKILL.md` | Every resource in `appbox.yaml.resources` exists; secrets wired; migrations applied; `/health` 200 |
 | 6 | Harness | `KIT/skills/harness/SKILL.md` | Git hooks on; GitHub protection + AI review; Claude + Codex adapters trusted; every guard smoke-tested |
-| 7 | Verify | `KIT/skills/doctor/SKILL.md` (mode: full) | All gates green; first PR open; first analytics event seen |
+| 7 | Verify | `KIT/skills/doctor/SKILL.md` (mode: full) | All gates green; first PR open; first analytics event seen (if analytics is in the stack) |
 | 8 | First feature | `KIT/skills/first-feature/SKILL.md` | Backlog seeded; feature #1 PR open |
 
 If the user passed an idea as an argument (`$ARGUMENTS`), use it as the seed for

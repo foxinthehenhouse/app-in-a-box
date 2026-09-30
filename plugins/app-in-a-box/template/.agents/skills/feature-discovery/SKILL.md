@@ -48,3 +48,7 @@ A small feature is half a page. Don't pad.
 
 Show the owner the Problem/Scope/UX/⚖️ sections (not the whole spec) and get a yes.
 Then hand off: "Run `build-feature <spec path>`."
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Scope in and out of v1, which user problem wins when two conflict, copy and tone of new screens, any new personal data collected, and the success metric. Ask them together once discovery is done, before the PRD is final; the PRD records each answer.

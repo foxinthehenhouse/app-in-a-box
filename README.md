@@ -84,7 +84,7 @@ A repo that's ready to ship on day one, not a starter you'll spend a week harden
 | **⚙️ Backend** | FastAPI with Supabase JWT auth (JWKS). A `/health` that names every unconfigured feature instead of failing silently, error ids on every 500, PII-scrubbed Sentry, and an example resource that's correctly scoped to the user, with ownership tests. |
 | **🗄️ Database** | Supabase Postgres migrations with row-level security on every table, a profile-on-signup trigger, and a keep-alive for the free tier. |
 | **🎨 Design** | Three rendered design directions of *your* core screen. The one you pick becomes `design/tokens.json`, and a WCAG contrast gate rejects unreadable palettes before any code exists. |
-| **🛡️ Guards** | Git hooks that bind every agent and human: no commits on `main`, no staged `.env`, no key-shaped strings, gates before push. Mobile guard scripts: every screen instrumented, every env var wired for shipping builds, replay never unmasked. |
+| **🛡️ Guards** | Git hooks that bind every agent and human: no commits on `main`, no staged `.env`, no key-shaped strings, gates before push. Mobile guard scripts: every screen instrumented, every env var wired for shipping builds, replay never unmasked. Harness lints: every PR names its ticket, product skills ask the owner instead of deciding, and `AGENTS.md`'s map of screens, APIs and tables can't drift from the code. |
 | **🔁 CI/CD** | Backend (ruff + pyright + pytest), mobile (tsc + eslint + guards + jest), migrations + RLS tested with pgTAP on a throwaway Postgres (Supabase Branching opt-in), gitleaks + CodeQL, workflow lint (actionlint + zizmor) and harness lint for prompts/hooks, AI PR review (Claude or Codex), EAS build/OTA workflows, scheduled jobs behind a secret, and a Supabase keep-alive. |
 | **🤖 Agent harness** | `AGENTS.md` (Claude reads it via `CLAUDE.md`). 13 skills: backlog, next, feature-discovery, build-feature, pr-review, new-worktree, ship, north-star-report, market-watch, routines, reflect, harness-optimize, harness-check. 10 subagent roles on routed models, with a `chair` for irreversible calls. Path rules that inject when you touch migrations, API contracts or screens. A git-tracked memory vault. |
 | **🧠 Self-learning loop** | Every tool call is captured. `reflect` turns corrections into memory, and a pattern extractor mines transcripts for repeated failures. `harness-optimize` then proposes harness changes as a PR, with a protected-components manifest and a sunset protocol. |
@@ -121,13 +121,13 @@ flowchart LR
 |---|---|---|
 | 0 Preflight | Checks and installs git, Node, Python 3.12 and the service CLIs | Approve installs |
 | 1a Idea check | ~5 min of market research: competitors, real user complaints, what people pay. A cited Go / Sharpen / Rethink verdict in `docs/product/VALIDATION.md` | Read it, then carry on, sharpen or park |
-| 1b Interview | ~12 questions → `docs/product/BRIEF.md` + `appbox.yaml`, with metrics aimed at the idea's riskiest assumption | Answer |
+| 1b Interview | ~12 questions → `docs/product/BRIEF.md` + `appbox.yaml`, with metrics aimed at the idea's riskiest assumption. You choose the outside services: Linear or GitHub Issues, and whether you want analytics and error monitoring | Answer |
 | 2 Design | Renders 3 directions of your core screen, then writes contrast-checked tokens | Pick one |
 | 3 Accounts | Opens each free service's signup, then logs in the CLIs | Click "Continue with GitHub" ~6× |
 | 4 Scaffold | Creates the Expo app, overlays the template, and shapes the data model, API and screens to your brief | Nothing |
 | 5 Provision | Creates cloud resources idempotently and wires every secret (never into git) | Nothing |
 | 6 Harness | Turns on the git guards, branch protection and AI review, then proves each guard fires | Trust the project in Codex |
-| 7 Verify | All gates green, `/health`, first PR, first analytics event and first error | Open the app on your phone |
+| 7 Verify | All gates green, `/health`, first PR, plus the first analytics event and first error for the services you chose | Open the app on your phone |
 | 8 First feature | Seeds a backlog and builds feature #1 through the full loop | Review the PR |
 
 Stop at any phase. Progress lives in `appbox.yaml`, and re-running `new-app` resumes

@@ -86,3 +86,7 @@ mobile/app.json mobile/package.json`.
 
 Report: the checklist with ✅/❌/n/a, the build/submit URLs, and "What I need from you"
 (the store-console steps only the owner can do).
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Release notes wording, store listing copy and screenshots, pricing or availability changes, and releasing with a known issue. Ask each before submitting; store changes can't be quietly undone.

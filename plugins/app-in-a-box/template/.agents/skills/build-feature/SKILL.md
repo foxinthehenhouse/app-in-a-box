@@ -37,7 +37,10 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
    the code on purpose** (drop the filter, pick the wrong row, skip a field) and
    confirm the test goes red. A test whose fixture can't tell right from wrong
    (e.g. "latest by X" where X and list order agree) proves nothing.
-8. **PR:** draft PR, body = spec link + what changed + how it was verified (real
+8. **Context:** update `AGENTS.md` → "Where things live" (a new screen, router,
+   service or table gets its row; the harness lint fails CI otherwise), and any
+   rule or product line this feature made untrue. Future agents read this first.
+9. **PR:** draft PR, body = spec link + what changed + how it was verified (real
    command output). Then run the `pr-review` skill. After it merges, run `next`.
 
 ## Never
@@ -46,3 +49,7 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
 - Change a wire field in place (add alongside).
 - Claim done on code you didn't run.
 - Widen scope silently. File a ticket for anything you notice and keep going.
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Anything the spec didn't settle that a user would notice: an extra state or screen, cutting an acceptance criterion, copy, a default value, a limitation you'd ship with. Stop and ask before building it, not in the PR afterwards. Pure implementation choices stay yours.

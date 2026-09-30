@@ -84,6 +84,9 @@ Record `resources.supabase.{ref,url,region}`.
 
 ## 3. Sentry (two projects: `<slug>-api`, `<slug>-app`)
 
+**Skip if `stack.errors: none`.** Monitoring stays a no-op without a DSN; leave
+`SENTRY_DSN` / `EXPO_PUBLIC_SENTRY_DSN` out of `.env` and EAS.
+
 The Sentry MCP (`create_project`, `find_dsns`) works. The REST fallback, with
 `SENTRY_AUTH_TOKEN` from `.env`:
 - Org/team: `GET https://sentry.io/api/0/organizations/` → `GET .../organizations/<org>/teams/`.
@@ -95,6 +98,9 @@ Write `SENTRY_DSN` (api) and `EXPO_PUBLIC_SENTRY_DSN` (app) to `.env`. DSNs are
 not secret, but keep them in env for per-environment swaps.
 
 ## 4. PostHog
+
+**Skip if `stack.analytics: none`.** Analytics stays a no-op without a key; leave
+the `*POSTHOG*` variables out of `.env` and EAS.
 
 Use the PostHog MCP if connected. Otherwise use the REST API with
 `POSTHOG_PERSONAL_API_KEY`: list projects, create `<App name>` if missing, and
@@ -174,6 +180,14 @@ Same keys as `.env`, empty values, grouped by service with a comment naming wher
 each is created. **This file is tracked.** Check it contains no values before
 committing: `grep -E '=.+' .env.example` must print nothing. Commit it and the updated
 `appbox.yaml` (resource IDs, never values) on `chore/appbox-setup`, not on `main`.
+
+## Turning a declined service on later
+
+Set it in `appbox.yaml` (`stack.analytics: posthog`, `stack.errors: sentry` or
+`stack.tracker: linear`), re-run `python3 "$KIT/scripts/render.py" --target .
+--adapters-only` (it restores that service's MCP server in `.mcp.json` and
+`.codex/config.toml`), then do its row in the accounts phase and its step above. The
+app's calls were no-ops all along, so no app code changes.
 
 ## Exit check
 

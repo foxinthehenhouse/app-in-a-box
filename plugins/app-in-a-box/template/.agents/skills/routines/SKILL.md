@@ -63,3 +63,7 @@ Commit that on a branch with a PR (`chore: schedule rituals`), and log it in
 `docs/decision-log.md` (who agreed, what runs, where).
 
 Reply with a table: ritual → where it runs → first run time → how to stop it.
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Which rituals run unattended and on what schedule, since each run spends tokens and can open issues or PRs. One yes per routine.

@@ -46,7 +46,10 @@ breaks · for whom`.
 3. **Analytics + env wiring:** new screen without a view event, mutation without
    success+failure events, new `EXPO_PUBLIC_*` or backend env var not wired
    (`.agents/rules/env-var-wiring.md`).
-4. **Tests:** is the new behaviour tested? Would the test fail if the code were
+4. **Context docs:** does `AGENTS.md` still describe the code after this PR? The map
+   row for anything added, and any rule, product line or command the diff made
+   untrue (the lint only checks the map and markers; the prose is yours to read).
+5. **Tests:** is the new behaviour tested? Would the test fail if the code were
    wrong? (Negative-control one important test mentally: delete the key line, and
    does anything go red?)
 
@@ -85,3 +88,7 @@ Chair: <MERGE/ESCALATE + its three reasons, or "not needed (low risk)">
 
 Merge only if the owner has said review-and-merge is OK for low-risk PRs and the
 verdict is ✅ with green CI. Squash merge, delete the branch.
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Findings that are product calls, not bugs: changed copy or flow, scope beyond the ticket, a new data field, a known limitation. Interactive: ask the owner before approving. In CI (review-only): post them as ⚖️ questions in the verdict comment and don't count them as blockers or approvals.

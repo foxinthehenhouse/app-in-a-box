@@ -90,7 +90,7 @@ run the same instructions in either agent.
 | 4. Scaffold | Generates the app, backend, migrations, design tokens and harness from your answers | Nothing | 10 min |
 | 5. Provision | Creates the GitHub repo, Supabase, Expo, backend host, PostHog and Sentry projects, and wires every secret to the right place | Nothing | 10 min |
 | 6. Harness | Turns on the git guards, branch protection and AI review, trusts the Claude/Codex adapters, and smoke-tests every guard | Trust the project in Codex, if you use it | 5 min |
-| 7. Verify | Runs every gate, hits `/health`, opens the first PR, and confirms the first analytics event and error land | Open the app on your phone | 10 min |
+| 7. Verify | Runs every gate, hits `/health`, opens the first PR, and confirms the first analytics event and error land (for the services you chose) | Open the app on your phone | 10 min |
 | 8. First feature | Turns your brief into a backlog, then builds feature #1 through the spec → PR loop | Review the PR | ongoing |
 
 You can stop at any phase. Progress is saved in `appbox.yaml` (`progress:`), and
@@ -149,7 +149,7 @@ can, so each signup is one click.
 | PostHog | Product analytics, flags, session replay | 1M events/mo | Project: yes, via API/MCP with a personal key |
 | Sentry | Crash and error monitoring | Developer plan | Projects and DSNs: yes, via MCP/API |
 | Anthropic / OpenAI | Only if your app has an AI feature | Pay as you go | No. You create the key. |
-| Linear | Backlog (optional; GitHub Issues is the default) | Free plan | Team: no. Projects and issues: yes. |
+| Linear | Backlog (recommended; GitHub Issues is the alternative) | Free plan | Team: no. Projects and issues: yes. |
 | Apple Developer | TestFlight / App Store (iOS only) | **$99/yr, not free** | No. Enrolment needs identity verification. |
 
 **Why the agent can't click "sign up" for you:** every provider makes you accept its

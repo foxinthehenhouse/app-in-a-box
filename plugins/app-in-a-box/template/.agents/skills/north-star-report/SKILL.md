@@ -61,3 +61,7 @@ python3 .claude/hooks/harness_paths.py stamp north-star-report
 ```
 
 Reply with the headline number, the drop-off, and the ticket links, in 5 lines.
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Which proposed tickets to file, and any hypothesis that implies a product change (a flow, a feature, a metric). Ask before filing; never re-define the north star yourself.

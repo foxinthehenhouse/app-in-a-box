@@ -3,6 +3,17 @@
 Source of truth for every coding agent working in this repo (Claude Code, Codex, and
 anything else that reads `AGENTS.md` or the Agent Skills format).
 
+| What | Source of truth | Claude Code | Codex |
+|---|---|---|---|
+| Project instructions | `AGENTS.md` (+ nested) | `CLAUDE.md` → `@AGENTS.md` | reads `AGENTS.md` |
+| Skills | `.agents/skills/*/SKILL.md` | `.claude/skills` (symlink), `/name` | native, `$name` |
+| Subagents | `.agents/agents/*.md` | `.claude/agents` (symlink) | `.codex/agents/*.toml` (generated) |
+| Path rules | `.agents/rules/*.md` | auto-injected by hook | read per the table below |
+| Memory | `.agents/memory/` | recall hook + index | read `MEMORY.md` at session start |
+| MCP servers | `.mcp.json` | native | `.codex/config.toml` (generated) |
+| Hooks | `.claude/hooks/*` scripts | `.claude/settings.json` | `.codex/hooks.json` (trust once) |
+| Hard guards | `.githooks/` (no commits on main, no secrets, gates on push) | both | both |
+
 - `skills/`: Agent Skills (`SKILL.md` with `name` + `description` frontmatter). Codex
   reads this folder natively; Claude Code reads it through the `.claude/skills`
   symlink.

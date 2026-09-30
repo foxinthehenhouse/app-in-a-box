@@ -19,7 +19,8 @@ identities. Everything *after* the account exists is yours to automate.
 
 ## Order (dependency order: GitHub first, since the others sign in with it)
 
-Build the list from `appbox.yaml.stack`. Skip anything already logged in; run
+Build the list from `appbox.yaml.stack`: a service set to `none` (analytics, errors)
+isn't on it, and neither is Linear when `tracker: github`. Skip anything already logged in; run
 `doctor.sh accounts` first to see which.
 
 | # | Service | Signup page | Then run (you) | Needed when |
@@ -54,7 +55,8 @@ Build the list from `appbox.yaml.stack`. Skip anything already logged in; run
 
 The plugin ships `.mcp.json` entries for GitHub, Supabase, Railway, PostHog, Sentry,
 Linear, Expo and Chrome DevTools. Remote servers use OAuth: tell the user to run
-`/mcp` and authenticate each one the stack uses. **A newly authorised MCP server is
+`/mcp` and authenticate each one the stack uses (the renderer already dropped the
+servers of declined services from the generated `.mcp.json`). **A newly authorised MCP server is
 only visible after Claude Code restarts.** If you need its tools this session, say
 so and fall back to the CLI or REST API. Every provisioning step in phase 5 has a
 CLI/API path, so MCP is a convenience, never a blocker. (Codex: `codex mcp login

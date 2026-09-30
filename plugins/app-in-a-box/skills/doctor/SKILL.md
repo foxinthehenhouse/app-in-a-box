@@ -36,12 +36,14 @@ or `<clone>/plugins/app-in-a-box` otherwise.)
 `API_URL=<backend url> doctor.sh full` from the app root, plus these checks the
 script can't do:
 
-- **First analytics event.** Open the app (Expo Go or a dev build), sign in, and
+- **First analytics event** (skip, and report "declined", if `stack.analytics: none`;
+  then confirm instead that nothing tries to send). Open the app (Expo Go or a dev build), sign in, and
   confirm a `screen_viewed` event reaches PostHog. Use the PostHog MCP, or the
   PostHog "Activity" page. Dev builds have analytics disabled by design
   (`disabled: __DEV__`), so verify on a preview build or temporarily set
   `EXPO_PUBLIC_ANALYTICS_IN_DEV=1`.
-- **First error.** Hit `GET /debug/sentry` on the backend (enabled only when
+- **First error** (skip if `stack.errors: none`; `/health` then lists error
+  monitoring under `features_unavailable`, which is correct, not a failure). Hit `GET /debug/sentry` on the backend (enabled only when
   `APP_ENV != production`) and confirm the issue lands in Sentry.
 - **PR loop.** A PR exists, CI ran on it, and the Claude review workflow commented.
 

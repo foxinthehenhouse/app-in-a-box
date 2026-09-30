@@ -77,3 +77,7 @@ python3 .claude/hooks/harness_paths.py stamp market-watch
 ```
 
 Reply in 3 lines: changed or not, the biggest change, and the proposal (if any).
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Positioning, pricing or roadmap responses to what changed. Propose them as ⚖️ questions; the owner decides whether the market moved enough to act.

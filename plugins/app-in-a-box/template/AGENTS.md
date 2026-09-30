@@ -5,6 +5,11 @@ __ONE_LINER__
 **Stage:** Pre-launch MVP. **Owner:** @__OWNER__. Product brief: `docs/product/BRIEF.md`.
 Setup record (stack, resources, progress): `appbox.yaml`.
 
+## Product
+
+<!-- appbox:product: scaffold fills from BRIEF.md + VALIDATION.md: who it's for, their
+problem, core loop, positioning, north-star metric, top riskiest assumption (≤ 10 lines). -->
+
 ## Stack
 
 Expo / React Native (TypeScript strict) · FastAPI (Python 3.12, :8000) · Supabase
@@ -51,24 +56,25 @@ maestro test mobile/.maestro/                # E2E flows (per-directory)
 - `docs/runbooks/`: release, rollback, incident, secrets rotation
 - `docs/product/`: brief, PRDs, specs
 
+## Where things live
+
+**Update the row in the same PR as the code:** `tests/harness/test_agents_md_current.py`
+fails CI when a screen, router, service or table is missing here.
+
+| Area | Screens (`mobile/`) | API (`backend/`) | Logic (`backend/`) | Tables |
+|---|---|---|---|---|
+| Sign-in; Home (the core loop) | `app/(auth)/sign-in.tsx`; `app/(app)/index.tsx` | (Supabase Auth) | | |
+| Profile, settings, account | `app/(app)/settings.tsx`, `app/edit-name.tsx`, `app/delete-account.tsx` | `routers/me.py` | | `profiles` |
+| Data export | | `routers/export.py` | | |
+| Push notifications | | `routers/push.py` | `services/push_service.py` | `push_tokens`, `push_tickets` |
+| Scheduled jobs, rate limits | | `routers/internal.py` | `services/jobs_service.py` | `job_runs`, `rate_limits`, `keep_alive` |
+| Dev only | `app/gallery.tsx` | | | |
+
 ## Agent setup (works in Claude Code and Codex)
 
-Everything agent-facing lives in one neutral place; the per-agent folders are
-generated adapters. Edit the source, never the adapter.
-
-| What | Source of truth | Claude Code | Codex |
-|---|---|---|---|
-| Project instructions | `AGENTS.md` (+ nested) | `CLAUDE.md` → `@AGENTS.md` | reads `AGENTS.md` |
-| Skills | `.agents/skills/*/SKILL.md` | `.claude/skills` (symlink), `/name` | native, `$name` |
-| Subagents | `.agents/agents/*.md` | `.claude/agents` (symlink) | `.codex/agents/*.toml` (generated) |
-| Path rules | `.agents/rules/*.md` | auto-injected by hook | read per the table below |
-| Memory | `.agents/memory/` | recall hook + index | read `MEMORY.md` at session start |
-| MCP servers | `.mcp.json` | native | `.codex/config.toml` (generated) |
-| Hooks | `.claude/hooks/*` scripts | `.claude/settings.json` | `.codex/hooks.json` (trust once) |
-| Hard guards | `.githooks/` (no commits on main, no secrets, gates on push) | both | both |
-
-Regenerate adapters after changing a source: re-run the App in a Box renderer, or
-see `.agents/README.md`.
+Everything agent-facing lives in `.agents/` (skills, subagents, rules, memory);
+`.claude/` and `.codex/` are generated adapters, so edit the source, never the adapter.
+The source → adapter table and how to regenerate: `.agents/README.md`.
 
 ### Path rules: read before editing matching files
 
@@ -78,6 +84,7 @@ see `.agents/README.md`.
 | `supabase/migrations/**` | `.agents/rules/db-migrations.md` |
 | `mobile/app/**`, `mobile/components/**` | `.agents/rules/mobile-a11y.md`, `.agents/rules/analytics-coverage.md` |
 | `mobile/lib/**`, `mobile/eas.json`, `backend/config.py` | `.agents/rules/env-var-wiring.md` |
+| `docs/product/**`, `mobile/app/**`, `mobile/locales/**`, `mobile/components/**`, and any product call anywhere | `.agents/rules/product-judgement.md` |
 <!-- appbox:domain-rules: rows for any .agents/rules/<domain>.md enabled from optional/ -->
 
 ## How work flows here
@@ -85,8 +92,11 @@ see `.agents/README.md`.
 Skills are invoked as `/name` in Claude Code and `$name` in Codex; both agents
 also pick them up automatically from their descriptions.
 
-1. **Every change has a ticket.** Use the `backlog` skill to pick or file one (GitHub Issues or
-   Linear, per `appbox.yaml`). Branch `<type>/<ticket>-<slug>`; the PR references it.
+1. **Every change has a ticket.** Use the `backlog` skill to pick or file one (Linear or
+   GitHub Issues, per `appbox.yaml`). Branch `<type>/<ticket>-<slug>`; the PR references
+   it, and the `ticket` CI check enforces that. **File sub-tasks and follow-ups the
+   moment you find them** (sub-issues of the current ticket, or new related tickets),
+   never "later" in chat.
 2. **New feature → `feature-discovery` first**, which emits the brief + PRD + tech spec,
    then `build-feature` implements it against the spec.
 3. **One unit of work = one branch = one worktree = one PR.** `new-worktree` skill.
@@ -95,8 +105,11 @@ also pick them up automatically from their descriptions.
    didn't run doesn't count.
 5. **PRs are reviewed by the `pr-review` skill** (and the AI review in CI). Squash
    merge; delete the branch. A merged branch is dead, so follow-ups go on a new branch.
-6. **Mark real forks with ⚖️.** When you make a call that's arguably the owner's
-   (scope cut, tradeoff, risk appetite), say what you chose and the alternative.
+6. **Ask, don't decide, on product calls.** Scope, what users see, money, positioning,
+   data and priorities belong to the owner: ask with a structured question
+   (recommended option first) per `.agents/rules/product-judgement.md`. Calls you make
+   within authority you already have get a ⚖️ and the alternative, so they can be
+   overruled.
 
 **Keeping it moving.** Not sure what to do, or the owner asks "what's next?" → the
 `next` skill (it ranks CI, PRs, backlog, rituals and analytics; the session-start

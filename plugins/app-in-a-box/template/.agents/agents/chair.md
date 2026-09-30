@@ -27,3 +27,7 @@ Owner's call: the ⚖️ fork the owner must decide, or "none"
 You can veto a merge. You can't authorise one the risk rules forbid: a PR that the
 `pr-review` skill classes as risky still goes to the owner even if you rule MERGE.
 Read-only: never edit, commit, push or merge.
+
+You run as a subagent, so you can't ask the owner yourself. Return every product-judgement
+call (see `.agents/rules/product-judgement.md`) as a `⚖️ QUESTION:` block with options,
+your recommendation first, and the evidence; the orchestrating agent asks it.

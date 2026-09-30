@@ -67,3 +67,7 @@ Use a structured question (`AskUserQuestion` in Claude Code, `request_user_input
 Codex) with the three options if the tool exists, otherwise ask in chat. On "go", run
 the named skill. If you find a bug or scope while gathering signals, file it with
 `backlog` before answering. Don't keep a to-do list in chat.
+
+## Ask the owner
+
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: When two actions tie on rank, or the top one is a product call (a scope cut, launching, pricing), present the pick and alternates as one structured question instead of starting.

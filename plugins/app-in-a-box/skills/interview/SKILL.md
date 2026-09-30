@@ -91,8 +91,20 @@ tracker `${user_config.default_tracker}`, hosting `${user_config.default_hosting
 If those read as real values rather than `${...}` placeholders, make them the
 "(Recommended)" options below; otherwise (Codex, pasted prompt) use the defaults shown.
 
-11. **Backlog tool:** GitHub Issues (Recommended: zero extra accounts) · Linear.
-    *Why:* every change gets a ticket, and `next` reads this tracker to pick your work.
+11. **Services: which outside tools do you want?** Ask these together (structured),
+    each with "you pick". Nothing here is required. Declining one skips its account,
+    provisioning and MCP server, but the app keeps its typed calls as harmless no-ops,
+    so turning it on later takes one key, not a rewrite.
+    - **Ticket management:** Linear + its MCP (Recommended: agents file a ticket or
+      sub-issue the moment they find new scope, a bug or a follow-up, so nothing gets
+      lost in chat; free for small teams) · GitHub Issues (zero extra accounts).
+      *Why:* every change gets a ticket, and `next` reads this tracker to pick your work.
+    - **Product analytics:** PostHog (Recommended: free tier; the north-star report,
+      `next` and `market-watch` read it) · Not now. *Why:* without it you can't see
+      whether the riskiest assumption from the idea check holds.
+    - **Error monitoring:** Sentry (Recommended: free tier; crashes arrive with the
+      request id the user sees) · Not now. *Why:* without it you learn about crashes
+      from store reviews.
 12. **Backend hosting:** Railway (Recommended: what Forge uses, about $5/mo after
     trial) · Fly.io · Render. *Why:* the only choice here with a monthly cost. (A
     Supabase-only stack with no Python backend isn't supported in v1.)
@@ -134,9 +146,9 @@ stack:
   backend: fastapi            # the only backend in v1
   hosting: railway            # railway|fly|render|none
   auth: [email_otp, apple, google]
-  tracker: github             # github|linear
-  analytics: posthog
-  errors: sentry
+  tracker: linear             # linear|github
+  analytics: posthog          # posthog|none (none keeps no-op calls in the app)
+  errors: sentry              # sentry|none (same)
 design:
   direction: null             # filled in by phase 2
 resources: {}                 # filled in by phase 5: IDs/URLs only, never secrets

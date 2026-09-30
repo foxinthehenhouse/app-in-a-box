@@ -35,10 +35,10 @@ Never require a job that can be skipped by a path filter or an `if:` condition
 (`codeql`, `review`), or PRs wait forever on a check that never reports. The kit
 selftest fails if this list names a job that doesn't exist.
 
-<!-- required-checks: python mobile migrations-rls gitleaks -->
+<!-- required-checks: python mobile migrations-rls gitleaks ticket -->
 
 ```
-gh api -X PUT "repos/<owner>/<slug>/branches/main/protection" -F "required_status_checks[strict]=true" -F "required_status_checks[contexts][]=python" -F "required_status_checks[contexts][]=mobile" -F "required_status_checks[contexts][]=migrations-rls" -F "required_status_checks[contexts][]=gitleaks" -F "enforce_admins=false" -F "required_pull_request_reviews=null" -F "restrictions=null"
+gh api -X PUT "repos/<owner>/<slug>/branches/main/protection" -F "required_status_checks[strict]=true" -F "required_status_checks[contexts][]=python" -F "required_status_checks[contexts][]=mobile" -F "required_status_checks[contexts][]=migrations-rls" -F "required_status_checks[contexts][]=gitleaks" -F "required_status_checks[contexts][]=ticket" -F "enforce_admins=false" -F "required_pull_request_reviews=null" -F "restrictions=null"
 ```
 
 GitHub only offers checks it has seen, so run this after the phase 7 PR's first CI
