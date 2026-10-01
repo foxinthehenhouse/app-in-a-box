@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
     [
         "docs/runbooks/release.md",
         "docs/runbooks/rollback.md",
+        "scripts/rollback-ota.sh",
         "docs/runbooks/incident.md",
         "docs/runbooks/secrets-rotation.md",
         "mobile/.eas/workflows/pr-preview.yml",

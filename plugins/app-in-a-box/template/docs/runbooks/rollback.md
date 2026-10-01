@@ -10,13 +10,20 @@ An OTA update is live the next time users open the app, so rolling it back is th
 fastest fix for a JS bug.
 
 ```bash
-cd mobile
-eas update:list --branch production --limit 5          # find the last good group id
-# Option A: roll back to the previous update on the branch (or to the embedded build)
-eas update:rollback --branch production
-# Option B: re-publish a specific known-good update group as the newest update
-eas update:republish --group <good-group-id> --message "rollback: <reason>"
+scripts/rollback-ota.sh                               # plan: shows the latest update group on production
+scripts/rollback-ota.sh --yes -m "crash on checkout"  # roll it back
 ```
+
+The script finds the newest update group on the `production` branch (or
+`--runtime <v>`'s newest) and runs `eas update:rollback <group> --non-interactive`.
+That republishes the update before it on the same runtime, or rolls back to the
+build's embedded bundle if there is none. `update:rollback` only accepts a branch's
+latest group, so roll back one release at a time. eas-cli has no dry-run, which is
+why the script plans by default. Options: `--branch`, `--platform ios|android`.
+
+To jump straight to a specific known-good group instead:
+`cd mobile && eas update:republish --group <good-group-id> --message "rollback: <reason>"`
+(`eas update:list --branch production` shows the group ids).
 
 - Clients download the rolled-back update on next launch (and apply it on the one
   after, unless the app checks for updates on launch). Expect a tail of hours.

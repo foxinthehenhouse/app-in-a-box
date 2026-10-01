@@ -128,6 +128,23 @@ Repeat for `EXPO_PUBLIC_SUPABASE_ANON_KEY` (`sensitive`),
 `node mobile/scripts/check-eas-shipping-env.js`. It fails if code reads an
 `EXPO_PUBLIC_*` that shipping builds won't have.
 
+EAS Workflows (`mobile/.eas/workflows/`) need no `EXPO_TOKEN`: the owner connects
+the expo.dev GitHub app to the repo (base directory `mobile`) once. Store submission
+for `release.yml` is set up per store, only when the owner is ready to ship there:
+
+- **iOS (owner):** create the app in App Store Connect (needs a paid Apple Developer
+  account), then run `cd mobile && eas credentials -p ios` → App Store Connect →
+  "Set up your project to use an API Key for EAS Submit". Ask for the app's
+  **Apple ID** (App Store Connect → the app → General → App Information) and write
+  it as a number to `mobile/eas.json` → `submit.production.ios.ascAppId` and to
+  `appbox.yaml` → `ids.asc_app_id`. Without it every TestFlight submit fails
+  non-interactively. `tests/test_eas_workflows.py` checks it's an Apple ID, not a
+  bundle id, and that no key file path is committed.
+- **Android (owner):** Google Play requires the first upload by hand (Play Console →
+  the app → Internal testing → upload the first production `.aab`). Then
+  `eas credentials -p android` → upload a Google service account key. Never put the
+  key file in the repo.
+
 ## 6. Backend hosting (Railway)
 
 Use the Railway MCP (`create-project`, `create-service`, `set-variables`,
@@ -155,8 +172,7 @@ gh secret set SUPABASE_URL --body "$SUPABASE_URL"
 ```
 
 (inside a `set -a; . ./.env; set +a;` prefix). Set `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY` (keep-alive workflow), `EXPO_TOKEN` (the user creates
-it at expo.dev → Access tokens and adds it to `.env`) and
+`SUPABASE_SERVICE_ROLE_KEY` (keep-alive workflow) and
 `CLAUDE_CODE_OAUTH_TOKEN` (the user runs `claude setup-token` and adds it to
 `.env`). Then set `gh variable set ENABLE_CLAUDE_REVIEW --body true`.
 
