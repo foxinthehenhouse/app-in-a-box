@@ -18,9 +18,15 @@ for a in "$@"; do case "$a" in --mobile) MOBILE=1 ;; --keep) KEEP=1 ;; esac; don
 # failing two checks with a swallowed ImportError.
 python3 -c "import yaml" 2>/dev/null || { echo "selftest: needs PyYAML (python3 -m pip install pyyaml)"; exit 2; }
 T="$(mktemp -d)"; [ "$KEEP" = 1 ] || trap 'rm -rf "$T"' EXIT
-PASS=0; FAIL=0
+PASS=0; FAIL=0; SKIP=0
 ok()  { echo "  PASS  $1"; PASS=$((PASS+1)); }
 bad() { echo "  FAIL  $1"; FAIL=$((FAIL+1)); }
+# skip <check> <what's missing>: a check that couldn't run is never silent. Under
+# APPBOX_SELFTEST_STRICT=1 (kit CI) it is a failure, so CI can't go green by skipping.
+skip() {
+  if [ "${APPBOX_SELFTEST_STRICT:-}" = 1 ]; then bad "$1 (could not run: needs $2)"
+  else echo "  SKIP  $1 (needs $2)"; SKIP=$((SKIP+1)); fi
+}
 check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else bad "$1"; fi; }
 refuses() { if eval "$2" >/dev/null 2>&1; then bad "$1"; else ok "$1"; fi; }
 
@@ -98,6 +104,7 @@ if [ "$MOBILE" = 1 ]; then
 fi
 
 echo
-echo "selftest: $PASS passed, $FAIL failed"
+echo "selftest: $PASS passed, $FAIL failed, $SKIP skipped"
+[ "$SKIP" = 0 ] || echo "selftest: skipped checks did NOT run; install what they need, or run in kit CI"
 [ "$KEEP" = 1 ] && echo "kept: $T"
 exit "$FAIL"
