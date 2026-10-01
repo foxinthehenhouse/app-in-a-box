@@ -85,6 +85,8 @@ rm -f supabase/migrations/20990101000000_planted.sql
 
 if command -v actionlint >/dev/null 2>&1; then
   check "actionlint clean on the generated workflows" "actionlint"
+else
+  skip "actionlint clean on the generated workflows" "actionlint"
 fi
 if command -v zizmor >/dev/null 2>&1; then
   check "zizmor clean on the generated workflows" "zizmor --offline .github/workflows"
@@ -93,10 +95,14 @@ if command -v zizmor >/dev/null 2>&1; then
   fails_with "zizmor catches a planted template injection" \
     "zizmor --offline .github/workflows/ci.yml" "template-injection"
   unplant .github/workflows/ci.yml
+else
+  skip "zizmor clean on the generated workflows, and catches a planted injection" "zizmor"
 fi
 if [ -n "${APPBOX_SELFTEST_DATABASE_URL:-}" ]; then
   check "DB gate: migrations + advisors + pgTAP RLS + negative control" \
     "DATABASE_URL='$APPBOX_SELFTEST_DATABASE_URL' ./scripts/db-test.sh"
+else
+  skip "DB gate: migrations + advisors + pgTAP RLS + negative control" "APPBOX_SELFTEST_DATABASE_URL (Postgres + pgTAP)"
 fi
 
 check "every plant was reverted" "[ -z \"\$(git status --porcelain -- .agents .github AGENTS.md mobile backend supabase)\" ]"

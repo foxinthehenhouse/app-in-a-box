@@ -6,8 +6,9 @@
 #              actionlint, zizmor, and the full Postgres + pgTAP DB gate)
 #   plugin     `claude plugin validate --strict` on the marketplace, the plugin and
 #              a RENDERED repo's .agents/ (the raw template still holds __APP_SLUG__
-#              placeholders, which aren't valid names; no auth needed; skipped with a
-#              warning if the CLI can't start)
+#              placeholders, which aren't valid names; no auth needed; fails if the
+#              CLI can't start)
+#   (selftest runs with APPBOX_SELFTEST_STRICT=1: a check that can't run fails)
 #   workflows  actionlint on this repo's workflows and the template's
 #   mobile     nightly: a real create-expo-app + `npm run gates` + mobile guard plants
 name: Kit
@@ -42,6 +43,8 @@ jobs:
     timeout-minutes: 25
     env:
       APPBOX_SELFTEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      # Every check must run here: a missing tool fails the job instead of skipping.
+      APPBOX_SELFTEST_STRICT: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -85,9 +88,10 @@ jobs:
       - name: claude plugin validate --strict
         run: |
           npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" >/dev/null
-          if ! claude --version >/dev/null 2>&1; then
-            echo "::warning::the claude CLI could not start on this runner; plugin validation skipped"
-            exit 0
+          # A validator that can't start must fail the job, not pass it with a warning.
+          if ! claude --version; then
+            echo "::error::the claude CLI could not start, so the plugins were NOT validated"
+            exit 1
           fi
           claude plugin validate --strict .
           claude plugin validate --strict plugins/app-in-a-box
@@ -126,5 +130,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+      - name: PyYAML (the selftest reads the generated workflows)
+        run: python -m pip install "pyyaml==6.0.2"
       - name: Selftest with a real Expo app
         run: scripts/selftest.sh --mobile
