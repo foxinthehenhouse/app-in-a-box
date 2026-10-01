@@ -15,9 +15,9 @@ for each routine**, because every run spends tokens and can open PRs/issues.
 | Ritual | Cadence | What a run produces | Where it can run |
 |---|---|---|---|
 | `north-star-report` | Mon 08:xx | Report file + proposed tickets (issue comment; files nothing unapproved) | Cloud (needs the PostHog connector on the Routine) |
-| Dependency triage | Mon 08:xx | `triage` pass over open dependency PRs + `npm audit` / `pip-audit`; one summary issue | Cloud |
+| `dependency-triage` | Mon 08:xx | `triage` pass over open dependency PRs + `npm audit` / `pip-audit`; one summary issue | Cloud |
 | `market-watch` | 1st Tue of the month, 09:xx | Re-checks competitors and complaint themes against `docs/product/VALIDATION.md`; one issue only if something changed | Cloud |
-| Supabase advisor sweep | Wed 08:xx | Security/performance advisors → one issue per new finding | Cloud (needs the Supabase connector) |
+| `supabase-advisor` | Wed 08:xx | Security/performance advisors → one issue per new finding | Cloud (needs the Supabase connector) |
 | `harness-optimize` | Fri 16:xx | Harness-change PR from the week's session signal | **Local**: it reads session transcripts on the machine where you work |
 | `reflect` | Fri 16:xx | Memory notes PR | **Local**, same reason |
 
@@ -26,14 +26,18 @@ session's tokens. Say that in the question. Recommend the first two by default.
 
 ## 2. Create the ones they picked
 
+Each ritual's procedure lives in `.agents/routines/<ritual>.md` (cadence, where it
+runs, connectors, steps). The Routine's prompt just points there, so the procedure is
+versioned and reviewed with the code.
+
 **Claude Code (cloud Routines).** Run `/schedule` (alias `/routines`) and create one
 routine per pick against this GitHub repo, with a prompt that stands alone because
 each run starts fresh:
 
 ```
-In <owner>/<repo>: run the <ritual> skill (.agents/skills/<ritual>/SKILL.md) end to end.
-Never merge, never push to main, never file a ticket the skill says needs approval:
-put proposals in one issue titled "<ritual>: week of <date>" instead.
+In <owner>/<repo>: follow .agents/routines/<ritual>.md end to end.
+Never merge, never push to main, never file a ticket the procedure says needs
+approval: put proposals in one issue titled "<ritual>: <date>" instead.
 ```
 
 Add only the connectors that ritual needs (PostHog, Supabase, Linear). Use a minute
@@ -44,15 +48,16 @@ claude.ai/code/routines.
 
 ```cron
 # crontab -e   (runs in the repo; logs to ~/.local/state/<slug>-rituals.log)
-13 8 * * 1  codex exec -C /path/to/repo --approve-for-me -c sandbox_workspace_write.network_access=true "Use \$north-star-report." >> ~/.local/state/<slug>-rituals.log 2>&1
-47 16 * * 5 codex exec -C /path/to/repo --approve-for-me -c sandbox_workspace_write.network_access=true "Use \$reflect, then \$harness-optimize." >> ~/.local/state/<slug>-rituals.log 2>&1
+13 8 * * 1  codex exec -C /path/to/repo --approve-for-me -c sandbox_workspace_write.network_access=true "Follow .agents/routines/north-star-report.md." >> ~/.local/state/<slug>-rituals.log 2>&1
+47 16 * * 5 codex exec -C /path/to/repo --approve-for-me -c sandbox_workspace_write.network_access=true "Follow .agents/routines/reflect.md, then .agents/routines/harness-optimize.md." >> ~/.local/state/<slug>-rituals.log 2>&1
 ```
 
 For Claude Code the local equivalent is
 `cd /path/to/repo && claude -p "/harness-optimize" --permission-mode auto`. Cron
 runs can't answer an approval prompt, so pick a mode that won't stop to ask. On macOS, prefer a
-`launchd` agent (cron may lack disk access). Check the exact flags with
-`codex exec --help` / `claude --help` first; CLIs drift.
+`launchd` agent (cron may lack disk access). These flags were checked against
+`codex-cli 0.159.3` (`-C`, `--approve-for-me`, `-c`); confirm with `codex exec --help` /
+`claude --help` first, since CLIs drift.
 
 ## 3. Record it
 
