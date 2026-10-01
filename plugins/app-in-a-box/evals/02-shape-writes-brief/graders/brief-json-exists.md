@@ -1,4 +1,4 @@
 ---
 type: file_exists
-path: app/AGENTS.md
+path: design/brief.json
 ---

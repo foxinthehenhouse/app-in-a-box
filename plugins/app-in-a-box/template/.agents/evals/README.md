@@ -5,7 +5,8 @@ produce what they promise? Each folder is one case: `prompt.md` (frontmatter + t
 prompt) and `graders/*.md` (one check each).
 
 ```bash
-claude plugin eval .agents --ablation with-without --no-publish
+claude plugin eval .agents --ablation with-without --no-publish --scaffold \
+  --allow-tools Write Edit Bash
 ```
 
 `--ablation with-without` runs every case with and without these skills. The number
@@ -17,8 +18,12 @@ Rules for new cases:
 - Grade outcomes (what the answer contains), not just which tool ran. A `tool_used:
   Skill` grader is display-only under ablation.
 - Keep at least one should-NOT-fire case per skill you add.
-- Cases run in an empty sandbox folder, not this repo, so put any code the skill
-  needs to see (a diff, a spec) in the prompt itself.
+- Cases run in an empty sandbox folder, not this repo. A skill that reads the repo
+  (feature-discovery, backlog) needs a `case.yaml` with
+  `context: {scaffold_script: setup.sh}` and a `setup.sh` that runs `../seed.sh`.
+  That copies this repo's tracked files into the run and adds `fixtures/BRIEF.md` if
+  there's no brief. It only runs under `--scaffold`. For anything else, put what the
+  skill needs to see (a diff, a spec) in the prompt itself.
 - Give each case the tools its graders need (`allowed_tools`). A missing tool scores
   0 in both arms and reads as "the skill did nothing".
 

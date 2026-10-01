@@ -1,9 +1,12 @@
 ---
 name: scaffold
-description: Phase 4 of App in a Box. Generates the app from the interview and design answers. It creates the Expo app, overlays the template (auth, API client, analytics, monitoring, UI primitives, guards), generates tokens, writes the backend and migrations, adapts the core-loop screen and data model to the brief, and makes the first commit. It needs no cloud accounts.
+description: Phase 4 of App in a Box. Generates the app from the interview and design answers. It creates the Expo app, overlays the template (auth, API client, analytics, monitoring, UI primitives, guards), generates tokens, writes the backend and migrations, adapts the core-loop screen and data model to the brief, and makes the first commit. It needs no cloud accounts. Also use it to re-render the latest template into an existing app (`render.py --force` keeps the brief, tokens and appbox.yaml).
 ---
 
 # Phase 4: Scaffold
+
+`$KIT` is the plugin root: `${CLAUDE_PLUGIN_ROOT}` in Claude Code, two levels above
+this file in Codex, or `<clone>/plugins/app-in-a-box` otherwise.
 
 Everything here runs locally. No secrets are needed yet. Read `appbox.yaml` and
 `docs/product/BRIEF.md` first.

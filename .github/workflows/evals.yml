@@ -1,0 +1,64 @@
+# Skill evals: do the kit's skills (and the generated app's) still behave?
+# Runs `claude plugin eval` on both suites (plugins/app-in-a-box/evals and
+# template/.agents/evals) and fails if any case averages below 0.8.
+# Weekly plus on demand, not per PR: each run is about 33 agent runs (~$3-4).
+#
+# Needs the ANTHROPIC_API_KEY repository secret. Without it the job FAILS with a
+# message saying so. It doesn't skip, because a skipped eval reads as a passing one.
+name: Evals
+on:
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+env:
+  CLAUDE_CODE_VERSION: "2.1.286"
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: API key present
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${ANTHROPIC_API_KEY}" ]; then
+            echo "::error::ANTHROPIC_API_KEY repository secret is not set, so the skill evals cannot run. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+      - name: Install Claude Code + the eval sandbox (bubblewrap, socat)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap socat >/dev/null
+          pip install pyyaml >/dev/null
+          npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" >/dev/null
+          claude --version
+      - name: Run both suites (threshold 0.8 per case)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set -o pipefail
+          claude plugin eval plugins/app-in-a-box --trust-plugin --ablation none \
+            --scaffold --allow-tools Write Edit Bash -j 4 --threshold 0.8 \
+            --no-publish --json eval-result.json 2>&1 | tee eval.log
+      - name: Summary
+        if: always()
+        run: |
+          { echo '```'; sed -n '/^CASE/,/case(s)/p' eval.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true

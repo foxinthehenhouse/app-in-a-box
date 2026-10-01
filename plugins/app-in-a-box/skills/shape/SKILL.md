@@ -14,9 +14,15 @@ worth building, in about 15–20 minutes, without it ever feeling like a form.
 
 First write `progress.validate: pending` to `appbox.yaml` (create it if needed). The
 idea check belongs to this project even before it starts; without the key, a project
-with the interview done reads as one that predates the idea check and skips it.
+with the interview done reads as one that predates the idea check and skips it. (If you
+can't write files yet, keep that state in the conversation and write it when you can;
+never let it take over the reply.)
 
-Open with one line and one invitation, nothing else:
+**Already have the idea** (they passed it to `new-app` or led with it)? Skip the
+invitation: treat it as their first ramble and go straight to "After each thing they
+say": play it back, then ask the gaps.
+
+Otherwise open with one line and one invitation, nothing else:
 
 > Tell me about your idea however it comes out: who it's for, the moment they'd reach
 > for it, what bugs you about how it works today. Ramble, paste notes, or drop in a
