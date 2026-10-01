@@ -5,8 +5,9 @@
 #              v0.3 trust checks (harness lint, wire contract, scoping, migrations,
 #              actionlint, zizmor, and the full Postgres + pgTAP DB gate)
 #   plugin     `claude plugin validate --strict` on the marketplace, the plugin and
-#              the template's .agents/ (no auth needed; skipped with a warning if the
-#              CLI can't start)
+#              a RENDERED repo's .agents/ (the raw template still holds __APP_SLUG__
+#              placeholders, which aren't valid names; no auth needed; skipped with a
+#              warning if the CLI can't start)
 #   workflows  actionlint on this repo's workflows and the template's
 #   mobile     nightly: a real create-expo-app + `npm run gates` + mobile guard plants
 name: Kit
@@ -75,6 +76,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
@@ -87,7 +91,12 @@ jobs:
           fi
           claude plugin validate --strict .
           claude plugin validate --strict plugins/app-in-a-box
-          claude plugin validate --strict plugins/app-in-a-box/template/.agents
+          # Validate the .agents/ plugin a founder actually gets: render first, so the
+          # __APP_SLUG__ placeholders are filled in, exactly as new-app does.
+          app="$RUNNER_TEMP/rendered"
+          python3 plugins/app-in-a-box/scripts/render.py --target "$app" --name "Penny Jar" \
+            --slug penny-jar --bundle-id com.example.pennyjar --owner example >/dev/null
+          claude plugin validate --strict "$app/.agents"
 
   workflows:
     runs-on: ubuntu-latest
