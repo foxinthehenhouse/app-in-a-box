@@ -26,7 +26,7 @@ template says src/app; this kit doesn't use it).
   `ErrorText` · `Button` `IconButton` `PressableScale` · `Field` · `Chip`
   `SegmentedControl` (native via @expo/ui on iOS / Android) · `ListRow` · `EmptyState`
   `Skeleton` `SkeletonCard` · `Toast` (`useToast`) · `Badge` `Avatar` `ProgressBar`
-  `AnimatedNumber` `StatCard` · `Media` (expo-image) · `Celebration` ·
+  `AnimatedNumber` `StatCard` · `Media` (expo-image) · `Toggle` (themed switch) · `Celebration` ·
   `SheetHeader` · `Icon` · `FormField` (Field bound to react-hook-form) · `ErrorNotice`
   (error + copyable support reference + retry) · `OfflineBanner` · `UpdateBanner`.
 - `lib/tokens.ts`: **generated** from `../design/tokens.json` (both palettes, type

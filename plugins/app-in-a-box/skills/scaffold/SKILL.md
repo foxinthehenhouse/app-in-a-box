@@ -140,8 +140,9 @@ once that re-running the prototype phase would let them click it first.
    `lib/api.ts`, analytics helpers for the core action (success + failure), and honest
    empty/error states. Add each new endpoint to `ROUTES` in `lib/demo.ts` with seeded
    data from the brief, so demo mode keeps working. Add one `NativeTabs.Trigger` per tab
-   in SCREENS.md → Navigation (every other screen is a pushed route, every sheet a
-   formSheet route), take each icon's `sf` / `md` names from SCREENS.md → Icons, and use
+   in SCREENS.md → Navigation, and the matching `TabTrigger` in `app/(app)/_layout.web.tsx`
+   (web's bottom bar: keep the two in step). Every other screen is a pushed route, every sheet a
+   formSheet route. Take each icon's `sf` / `md` names from SCREENS.md → Icons, and use
    `FlashList` for any list that can outgrow a screen.
    **Fonts:** for each family in `design/tokens.json` → `font` that isn't built in,
    install its `@expo-google-fonts/*` package and register every weight the type roles

@@ -23,4 +23,5 @@ export { StatCard, type StatCardProps } from "./Stat";
 export { Skeleton, SkeletonCard } from "./Skeleton";
 export { Body, Display, ErrorText, Heading, Meta, Text, Title, type Tone } from "./Text";
 export { ToastProvider, useToast } from "./Toast";
+export { Toggle, type ToggleProps } from "./Toggle";
 export { UpdateBanner } from "./UpdateBanner";

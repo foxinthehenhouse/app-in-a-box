@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
-import { Switch } from "react-native";
 import Constants from "expo-constants";
 
-import { Button, Card, ListRow, Meta, Screen, Section, SegmentedControl, Skeleton, Title, useToast } from "../../components/ui";
+import { Button, Card, ListRow, Meta, Screen, Section, SegmentedControl, Skeleton, Title, Toggle, useToast } from "../../components/ui";
 import { analytics, setAnalyticsOptIn } from "../../lib/analytics";
 import { APP } from "../../lib/app";
 import { downloadMyData } from "../../lib/export";
@@ -11,11 +10,10 @@ import { useT } from "../../lib/i18n";
 import { usePushSetting } from "../../lib/push";
 import { useMe } from "../../lib/query";
 import { signOut } from "../../lib/session";
-import { canSwitchScheme, useTheme, useThemePreference, type ThemePreference } from "../../lib/theme";
+import { canSwitchScheme, useThemePreference, type ThemePreference } from "../../lib/theme";
 import { useLoaded } from "../../lib/use-load";
 
 export default function Settings() {
-  const theme = useTheme();
   const t = useT();
   const toast = useToast();
   const me = useLoaded(useMe());
@@ -114,12 +112,11 @@ export default function Settings() {
             title={t("settings.push")}
             subtitle={pushSubtitle}
             trailing={
-              <Switch
+              <Toggle
                 value={push.status === "enabled"}
                 onValueChange={togglePush}
                 disabled={push.busy || push.status === null || push.status === "unsupported"}
                 accessibilityLabel={t("settings.push")}
-                trackColor={{ true: theme.color.accent, false: theme.color.border }}
                 testID="settings-push-switch"
               />
             }
@@ -133,11 +130,10 @@ export default function Settings() {
             title={t("settings.analytics")}
             subtitle={t("settings.analyticsSubtitle")}
             trailing={
-              <Switch
+              <Toggle
                 value={optIn}
                 onValueChange={toggleAnalytics}
                 accessibilityLabel={t("settings.analytics")}
-                trackColor={{ true: theme.color.accent, false: theme.color.border }}
                 testID="settings-analytics-switch"
               />
             }

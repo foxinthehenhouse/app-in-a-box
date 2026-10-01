@@ -46,3 +46,22 @@ check "analytics guard passes on the template (gallery + sheet instrumented)" \
 
 check "demo.sh renders the template app (--no-install) with demo mode on, no repo files needed" \
   "'$KIT/scripts/demo.sh' '$T/demo' --no-install && grep -q 'Demo App' '$T/demo/mobile/lib/app.ts' && grep -q '^EXPO_PUBLIC_DEMO=1' '$T/demo/mobile/.env' && ! grep -q 'examples/' '$KIT/scripts/demo.sh'"
+
+# PUL-543: web had NativeTabs' floating pill over every screen title, and RN-web's teal
+# "on" switch thumb. Web gets headless tabs with the same routes; switches go through Toggle.
+_web_tabs_match_native() {
+  python3 - "$KIT/template/mobile/app/(app)/_layout.tsx" "$KIT/template/mobile/app/(app)/_layout.web.tsx" <<'PYEOF'
+import re, sys
+native, web = (open(p).read() for p in sys.argv[1:3])
+assert 'from "expo-router/ui"' in web and "<TabSlot" in web, "web layout must use headless tabs"
+n = re.findall(r'NativeTabs\.Trigger name="([^"]+)"', native)
+w = re.findall(r'<TabTrigger name="([^"]+)"', web)
+assert n and n == w, f"web tabs {w} != native tabs {n}"
+for name in n:
+    assert f'tr("tabs.{"home" if name == "index" else name}")' in web, f"label for {name}"
+PYEOF
+}
+check "web tabs: headless bottom bar with the same routes and labels as NativeTabs" "_web_tabs_match_native"
+check "switches are themed on every platform (Toggle, never a bare RN Switch in screens)" \
+  "grep -q 'activeThumbColor' '$KIT/template/mobile/components/ui/Toggle.tsx' \
+   && ! grep -rqE 'import \\{[^}]*\\bSwitch\\b[^}]*\\} from \"react-native\"' '$KIT/template/mobile/app'"
