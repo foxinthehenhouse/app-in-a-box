@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path(__file__).resolve().parents[3])
-SETUP = [
-    "preflight", "interview", "design", "accounts", "scaffold",
+SETUP = [  # must match the kit's progress.py PHASES keys (selftest-checked)
+    "preflight", "interview", "validate", "design", "accounts", "scaffold",
     "provision", "harness", "verify", "first_feature",
 ]  # fmt: skip
 DONE = {"done", "true", "yes", "skipped"}
@@ -96,7 +96,14 @@ def rituals() -> list[dict]:
 
 def local() -> dict:
     box = appbox()
-    pending = [p for p in SETUP if box["progress"].get(p) not in DONE]
+    prog = box["progress"]
+    # Same rules as progress.py: a background check that's `running` isn't the next
+    # step, and a project set up before the idea check existed isn't sent back to it.
+    legacy = prog.get("interview") in DONE and "validate" not in prog
+    pending = [
+        p for p in SETUP
+        if prog.get(p) not in DONE and prog.get(p) != "running" and not (legacy and p == "validate")
+    ]
     branch = sh("git", "symbolic-ref", "--short", "HEAD") or "?"
     dirty = sh("git", "status", "--porcelain")
     ahead = sh("git", "rev-list", "--count", "origin/main..HEAD") if branch != "main" else "0"
