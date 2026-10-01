@@ -14,6 +14,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KIT="$(cd "$HERE/../plugins/app-in-a-box" && pwd)"
 MOBILE=0; KEEP=0
 for a in "$@"; do case "$a" in --mobile) MOBILE=1 ;; --keep) KEEP=1 ;; esac; done
+# The selftest reads the generated workflows as YAML. Say so up front rather than
+# failing two checks with a swallowed ImportError.
+python3 -c "import yaml" 2>/dev/null || { echo "selftest: needs PyYAML (python3 -m pip install pyyaml)"; exit 2; }
 T="$(mktemp -d)"; [ "$KEEP" = 1 ] || trap 'rm -rf "$T"' EXIT
 PASS=0; FAIL=0
 ok()  { echo "  PASS  $1"; PASS=$((PASS+1)); }
