@@ -85,6 +85,11 @@
       "removal_rule": "The PR review-and-fix loop; the gate before main. Never remove without a strictly-better replacement."
     },
     {
+      "file": ".agents/skills/land/SKILL.md",
+      "load_bearing": true,
+      "removal_rule": "Drives a PR from opened to merged across pushes, CI runs and review threads (land.py picks the next step). Without it nobody watches CI after a push or answers threads. Replace only with a loop that keeps the same order and never-rules."
+    },
+    {
       "file": ".agents/skills/next/SKILL.md",
       "load_bearing": true,
       "removal_rule": "The self-driving loop: what the owner asks when they don't know what to ask. Its signals.py also feeds the SessionStart next-action line. Replace only with something that ranks the same signals."
@@ -156,7 +161,7 @@
   },
   "owner_asks": {
     "_comment": "Skills and subagent roles that reach product-judgement calls (.agents/rules/product-judgement.md). tests/harness/test_owner_asks.py fails if a listed skill loses its '## Ask the owner' step or a listed role stops returning ⚖️ QUESTION blocks. Removing an entry is a harness change: say why in the PR.",
-    "skills": ["feature-discovery", "build-feature", "pr-review", "backlog", "next", "ship", "north-star-report", "market-watch", "routines"],
+    "skills": ["feature-discovery", "build-feature", "pr-review", "land", "backlog", "next", "ship", "north-star-report", "market-watch", "routines"],
     "agents": ["product-manager", "ux-designer", "growth", "chair"]
   },
   "complexity_budget": {

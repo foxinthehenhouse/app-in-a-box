@@ -103,8 +103,8 @@ also pick them up automatically from their descriptions.
    Never commit on `main`; `.githooks/` enforces it for every agent.
 4. **Verify before claiming done.** Run the gate and report real output. A test you
    didn't run doesn't count.
-5. **PRs are reviewed by the `pr-review` skill** (and the AI review in CI). Squash
-   merge; delete the branch. A merged branch is dead, so follow-ups go on a new branch.
+5. **`pr-review` reviews each PR; the `land` skill drives it to merged** (CI, every
+   thread, re-review per push). Squash merge, delete the branch; follow-ups get a new one.
 6. **Ask, don't decide, on product calls.** Scope, what users see, money, positioning,
    data and priorities belong to the owner: ask with a structured question
    (recommended option first) per `.agents/rules/product-judgement.md`. Calls you make

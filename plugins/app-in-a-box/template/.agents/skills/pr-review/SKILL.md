@@ -84,10 +84,16 @@ What I fixed: <bullets or "nothing">
 What's left: <blockers with file:line, or "nothing">
 Risk: low | medium | high, because <reason>
 Chair: <MERGE/ESCALATE + its three reasons, or "not needed (low risk)">
+<!-- appbox-verdict sha=<full head sha you reviewed> result=safe|owner|not-ready -->
 ```
 
+The last line is for the `land` skill: it is how the loop knows THIS commit was
+reviewed (a later push needs a new verdict). `safe` = ✅, `owner` = ⚠️, `not-ready` = ❌.
+Get the sha with `gh pr view --json headRefOid -q .headRefOid`.
+
 Merge only if the owner has said review-and-merge is OK for low-risk PRs and the
-verdict is ✅ with green CI. Squash merge, delete the branch.
+verdict is ✅ with green CI. Squash merge, delete the branch. To take a PR the rest of
+the way (CI, threads, re-review after each push, merge), hand it to the `land` skill.
 
 ## Ask the owner
 
