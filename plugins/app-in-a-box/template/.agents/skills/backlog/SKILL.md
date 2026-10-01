@@ -1,6 +1,6 @@
 ---
 name: backlog
-description: The ticket → branch → PR flow. Use before starting build or fix work that will end in a PR (find or file the ticket and name the branch), whenever a bug, new scope or follow-up is discovered (file it immediately so nothing is lost), or when asked what to work on next.
+description: The ticket → branch → PR flow. Use before starting build or fix work that will end in a PR (find or file the ticket and name the branch), whenever a bug, new scope or follow-up is discovered (file it immediately so nothing is lost). For "what should I work on next?" use `next`, which ranks the backlog with everything else.
 ---
 
 # Backlog
@@ -30,6 +30,9 @@ Title: imperative, specific ("Show streak count on Home"). Body:
 
 GitHub: `gh issue create --title ... --body ... --label <type>,<priority>`.
 Linear: MCP `save_issue`. Never keep a backlog in a chat thread or a scratch file.
+Labels: type `feat`, `fix` or `chore`; priority `p0` (broken for users now), `p1` (this
+cycle) or `p2` (later). A bug a user hits is `fix`. If filing fails (no `gh` auth,
+offline), show the exact ticket and command and say what to run, so it isn't lost.
 
 ### Sub-tasks: capture them as you go
 

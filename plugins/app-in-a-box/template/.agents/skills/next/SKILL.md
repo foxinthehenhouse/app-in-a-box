@@ -38,9 +38,9 @@ subagent (Haiku, cheap); in Codex, read them inline.
 |---|---|---|
 | 1 | Setup phase not done | Resume `new-app` at that phase |
 | 2 | `main` CI failing | Fix it: `backlog` to file a `fix` ticket, then fix on a branch |
-| 3 | Your open PR has failing checks or requested changes | Fix that PR (`pr-review` on it) |
+| 3 | Your open PR has failing checks or requested changes | `land` it: fixes CI and threads, then re-reviews |
 | 4 | Uncommitted or unpushed work on a feature branch | Finish it: gates, then PR |
-| 5 | Open PR with green CI, not yet reviewed | `pr-review` it |
+| 5 | Open PR with green CI, not yet reviewed | `land` it (runs `pr-review`, then merges or asks you) |
 | 6 | Ritual overdue by 2× its cadence | Run that ritual (`reflect`, `harness-optimize`, `north-star-report`, `market-watch`) |
 | 7 | Security or major dependency PR | `triage` it, then `pr-review` |
 | 8 | A `p0` ticket, or the ticket at the funnel's worst step | `feature-discovery` on it (or `build-feature` if it's specced) |
@@ -51,6 +51,11 @@ Tie-break: the thing closest to users (a broken build beats a new feature), then
 cheapest to finish. Never propose starting new work while one of your PRs is red.
 
 ## 3. Answer (exactly this shape, under 12 lines)
+
+The `Next:` line always names the skill in parentheses. An action without its skill
+leaves the owner asking "how?".
+Exactly two alternates. Nothing goes after the `Signals read` line except the
+question: no "after that…" or "also pending" list, because a fourth option dilutes the pick.
 
 ```
 Next: <action> (<skill to run>, e.g. `/feature-discovery #14` or `$feature-discovery #14`)

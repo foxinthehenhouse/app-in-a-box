@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: 02-feature-discovery-stays-quiet
+context:
+  scaffold_script: setup.sh

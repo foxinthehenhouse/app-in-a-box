@@ -27,13 +27,18 @@ skills_named() {
 }
 
 eval_cases_shaped() {
-  local d g n bad=0 suites=0
+  local d g n s bad=0 suites=0
   for suite in "$KIT/evals" "$APP/.agents/evals"; do
     [ -d "$suite" ] || { echo "no suite $suite"; return 1; }
     suites=$((suites+1))
     for d in "$suite"/*/; do
-      [ "$(basename "$d")" = results ] && continue
+      case "$(basename "$d")" in results|fixtures) continue ;; esac
       [ -f "$d/prompt.md" ] || { echo "no prompt.md in $d"; bad=1; continue; }
+      # a case.yaml scaffold must point at a script that exists
+      if [ -f "$d/case.yaml" ]; then
+        s=$(sed -n 's/^ *scaffold_script: *//p' "$d/case.yaml")
+        [ -z "$s" ] || [ -f "$d/$s" ] || { echo "scaffold_script $s missing in $d"; bad=1; }
+      fi
       n=0
       for g in "$d"/graders/*.md; do
         [ -f "$g" ] || continue
@@ -132,6 +137,20 @@ template_clean() {  # no Forge/owner leakage into the generated harness
 check "every agent role has a valid model + effort (chair on fable)" agents_routed
 check "every skill (kit + template) has name + description matching its folder" skills_named
 check "every eval case has prompt.md + >=1 typed grader, each suite has a negative case" eval_cases_shaped
+
+# Eval seeding: in the kit, seed.sh renders the template; in a generated app it copies
+# the app's tracked files. Either way the run gets a real repo with a brief and a commit.
+_seed_ok() { [ -f "$1/AGENTS.md" ] && [ -f "$1/docs/product/BRIEF.md" ] && [ "$(git -C "$1" rev-list --count HEAD)" = 1 ]; }
+_seed_kit() { local w="$T/seed-kit"; mkdir -p "$w" && (cd "$w" && bash "$KIT/template/.agents/evals/seed.sh") >/dev/null 2>&1 && _seed_ok "$w"; }
+_seed_app() {
+  local a="$T/seed-src" w="$T/seed-app"
+  rm -rf "$a" "$w"; cp -R "$APP" "$a" && mkdir -p "$w" || return 1
+  (cd "$a" && rm -rf .git && git init -q && git add -A && git -c user.name=t -c user.email=t@t commit -qm src --no-gpg-sign) || return 1
+  echo "untracked" > "$a/NOT_TRACKED.txt"
+  (cd "$w" && bash "$a/.agents/evals/seed.sh") >/dev/null 2>&1 && _seed_ok "$w" && [ ! -e "$w/NOT_TRACKED.txt" ]
+}
+check "eval seed (kit): renders the template, adds the fixture brief, one commit" _seed_kit
+check "eval seed (app): copies only tracked files, adds the fixture brief, one commit" _seed_app
 check "Codex TOML carries effort mapping + tier comment; explicit-only skills get openai.yaml" codex_routed
 check "codex_model: pin and max->xhigh reach the TOML" codex_model_pin
 check "next/signals.py emits JSON and a one-line nudge" next_signals

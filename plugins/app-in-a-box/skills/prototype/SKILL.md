@@ -5,6 +5,9 @@ description: Phase 2 of App in a Box. Before any code or cloud setup, the team b
 
 # Phase 2: Prototype (click it before we build it)
 
+`$KIT` is the plugin root: `${CLAUDE_PLUGIN_ROOT}` in Claude Code, two levels above
+this file in Codex, or `<clone>/plugins/app-in-a-box` otherwise.
+
 Changing a prototype costs seconds; changing a wired-up app costs hours. So the whole
 UX gets settled here, where it's cheap. You are still **Rae** (the advisor talks, the
 team builds). Read `docs/TASTE.md` and `docs/COST.md` first.
