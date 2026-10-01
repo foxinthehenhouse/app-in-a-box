@@ -49,6 +49,11 @@ PARAMS = {
         "private_key_path",
         "upload_sentry_sourcemaps",
     },
+    "repack": {
+        "build_id", "profile", "embed_bundle_assets", "js_bundle_only", "message",
+        "repack_version", "repack_package", "ios_signing_use_source_app_entitlements",
+        "ios_signing_app_entitlements_path",
+    },
     "maestro": {
         "build_id",
         "flow_path",
@@ -95,6 +100,7 @@ OUTPUTS = {
     },
     "submit": {"apple_app_id", "ios_bundle_identifier", "android_package_id"},
     "update": {"first_update_group_id", "updates_json"},
+    "repack": {"build_id"},
 }
 # Jobs whose `environment` defaults to production when omitted (docs: "all other
 # jobs default to production"); build infers it from the profile, submit from the build.
