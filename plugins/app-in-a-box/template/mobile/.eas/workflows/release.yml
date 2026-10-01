@@ -1,21 +1,22 @@
-# UNVERIFIED SCHEMA: written against the EAS Workflows syntax as of mid-2026, but
-# docs.expo.dev was unreachable when this file was generated. Before relying on it,
-# check it against https://docs.expo.dev/eas/workflows/syntax/ (job types
-# `fingerprint`, `get-build`, `build`, `submit`, `update`, and their params/outputs)
-# and run it once by hand: `npx eas-cli workflow:run .eas/workflows/release.yml`.
-#
 # Release: every push to `release` (fast-forward it from main when you ship; see
-# docs/runbooks/release.md). Same fingerprint logic as PR previews, for production:
+# docs/runbooks/release.md). Checked against the EAS Workflows docs source (expo/expo
+# docs/pages/eas/workflows/pre-packaged-jobs.mdx, 2026-10); tests/test_eas_workflows.py
+# pins the rules below.
 #
-#   native changed   -> production build -> EAS Submit (TestFlight / Play internal)
-#                       Store review + phased release stay human steps.
-#   native unchanged -> OTA update straight to the `production` channel's branch.
-#                       Roll back with docs/runbooks/rollback.md.
+# Per platform, all in the `production` EAS environment:
+#   native changed   -> production build -> EAS Submit (TestFlight / Play internal).
+#                       Store review and phased release stay human steps.
+#   native unchanged -> OTA update to the `production` branch.
+#                       Roll back with scripts/rollback-ota.sh (docs/runbooks/rollback.md).
 #
-# Needs: `eas credentials` set up for both stores, a `production` submit profile
-# (eas.json `submit.production`: ascAppId for iOS, a Play service-account key
-# uploaded with `eas credentials` for Android), and the production channel mapped to
-# the `production` branch (`eas channel:edit production --branch production`).
+# Submit needs, once per store (provision step 5, owner):
+#   iOS      the app exists in App Store Connect; `eas credentials -p ios` -> App Store
+#            Connect API Key; eas.json submit.production.ios.ascAppId = its Apple ID.
+#            Without ascAppId a non-interactive submit fails.
+#   Android  the first upload is manual (Play requires it); then a Google service
+#            account key via `eas credentials -p android`.
+# The production channel points at the `production` branch (EAS creates both on the
+# first production build).
 
 name: Release
 
@@ -27,25 +28,28 @@ jobs:
   fingerprint:
     name: Fingerprint native layer
     type: fingerprint
+    environment: production
 
   get_android_build:
     name: Find Android production build with this fingerprint
     needs: [fingerprint]
     type: get-build
     params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      platform: android
       profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
 
   get_ios_build:
     name: Find iOS production build with this fingerprint
     needs: [fingerprint]
     type: get-build
     params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      platform: ios
       profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
 
   build_android:
-    name: Build Android (production)
+    name: Native changed - build Android (production)
     needs: [get_android_build]
     if: ${{ !needs.get_android_build.outputs.build_id }}
     type: build
@@ -54,7 +58,7 @@ jobs:
       profile: production
 
   build_ios:
-    name: Build iOS (production)
+    name: Native changed - build iOS (production)
     needs: [get_ios_build]
     if: ${{ !needs.get_ios_build.outputs.build_id }}
     type: build
@@ -78,11 +82,24 @@ jobs:
       build_id: ${{ needs.build_ios.outputs.build_id }}
       profile: production
 
-  publish_update:
-    name: Native unchanged - OTA to production
-    needs: [get_android_build, get_ios_build]
-    if: ${{ needs.get_android_build.outputs.build_id && needs.get_ios_build.outputs.build_id }}
+  update_android:
+    name: Native unchanged - Android OTA to production
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
     type: update
+    environment: production
     params:
+      platform: android
+      branch: production
+      message: "Release ${{ github.sha }}"
+
+  update_ios:
+    name: Native unchanged - iOS OTA to production
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    environment: production
+    params:
+      platform: ios
       branch: production
       message: "Release ${{ github.sha }}"

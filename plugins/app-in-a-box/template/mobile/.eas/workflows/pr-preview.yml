@@ -1,22 +1,21 @@
-# UNVERIFIED SCHEMA: written against the EAS Workflows syntax as of mid-2026, but
-# docs.expo.dev was unreachable when this file was generated. Before relying on it,
-# check it against https://docs.expo.dev/eas/workflows/syntax/ (job types
-# `fingerprint`, `get-build`, `build`, `update`, their params/outputs, and the
-# `github.event.pull_request.number` context) and run `npx eas-cli workflow:run
-# .eas/workflows/pr-preview.yml` once by hand.
+# PR previews. Checked against the EAS Workflows docs source (expo/expo
+# docs/pages/eas/workflows/{syntax,pre-packaged-jobs}.mdx, 2026-10): job types
+# fingerprint / get-build / build / update, their params and outputs, `if:`, and
+# github.event.pull_request.number. tests/test_eas_workflows.py pins the rules below.
 #
-# PR previews. EAS Workflows run from the repo's `mobile/` app (set "Base directory"
-# to mobile in the expo.dev project's GitHub settings).
+# Per platform:
+#   a preview build with this native fingerprint exists -> publish the JS as an OTA
+#     update to branch pr-<n>; testers open it from that existing preview build
+#   none exists (native changed) -> build a new preview binary
+# Platforms are independent: an iOS-only native change still OTAs Android.
 #
-# 1. fingerprint the native layer (native deps, app.json plugins, SDK)
-# 2. look for an existing preview build with that exact fingerprint
-# 3. found -> native is unchanged, so publish JS as an OTA update to branch pr-<n>
-#    (testers open that branch from the existing preview build / dev client)
-#    not found -> native changed, so build a new preview binary
+# Every job runs in the `preview` EAS environment. fingerprint and update default to
+# `production`, which would hash and publish with production env vars and never
+# match a preview build.
 #
-# Needs: EAS project linked (`eas init`), a `preview` build profile + channel in
-# eas.json (the template has both), expo-updates installed, and the expo.dev GitHub
-# app connected to this repo.
+# Needs: `eas init` (provision step 5), the `preview` profile + channel in eas.json,
+# expo-updates, and the expo.dev GitHub app connected to this repo with base
+# directory `mobile`. No EXPO_TOKEN: EAS Workflows authenticate through that app.
 
 name: PR preview
 
@@ -28,22 +27,25 @@ jobs:
   fingerprint:
     name: Fingerprint native layer
     type: fingerprint
+    environment: preview
 
   get_android_build:
-    name: Find Android build with this fingerprint
+    name: Find Android preview build with this fingerprint
     needs: [fingerprint]
     type: get-build
     params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      platform: android
       profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
 
   get_ios_build:
-    name: Find iOS build with this fingerprint
+    name: Find iOS preview build with this fingerprint
     needs: [fingerprint]
     type: get-build
     params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      platform: ios
       profile: preview
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
 
   build_android:
     name: Native changed - build Android preview
@@ -63,11 +65,24 @@ jobs:
       platform: ios
       profile: preview
 
-  publish_update:
-    name: Native unchanged - OTA to pr-<n>
-    needs: [get_android_build, get_ios_build]
-    if: ${{ needs.get_android_build.outputs.build_id && needs.get_ios_build.outputs.build_id }}
+  update_android:
+    name: Native unchanged - Android OTA to pr-<n>
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
     type: update
+    environment: preview
     params:
+      platform: android
+      branch: pr-${{ github.event.pull_request.number }}
+      message: "PR #${{ github.event.pull_request.number }}"
+
+  update_ios:
+    name: Native unchanged - iOS OTA to pr-<n>
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: update
+    environment: preview
+    params:
+      platform: ios
       branch: pr-${{ github.event.pull_request.number }}
       message: "PR #${{ github.event.pull_request.number }}"
