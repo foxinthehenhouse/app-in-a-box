@@ -41,7 +41,8 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
    service or table gets its row; the harness lint fails CI otherwise), and any
    rule or product line this feature made untrue. Future agents read this first.
 9. **PR:** draft PR, body = spec link + what changed + how it was verified (real
-   command output). Then run the `pr-review` skill. After it merges, run `next`.
+   command output). Then run the `land` skill, which reviews (`pr-review`), fixes, waits on CI
+   and merges. After it merges, run `next`.
 
 ## Never
 

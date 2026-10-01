@@ -80,6 +80,11 @@ def substitute(text: str, subs: dict[str, str]) -> str:
     return text
 
 
+# Tool caches a contributor's local run can leave in the template (ruff, pytest, npm...).
+# They are never part of the product, and a binary cache file used to crash the render.
+CACHE_DIRS = {"__pycache__", ".ruff_cache", ".pytest_cache", ".mypy_cache", "node_modules", ".expo"}
+
+
 def is_text(path: Path) -> bool:
     return path.suffix in TEXT_SUFFIXES or path.name.startswith(".")
 
@@ -511,7 +516,7 @@ def render(a: argparse.Namespace) -> int:
     target = Path(a.target).resolve()
     written, skipped = [], []
     for src in sorted(TEMPLATE.rglob("*")):
-        if src.is_dir() or "__pycache__" in src.parts:
+        if src.is_dir() or CACHE_DIRS.intersection(src.relative_to(TEMPLATE).parts):
             continue
         rel = src.relative_to(TEMPLATE)
         if a.no_backend and rel.parts[0] in {
@@ -533,8 +538,12 @@ def render(a: argparse.Namespace) -> int:
         if a.dry_run:
             continue
         dst.parent.mkdir(parents=True, exist_ok=True)
-        if is_text(src):
-            dst.write_text(substitute(src.read_text(), subs))
+        try:
+            text = src.read_text() if is_text(src) else None
+        except UnicodeDecodeError:  # looks like text by name, isn't: copy the bytes as-is
+            text = None
+        if text is not None:
+            dst.write_text(substitute(text, subs))
         else:
             shutil.copyfile(src, dst)
         shutil.copymode(src, dst)

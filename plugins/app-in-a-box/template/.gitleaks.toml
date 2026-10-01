@@ -41,3 +41,7 @@ keywords = ["expo_token", "expo-token", "expotoken"]
 [[allowlists]]
 description = "Env templates hold names, never values"
 paths = ['''(^|/)\.env\.example$''']
+
+[[allowlists]]
+description = "Derived caches (gitignored, never committed): a local `gitleaks dir .` after pytest would flag the fake keys compiled into tests' .pyc files"
+paths = ['''(^|/)(__pycache__|\.pytest_cache|\.ruff_cache|\.mypy_cache|node_modules|\.expo)/''']
