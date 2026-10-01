@@ -1,0 +1,16 @@
+{
+  "name": "app-in-a-box",
+  "owner": {
+    "name": "Kyle Fox"
+  },
+  "metadata": {
+    "description": "Idea to production-grade mobile app: interview, design, provisioning, scaffold and the Claude Code harness around it."
+  },
+  "plugins": [
+    {
+      "name": "app-in-a-box",
+      "source": "./plugins/app-in-a-box",
+      "description": "Interview → design directions → free-tier accounts → Expo + FastAPI + Supabase scaffold → CI, PR review, agents, skills, hooks and memory."
+    }
+  ]
+}

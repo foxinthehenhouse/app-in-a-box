@@ -1,0 +1,140 @@
+/**
+ * English strings: the source of truth for every user-facing string in app/**.
+ * Add a key here, then use it with `const t = useT(); t("home.greeting", { name })`.
+ * scripts/check-hardcoded-strings.js fails the gates on a literal in app/**.
+ *
+ * Keys are typed (lib/i18n.ts): a typo'd key fails `tsc`. Other locales go in
+ * locales/<code>.ts with the same shape (`satisfies Messages`).
+ * Brand names (APP.name) and user data are not strings to translate.
+ */
+export const en = {
+  common: {
+    tryAgain: "Try again",
+    close: "Close",
+    save: "Save",
+    cancel: "Cancel",
+    loading: "Loading",
+    dismissHint: "Dismisses the message",
+    notSet: "Not set",
+    profile: "Profile",
+  },
+  errors: {
+    offline: "You're offline or the server is unreachable.",
+    sessionEnded: "Your session ended. Sign in again.",
+    status: "Something went wrong ({{status}}). Try again.",
+    generic: "Something went wrong. Try again.",
+    reference: "Ref {{ref}}",
+    copyReference: "Copy error reference {{ref}}",
+    referenceCopied: "Reference copied. Include it if you contact support.",
+  },
+  validation: {
+    required: "This can't be empty.",
+    tooLong: "Keep it under {{max}} characters.",
+    email: "Enter a valid email address.",
+    code: "Enter the 6-digit code.",
+    typeDelete: "Type DELETE to confirm.",
+  },
+  offline: {
+    banner: "You're offline. Showing saved data; changes sync when you reconnect.",
+  },
+  update: {
+    title: "An update is ready",
+    body: "Restart to get the latest version.",
+    restart: "Restart",
+    restartLabel: "Restart the app to apply the update",
+    later: "Later",
+  },
+  tabs: {
+    home: "Home",
+    settings: "Settings",
+  },
+  auth: {
+    demoBadge: "Demo mode · any 6-digit code works",
+    email: "Email",
+    code: "6-digit code",
+    codeSent: "We sent it to {{email}}.",
+    signIn: "Sign in",
+    resend: "Send a new code",
+    sendCode: "Email me a code",
+    changeEmail: "Use a different email",
+    changeEmailLabel: "Use a different email address",
+    errors: {
+      invalidCode: "That code didn't work. Check it, or send a new one.",
+      expired: "That code has expired. Send a new one.",
+      rateLimited: "Too many tries. Wait a minute, then try again.",
+      invalidEmail: "That email address doesn't look right.",
+      network: "Couldn't reach the server. Check your connection and try again.",
+      generic: "Something went wrong signing in. Try again.",
+    },
+  },
+  home: {
+    demoSuffix: "{{name}} · demo",
+    greeting: "Hi, {{name}}",
+    welcome: "Welcome",
+    loadingProfile: "Loading your profile",
+    emptyTitle: "Your core loop lives here",
+    emptyBody: "This is where the one thing people come back for goes. See docs/product/BRIEF.md → Core loop.",
+    addName: "Add your name",
+  },
+  editName: {
+    title: "Display name",
+    intro: "This is how the app greets you.",
+    label: "Display name",
+    saveLabel: "Save display name",
+    saved: "Name saved",
+    savedOffline: "Saved on this device. It'll sync when you're back online.",
+    failed: "Couldn't save your name. It's back to what it was.",
+  },
+  settings: {
+    title: "Settings",
+    profile: "Profile",
+    displayName: "Display name",
+    editNameLabel: "Edit display name, currently {{name}}",
+    appearance: "Appearance",
+    system: "System",
+    light: "Light",
+    dark: "Dark",
+    notifications: "Notifications",
+    push: "Push notifications",
+    pushSubtitle: "Reminders and updates. You can turn them off any time.",
+    pushUnsupported: "Not available on this device (needs a physical device and a development or store build).",
+    pushDenied: "Notifications are off in system settings. Turn them on there first.",
+    pushOn: "Notifications are on.",
+    pushOff: "Notifications are off.",
+    pushFailed: "Couldn't change notifications. Try again.",
+    privacy: "Privacy",
+    analytics: "Share anonymous usage data",
+    analyticsSubtitle: "Helps us improve the app. Never includes what you type.",
+    analyticsOn: "Thanks. Usage data helps us improve.",
+    analyticsOff: "Usage data sharing is off.",
+    export: "Download my data",
+    exportSubtitle: "A copy of everything we store about you, as a JSON file.",
+    exportPreparing: "Preparing your file…",
+    exportReady: "Your data is ready to save or share.",
+    exportFailed: "Couldn't prepare your data. Try again.",
+    account: "Account",
+    deleteAccount: "Delete account",
+    deleteAccountSubtitle: "Permanently erase your account and data.",
+    developer: "Developer",
+    gallery: "Component gallery",
+    gallerySubtitle: "Every component, both colour modes",
+    signOut: "Sign out",
+    version: "Version {{version}}",
+  },
+  deleteAccount: {
+    title: "Delete account",
+    warning: "This permanently deletes your account and everything in it. It can't be undone.",
+    whatGoes: "Your profile, settings and devices registered for notifications are erased. Signing in again later starts a brand-new account.",
+    exportFirst: "Want a copy first? Use Settings → Download my data.",
+    confirmLabel: "Type DELETE to confirm",
+    confirmHint: "In capital letters.",
+    submit: "Delete my account",
+    submitLabel: "Permanently delete my account",
+    deleted: "Your account has been deleted.",
+    failed: "Couldn't delete your account. Nothing was removed.",
+  },
+} as const;
+
+type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
+/** The shape every locale must match. */
+export type Messages = Widen<typeof en>;

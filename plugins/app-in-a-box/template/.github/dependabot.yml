@@ -1,0 +1,47 @@
+# Weekly, grouped dependency PRs: one PR per ecosystem per week (plus separate
+# security-fix PRs as advisories land), each gated by the same CI as any other PR.
+# Security updates also need "Dependabot security updates" on in repo settings.
+# The npm entry reports "dependency file not found" until the scaffold phase has
+# created mobile/package.json; that is expected.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      python:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Expo pins react-native and friends to the SDK; bump those with
+    # `npx expo install --fix` during an SDK upgrade, not one by one.
+    ignore:
+      - dependency-name: "react-native"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "expo"
+        update-types: ["version-update:semver-major"]
+    groups:
+      expo:
+        patterns: ["expo", "expo-*", "@expo/*", "jest-expo", "eslint-config-expo"]
+      javascript:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Agent-neutral guard: runs for Claude Code, Codex and humans alike.
+# Enable once per clone: git config core.hooksPath .githooks  (the scaffold does this)
+#
+# No `producer | grep -q` pipelines here: with pipefail, grep -q exiting on its first
+# match SIGPIPEs the producer on large inputs, the pipeline "fails", and the guard
+# silently passes. Every check captures its input first and greps a here-string.
+set -euo pipefail
+
+branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo DETACHED)"
+if [ "$branch" = "main" ] || [ "$branch" = "master" ]; then
+  if [ "${APPBOX_BOOTSTRAP:-0}" != "1" ]; then
+    echo "pre-commit: refusing to commit on $branch. Work on a branch: git switch -c <type>/<ticket>-<slug>" >&2
+    exit 1
+  fi
+fi
+
+# Secrets never get committed: no .env files (except .env.example)...
+staged="$(git diff --cached --name-only --diff-filter=ACM)"
+env_files="$(grep -E '(^|/)\.env($|\.)' <<<"$staged" | grep -Ev '\.env\.example$' || true)"
+if [ -n "$env_files" ]; then
+  echo "pre-commit: a .env file is staged: $env_files. Unstage it: git restore --staged <file>" >&2
+  exit 1
+fi
+
+# ...and no key-shaped strings in any added line.
+added="$(git diff --cached -U0 --diff-filter=ACM | grep -E '^\+' || true)"
+if grep -Eq '(sb_secret_[A-Za-z0-9]{10,}|sk-ant-[A-Za-z0-9_-]{20,}|service_role[^\n]{0,20}eyJ[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|phx_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})' <<<"$added"; then
+  echo "pre-commit: staged diff looks like it contains a secret key. Move it to .env." >&2
+  exit 1
+fi
+exit 0

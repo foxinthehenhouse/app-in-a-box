@@ -1,0 +1,78 @@
+# Database gate (free, no cloud account needed): every migration applied in order to a
+# brand-new Postgres on the runner, then the Supabase-advisor checks and the pgTAP RLS
+# tests, then a NEGATIVE CONTROL that plants RLS holes and requires both to go red.
+# All of it lives in scripts/db-test.sh, so `DATABASE_URL=... scripts/db-test.sh`
+# reproduces this job locally (or against `supabase start`).
+#
+# Plain Postgres + supabase/ci/platform_stubs.sql (roles, auth.users, auth.uid()), not
+# `supabase start`: no Docker pulls, ~1 minute, and no secrets. The pgTAP files are
+# also valid for `supabase test db` against the real local stack.
+#
+# Opt-in upgrade: Supabase Branching (Pro plan, $25/mo per org) gives every PR a real
+# preview database with migrations + seed applied by Supabase's GitHub integration.
+# ⚖️ Default is this free job; Branching is the owner's call. Setup: provision skill.
+# Branching needs no workflow here (the integration runs it); to also run the pgTAP
+# suite against the preview branch, enable the commented job at the bottom.
+name: DB
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migrations-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      PGCONNECT_TIMEOUT: "10"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start the runner's Postgres with pgTAP
+        run: |
+          PGV="$(find /usr/lib/postgresql -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -n | tail -1)"
+          sudo apt-get update -q
+          sudo apt-get install -y -q "postgresql-${PGV}-pgtap"
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -q -c "alter user postgres password 'postgres'"
+      - name: Migrations, advisors, pgTAP RLS tests, negative control
+        run: scripts/db-test.sh
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.12" }
+      - name: Backend integration tests against the migrated database
+        run: |
+          pip install -q -r requirements.txt -r requirements-dev.txt
+          python -m pytest -q -m integration
+
+  # branch-rls:
+  #   # Supabase Branching opt-in. Requires: Pro plan, the Supabase GitHub integration
+  #   # with Branching on, and secrets SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF +
+  #   # SUPABASE_DB_PASSWORD (see the provision skill, "Supabase Branching").
+  #   if: vars.ENABLE_SUPABASE_BRANCHING == 'true' && github.event_name == 'pull_request'
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 20
+  #   steps:
+  #     - uses: actions/checkout@<sha> # pin like the jobs above
+  #       with:
+  #         persist-credentials: false
+  #     - uses: supabase/setup-cli@<sha> # pin to a release SHA
+  #     - name: Wait for the PR's preview branch, then run pgTAP against it
+  #       env:
+  #         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  #         PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+  #         HEAD_REF: ${{ github.head_ref }}
+  #       run: |
+  #         # `supabase branches get "$HEAD_REF" --project-ref "$PROJECT_REF" -o env`
+  #         # prints the branch's POSTGRES_URL once it is healthy. Poll until it is,
+  #         # then: supabase test db --db-url "$POSTGRES_URL"
+  #         # Check `supabase branches --help` first: the CLI's flags drift.

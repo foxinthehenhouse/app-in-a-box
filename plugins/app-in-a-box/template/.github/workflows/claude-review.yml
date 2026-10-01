@@ -1,0 +1,60 @@
+# AI PR review with Claude Code. Enable: gh variable set ENABLE_CLAUDE_REVIEW --body true
+# Needs secret CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`) and the Claude GitHub app.
+# Using Codex instead? Enable Codex code review on the repo in Codex settings (it
+# reads AGENTS.md "Review guidelines") and leave this variable unset.
+#
+# tests/harness/test_workflow_lint.py pins the rules this file follows; each one is a
+# failure that shipped in Forge with green CI:
+#   - no --allowedTools in claude_args (every run died at ~300ms with zero turns)
+#   - --max-turns >= 100 (40 ran out on review-sized work)
+#   - id-token: write (the action fetches an OIDC token at startup)
+#   - a verify step: the action SKIPS, with success, on a PR that edits this workflow
+#     file, so "green" must mean "a review actually ran". It runs on !cancelled(), not
+#     always(), so a review cancelled by a newer push isn't reported as never-run.
+name: Claude review
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: vars.ENABLE_CLAUDE_REVIEW == 'true' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: anthropics/claude-code-action@fd1c128679612beff4ca259c78021c506e8aa7a7 # v1.0.237
+        id: review
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "claude"
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }} using the pr-review skill
+            in .agents/skills/pr-review/SKILL.md, in review-only mode: don't push
+            commits. Post the verdict block as one PR comment and inline comments for
+            blocker/major findings only.
+          claude_args: "--max-turns 120"
+      - name: Verify a review actually ran
+        if: ${{ !cancelled() }}
+        env:
+          EXECUTION_FILE: ${{ steps.review.outputs.execution_file }}
+        run: |
+          if [ -z "$EXECUTION_FILE" ] || [ ! -s "$EXECUTION_FILE" ]; then
+            echo "::error::claude-code-action finished without running a review (no execution_file). It skips PRs that edit this workflow; a skipped review is not a pass."
+            exit 1
+          fi

@@ -1,0 +1,27 @@
+{
+  "name": "app-in-a-box",
+  "displayName": "App in a Box",
+  "version": "0.6.0",
+  "description": "From a rambled idea to a beautiful, working MVP in an afternoon: a product-advisor agent team shapes your idea, checks the market and builds a clickable prototype you tune before anything is wired; then an Expo + FastAPI + Supabase repo with CI and a self-driving agent harness.",
+  "author": {
+    "name": "Kyle Fox"
+  },
+  "license": "MIT",
+  "keywords": ["scaffold", "expo", "react-native", "fastapi", "supabase", "harness", "starter", "mobile"],
+  "userConfig": {
+    "default_tracker": {
+      "type": "string",
+      "title": "Default backlog tool",
+      "description": "Pre-selected (as Recommended) in the interview's backlog question. You can still pick the other one per app.",
+      "options": ["linear", "github"],
+      "default": "linear"
+    },
+    "default_hosting": {
+      "type": "string",
+      "title": "Default backend hosting",
+      "description": "Pre-selected (as Recommended) in the interview's hosting question.",
+      "options": ["railway", "fly", "render"],
+      "default": "railway"
+    }
+  }
+}

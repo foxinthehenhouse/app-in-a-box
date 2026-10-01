@@ -1,0 +1,73 @@
+# UNVERIFIED SCHEMA: written against the EAS Workflows syntax as of mid-2026, but
+# docs.expo.dev was unreachable when this file was generated. Before relying on it,
+# check it against https://docs.expo.dev/eas/workflows/syntax/ (job types
+# `fingerprint`, `get-build`, `build`, `update`, their params/outputs, and the
+# `github.event.pull_request.number` context) and run `npx eas-cli workflow:run
+# .eas/workflows/pr-preview.yml` once by hand.
+#
+# PR previews. EAS Workflows run from the repo's `mobile/` app (set "Base directory"
+# to mobile in the expo.dev project's GitHub settings).
+#
+# 1. fingerprint the native layer (native deps, app.json plugins, SDK)
+# 2. look for an existing preview build with that exact fingerprint
+# 3. found -> native is unchanged, so publish JS as an OTA update to branch pr-<n>
+#    (testers open that branch from the existing preview build / dev client)
+#    not found -> native changed, so build a new preview binary
+#
+# Needs: EAS project linked (`eas init`), a `preview` build profile + channel in
+# eas.json (the template has both), expo-updates installed, and the expo.dev GitHub
+# app connected to this repo.
+
+name: PR preview
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  fingerprint:
+    name: Fingerprint native layer
+    type: fingerprint
+
+  get_android_build:
+    name: Find Android build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      profile: preview
+
+  get_ios_build:
+    name: Find iOS build with this fingerprint
+    needs: [fingerprint]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: preview
+
+  build_android:
+    name: Native changed - build Android preview
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    type: build
+    params:
+      platform: android
+      profile: preview
+
+  build_ios:
+    name: Native changed - build iOS preview
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: preview
+
+  publish_update:
+    name: Native unchanged - OTA to pr-<n>
+    needs: [get_android_build, get_ios_build]
+    if: ${{ needs.get_android_build.outputs.build_id && needs.get_ios_build.outputs.build_id }}
+    type: update
+    params:
+      branch: pr-${{ github.event.pull_request.number }}
+      message: "PR #${{ github.event.pull_request.number }}"

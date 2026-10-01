@@ -1,0 +1,8 @@
+# Codex skill metadata. Mirrors `disable-model-invocation: true` in SKILL.md: new-app
+# runs only when asked for by name ($new-app), never on a model's guess.
+interface:
+  display_name: "New app"
+  short_description: "Idea to a provisioned, instrumented mobile app repo"
+  default_prompt: "Use $new-app to build my app idea in this folder."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,47 @@
+# Ticket guard: every PR names its ticket, so nothing ships untracked and the tracker
+# (Linear or GitHub Issues, per appbox.yaml) moves the ticket itself on merge.
+#   Passes when the PR title, branch or body carries a ticket id:
+#     Linear  APP-123           GitHub  #123 in the title/body, or a branch like feat/123-slug
+#   Escape: put [no-ticket] in the title and say why in the body (typo fixes, etc.).
+#   Dependabot/Renovate PRs pass: dependency bumps are triaged by the routines skill instead.
+# The backlog skill files the ticket (and sub-issues) the moment scope appears.
+name: Ticket
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  merge_group: # a required check must also report in a merge queue
+
+permissions: {}
+
+concurrency:
+  group: ticket-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ticket:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: PR names its ticket
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            echo "Merge queue: the PR already passed this check."; exit 0
+          fi
+          if [ "$AUTHOR" = "dependabot[bot]" ] || [ "$AUTHOR" = "renovate[bot]" ]; then
+            echo "Dependency bot PR: tracked by the dependency-triage ritual."; exit 0
+          fi
+          if printf '%s' "$TITLE" | grep -qF '[no-ticket]'; then
+            echo "::notice::[no-ticket] escape used; the PR body should say why."; exit 0
+          fi
+          id='([A-Z][A-Z0-9]+-[0-9]+|#[0-9]+)'
+          if printf '%s\n%s\n' "$TITLE" "$BODY" | grep -qE "$id" \
+             || printf '%s' "$BRANCH" | grep -qE '(^|/)([A-Za-z][A-Za-z0-9]*-)?[0-9]+-'; then
+            echo "Ticket found."; exit 0
+          fi
+          echo "::error::No ticket id in the PR title, body or branch. File one with the backlog skill (Linear APP-123 or GitHub #123), or put [no-ticket] in the title with a reason."
+          exit 1

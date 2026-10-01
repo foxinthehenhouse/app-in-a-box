@@ -1,0 +1,265 @@
+"""A filter-honouring fake Supabase client shared by the tests/test_prod_* suites.
+
+Every filter really filters, so a handler that forgets `.eq("user_id", ...)` touches
+other users' rows and the test fails. `rpc()` dispatches to Python stand-ins for the
+Postgres functions (the SQL itself is exercised by test_prod_migrations.py's
+integration test against a real Postgres).
+"""
+
+from __future__ import annotations
+
+import itertools
+from collections.abc import Callable
+from typing import Any
+
+import pytest
+
+from backend.auth import CurrentUser, get_current_user
+from backend.db import get_db
+
+PROD_VARS = (
+    "CRON_SECRET",
+    "EXPO_ACCESS_TOKEN",
+    "CORS_ORIGINS",
+    "LOG_FORMAT",
+    "APP_VERSION",
+    "RAILWAY_GIT_COMMIT_SHA",
+    "GIT_SHA",
+    "SENTRY_RELEASE",
+)
+
+
+def clear_prod_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in PROD_VARS:
+        monkeypatch.delenv(name, raising=False)
+
+
+def wire_db_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "sb_secret_test")
+
+
+class FakeAPIError(Exception):
+    """Shaped like postgrest.exceptions.APIError: `.code` is the SQLSTATE."""
+
+    def __init__(self, code: str, message: str = "") -> None:
+        super().__init__(message or code)
+        self.code = code
+        self.message = message or code
+
+
+class Result:
+    def __init__(self, data: Any) -> None:
+        self.data = data
+
+
+class FakeQuery:
+    def __init__(self, db: FakeDB, table: str) -> None:
+        self.db = db
+        self.table = table
+        self.op = "select"
+        self.payload: Any = None
+        self.filters: list[tuple[str, str, Any]] = []
+        self._order: tuple[str, bool] | None = None
+        self._limit: int | None = None
+        self._range: tuple[int, int] | None = None
+
+    # builders
+    def select(self, *_cols: Any) -> FakeQuery:
+        self.op = "select"
+        return self
+
+    def insert(self, rows: Any) -> FakeQuery:
+        self.op, self.payload = "insert", rows
+        return self
+
+    def update(self, patch: dict[str, Any]) -> FakeQuery:
+        self.op, self.payload = "update", patch
+        return self
+
+    def upsert(self, row: dict[str, Any], on_conflict: str = "id") -> FakeQuery:
+        self.op, self.payload = "upsert", (row, on_conflict)
+        return self
+
+    def delete(self) -> FakeQuery:
+        self.op = "delete"
+        return self
+
+    # filters
+    def eq(self, col: str, val: Any) -> FakeQuery:
+        self.filters.append(("eq", col, val))
+        return self
+
+    def in_(self, col: str, vals: Any) -> FakeQuery:
+        self.filters.append(("in", col, list(vals)))
+        return self
+
+    def lt(self, col: str, val: Any) -> FakeQuery:
+        self.filters.append(("lt", col, val))
+        return self
+
+    def is_(self, col: str, val: str) -> FakeQuery:
+        self.filters.append(("is", col, val))
+        return self
+
+    def order(self, col: str, desc: bool = False) -> FakeQuery:
+        self._order = (col, desc)
+        return self
+
+    def limit(self, n: int) -> FakeQuery:
+        self._limit = n
+        return self
+
+    def range(self, start: int, end: int) -> FakeQuery:
+        self._range = (start, end)
+        return self
+
+    def _match(self, row: dict[str, Any]) -> bool:
+        for kind, col, val in self.filters:
+            if kind == "eq" and row.get(col) != val:
+                return False
+            if kind == "in" and row.get(col) not in val:
+                return False
+            if kind == "lt" and not (row.get(col) is not None and str(row[col]) < str(val)):
+                return False
+            if kind == "is" and val == "null" and row.get(col) is not None:
+                return False
+        return True
+
+    def execute(self) -> Result:
+        rows = self.db.tables.setdefault(self.table, [])
+        self.db.calls.append((self.table, self.op, list(self.filters)))
+        if self.op == "insert":
+            new = self.payload if isinstance(self.payload, list) else [self.payload]
+            key = self.db.unique.get(self.table)
+            for r in new:
+                if key and any(all(e.get(k) == r.get(k) for k in key) for e in rows):
+                    raise FakeAPIError("23505", "duplicate key")
+            rows.extend(dict(r) for r in new)
+            return Result([dict(r) for r in new])
+        if self.op == "upsert":
+            row, conflict = self.payload
+            existing = next((r for r in rows if r.get(conflict) == row.get(conflict)), None)
+            if existing:
+                existing.update(row)
+                return Result([existing])
+            rows.append(dict(row))
+            return Result([dict(row)])
+        matched = [r for r in rows if self._match(r)]
+        if self.op == "delete":
+            self.db.tables[self.table] = [r for r in rows if r not in matched]
+            return Result(matched)
+        if self.op == "update":
+            for r in matched:
+                r.update(self.payload)
+            return Result(matched)
+        if self._order:
+            col, desc = self._order
+            matched.sort(key=lambda r: str(r.get(col)), reverse=desc)
+        if self._range:
+            matched = matched[self._range[0] : self._range[1] + 1]
+        if self._limit is not None:
+            matched = matched[: self._limit]
+        return Result([dict(r) for r in matched])
+
+
+class _Rpc:
+    def __init__(self, fn: Callable[[], Any]) -> None:
+        self._fn = fn
+
+    def execute(self) -> Result:
+        return Result(self._fn())
+
+
+class FakeAdmin:
+    def __init__(self) -> None:
+        self.deleted: list[str] = []
+        self.error: Exception | None = None
+
+    def delete_user(self, user_id: str, should_soft_delete: bool = False) -> None:
+        if self.error:
+            raise self.error
+        self.deleted.append(user_id)
+
+
+class FakeAuth:
+    def __init__(self) -> None:
+        self.admin = FakeAdmin()
+
+
+class FakeDB:
+    def __init__(self, tables: dict[str, list[dict[str, Any]]] | None = None) -> None:
+        self.tables: dict[str, list[dict[str, Any]]] = tables or {}
+        self.calls: list[tuple[str, str, list[tuple[str, str, Any]]]] = []
+        self.rpc_calls: list[tuple[str, dict[str, Any]]] = []
+        self.unique: dict[str, tuple[str, ...]] = {"job_runs": ("job", "run_key")}
+        self.counters: dict[str, int] = {}
+        self.rpc_error: Exception | None = None
+        self.auth = FakeAuth()
+        self._ids = itertools.count(1)
+
+    def table(self, name: str) -> FakeQuery:
+        return FakeQuery(self, name)
+
+    def rpc(self, fn: str, params: dict[str, Any]) -> _Rpc:
+        self.rpc_calls.append((fn, dict(params)))
+        if self.rpc_error:
+            err = self.rpc_error
+
+            def boom() -> Any:
+                raise err
+
+            return _Rpc(boom)
+        return _Rpc(lambda: getattr(self, f"_rpc_{fn}")(**params))
+
+    # Python stand-ins for the SQL functions in supabase/migrations
+    def _rpc_rate_limit_hit(self, p_key: str, p_window_seconds: int) -> int:
+        self.counters[p_key] = self.counters.get(p_key, 0) + 1
+        return self.counters[p_key]
+
+    def _rpc_register_push_token(
+        self, p_user_id: str, p_token: str, p_platform: str | None, p_max_tokens: int
+    ) -> None:
+        rows = self.tables.setdefault("push_tokens", [])
+        seq = next(self._ids)
+        existing = next((r for r in rows if r["token"] == p_token), None)
+        if existing:
+            existing.update(user_id=p_user_id, last_seen=seq)
+        else:
+            rows.append(
+                {"user_id": p_user_id, "token": p_token, "platform": p_platform, "last_seen": seq}
+            )
+        mine = sorted((r for r in rows if r["user_id"] == p_user_id), key=lambda r: -r["last_seen"])
+        drop = mine[p_max_tokens:]
+        self.tables["push_tokens"] = [r for r in rows if r not in drop]
+
+
+def client_for(db: FakeDB, user_id: str | None = "u1", app: Any = None) -> Any:
+    from fastapi.testclient import TestClient
+
+    from backend.main import create_app
+
+    app = app or create_app()
+    if user_id is not None:
+        app.dependency_overrides[get_current_user] = lambda: CurrentUser(id=user_id)
+    app.dependency_overrides[get_db] = lambda: db
+    return TestClient(app, raise_server_exceptions=False)
+
+
+# The fake is itself a guard: prove its filters bite, or the suites above prove nothing.
+def test_fake_eq_filters_rows() -> None:
+    db = FakeDB({"t": [{"user_id": "a"}, {"user_id": "b"}]})
+    assert db.table("t").select("*").eq("user_id", "b").execute().data == [{"user_id": "b"}]
+
+
+def test_fake_delete_only_removes_matched_rows() -> None:
+    db = FakeDB({"t": [{"user_id": "a", "k": 1}, {"user_id": "b", "k": 1}]})
+    db.table("t").delete().eq("user_id", "a").in_("k", [1]).execute()
+    assert db.tables["t"] == [{"user_id": "b", "k": 1}]
+
+
+def test_fake_enforces_job_runs_primary_key() -> None:
+    db = FakeDB()
+    db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
+    with pytest.raises(FakeAPIError):
+        db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
