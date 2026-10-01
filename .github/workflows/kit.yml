@@ -1,0 +1,130 @@
+# App in a Box kit CI. The kit's product is the repo it generates, so the gate is:
+# render the template, then prove the generated repo's own guards pass AND fail on
+# planted violations (scripts/selftest.sh + scripts/selftest.d/*.sh).
+#   selftest   every PR/push: renderer, design, backend, git/agent hooks, and the
+#              v0.3 trust checks (harness lint, wire contract, scoping, migrations,
+#              actionlint, zizmor, and the full Postgres + pgTAP DB gate)
+#   plugin     `claude plugin validate --strict` on the marketplace, the plugin and
+#              a RENDERED repo's .agents/ (the raw template still holds __APP_SLUG__
+#              placeholders, which aren't valid names; no auth needed; skipped with a
+#              warning if the CLI can't start)
+#   workflows  actionlint on this repo's workflows and the template's
+#   mobile     nightly: a real create-expo-app + `npm run gates` + mobile guard plants
+name: Kit
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+    inputs:
+      mobile:
+        description: Also run the --mobile selftest (real Expo app, ~5 min)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kit-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ACTIONLINT_VERSION: "1.7.12"
+  ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+  CLAUDE_CODE_VERSION: "2.1.285"
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APPBOX_SELFTEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Tools the trust checks exercise (actionlint, zizmor)
+        run: |
+          curl -fsSL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin" && tar -xzf actionlint.tgz -C "$HOME/.local/bin" actionlint
+          python -m pip install "zizmor==1.30.1" "pyyaml==6.0.2"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Throwaway Postgres with pgTAP (the generated repo's DB gate runs against it)
+        run: |
+          PGV="$(find /usr/lib/postgresql -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -n | tail -1)"
+          sudo apt-get update -q
+          sudo apt-get install -y -q "postgresql-${PGV}-pgtap"
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -q -c "alter user postgres password 'postgres'"
+      - name: Selftest
+        run: scripts/selftest.sh
+
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: claude plugin validate --strict
+        run: |
+          npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" >/dev/null
+          if ! claude --version >/dev/null 2>&1; then
+            echo "::warning::the claude CLI could not start on this runner; plugin validation skipped"
+            exit 0
+          fi
+          claude plugin validate --strict .
+          claude plugin validate --strict plugins/app-in-a-box
+          # Validate the .agents/ plugin a founder actually gets: render first, so the
+          # __APP_SLUG__ placeholders are filled in, exactly as new-app does.
+          app="$RUNNER_TEMP/rendered"
+          python3 plugins/app-in-a-box/scripts/render.py --target "$app" --name "Penny Jar" \
+            --slug penny-jar --bundle-id com.example.pennyjar --owner example >/dev/null
+          claude plugin validate --strict "$app/.agents"
+
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: actionlint (this repo + the template's workflows)
+        run: |
+          curl -fsSL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
+          tar -xzf actionlint.tgz actionlint
+          ./actionlint -color .github/workflows/*.yml plugins/app-in-a-box/template/.github/workflows/*.yml
+
+  mobile:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Selftest with a real Expo app
+        run: scripts/selftest.sh --mobile

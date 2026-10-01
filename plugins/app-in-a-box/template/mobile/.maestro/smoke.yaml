@@ -1,0 +1,14 @@
+# Smoke flow: the app launches to sign-in and the email field accepts input.
+# Run: maestro test mobile/.maestro/   (per-directory, on a Release/preview build)
+appId: __BUNDLE_ID__
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "signin-screen"
+- tapOn:
+    id: "signin-email-input"
+- inputText: "smoke@example.com"
+- assertVisible:
+    id: "signin-send-button"
+- takeScreenshot: smoke-signin

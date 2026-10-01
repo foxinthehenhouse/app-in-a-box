@@ -1,0 +1,208 @@
+{
+  "_comment": "Protected-unless-improving manifest for the self-learning harness. The harness-optimize skill loads this and SKIPS protected components. The only allowed change to a protected component is a verified net improvement: build a strictly-better replacement, confirm harness-check still passes, update this manifest, THEN retire the old one, logged in CHANGELOG.md. A protected component that seems obsolete is surfaced to the owner, never silently removed.",
+  "version": 1,
+  "protected_hooks": [
+    {
+      "file": ".claude/hooks/harness_paths.py",
+      "event": "library (imported by every harness script)",
+      "load_bearing": true,
+      "removal_rule": "Never remove. Single source of truth for WHERE harness state and transcripts live. Any script needing a state path imports it; a second derivation is how a reader ends up in an empty directory reporting '0 corrections'."
+    },
+    {
+      "file": ".claude/hooks/capture-activity.sh",
+      "event": "PostToolUse + UserPromptSubmit (async)",
+      "load_bearing": true,
+      "removal_rule": "Never remove. The raw capture layer everything downstream reads. An unregistered capture hook silently kills the whole loop."
+    },
+    {
+      "file": ".claude/hooks/session-reflect.sh",
+      "event": "Stop",
+      "load_bearing": true,
+      "removal_rule": "Only if memory-seeding moves into a strictly-better mechanism."
+    },
+    {
+      "file": ".claude/hooks/pattern-extractor.py",
+      "event": "on-demand",
+      "load_bearing": true,
+      "removal_rule": "Never remove. Without it the self-tuning loop is blind."
+    },
+    {
+      "file": ".claude/hooks/harness-healthcheck.py",
+      "event": "SessionStart + on-demand",
+      "load_bearing": true,
+      "removal_rule": "Never remove. The drift sensor that makes silent failure loud, and the only ritual scheduler (cadence nudges at session start)."
+    },
+    {
+      "file": ".claude/hooks/skill-lifecycle.py",
+      "event": "on-demand",
+      "load_bearing": false,
+      "removal_rule": "Report-only use-rate ranking for the pruning pass. Removable if pruning candidates are measured some strictly-better way."
+    },
+    {
+      "file": ".claude/hooks/spend_ledger.py",
+      "event": "on-demand + healthcheck budget nudge",
+      "load_bearing": false,
+      "removal_rule": "Cost signal for pruning. Removable only if spend is measured elsewhere."
+    },
+    {
+      "file": ".claude/hooks/bash-safety.sh",
+      "event": "PreToolUse(Bash)",
+      "load_bearing": true,
+      "removal_rule": "Never remove. Destructive-command and push-to-main safety."
+    },
+    {
+      "file": ".claude/hooks/inject-path-rules.py",
+      "event": "PreToolUse(Write|Edit|MultiEdit)",
+      "load_bearing": true,
+      "removal_rule": "Without it .agents/rules/*.md never load at edit time. Remove only if the rules move into always-on AGENTS.md context."
+    },
+    {
+      "file": ".claude/hooks/memory_recall.py",
+      "event": "UserPromptSubmit",
+      "load_bearing": false,
+      "removal_rule": "Surfaces long-tail memory notes. Before sunsetting, check reflect has not demoted index lines on the assumption recall surfaces them."
+    }
+  ],
+  "protected_skills": [
+    {
+      "file": ".agents/skills/reflect/SKILL.md",
+      "load_bearing": true,
+      "removal_rule": "Memory consolidation engine."
+    },
+    {
+      "file": ".agents/skills/harness-optimize/SKILL.md",
+      "load_bearing": true,
+      "removal_rule": "The self-tuning loop."
+    },
+    {
+      "file": ".agents/skills/harness-check/SKILL.md",
+      "load_bearing": true,
+      "removal_rule": "On-demand full healthcheck report."
+    },
+    {
+      "file": ".agents/skills/pr-review/SKILL.md",
+      "load_bearing": true,
+      "removal_rule": "The PR review-and-fix loop; the gate before main. Never remove without a strictly-better replacement."
+    },
+    {
+      "file": ".agents/skills/next/SKILL.md",
+      "load_bearing": true,
+      "removal_rule": "The self-driving loop: what the owner asks when they don't know what to ask. Its signals.py also feeds the SessionStart next-action line. Replace only with something that ranks the same signals."
+    },
+    {
+      "file": ".agents/skills/north-star-report/SKILL.md",
+      "load_bearing": false,
+      "removal_rule": "The product-analytics feedback loop into the backlog. Removable only if funnel drop-offs reach the backlog some strictly-better way."
+    },
+    {
+      "file": ".agents/skills/market-watch/SKILL.md",
+      "load_bearing": false,
+      "removal_rule": "Keeps the setup-time market check (docs/product/VALIDATION.md) current. Monthly by design; low use is expected, not dormancy."
+    },
+    {
+      "file": ".agents/skills/ship/SKILL.md",
+      "load_bearing": false,
+      "removal_rule": "Release checklist (store requirements, OTA safety). Low use between releases is expected, not dormancy."
+    },
+    {
+      "file": ".agents/skills/routines/SKILL.md",
+      "load_bearing": false,
+      "removal_rule": "Sets up scheduled rituals with consent. Used once or twice per project; never a pruning candidate for low use."
+    }
+  ],
+  "protected_agents": [
+    {
+      "file": ".agents/agents/correctness-reviewer.md",
+      "load_bearing": true,
+      "removal_rule": "The correctness/security reviewer the pr-review loop depends on."
+    },
+    {
+      "file": ".agents/agents/chair.md",
+      "load_bearing": true,
+      "removal_rule": "The final ruling on irreversible calls (model: fable). pr-review step 4b and the pr-review workflow depend on it. A model downgrade is a change to propose, never an automatic prune."
+    },
+    {
+      "file": ".agents/agents/triage.md",
+      "load_bearing": false,
+      "removal_rule": "Cheap sweeps (model: haiku) for next, dependency triage and CI logs. Removable if those sweeps move somewhere cheaper."
+    }
+  ],
+  "workflows": {
+    "_comment": "Claude Code Workflow scripts (opt-in, token-heavy). The SKILL.md of the same name is the default route and the only one in Codex, so a workflow is an accelerator, never the sole path. Keep each in step with its skill.",
+    "files": [".claude/workflows/pr-review.js", ".claude/workflows/build-feature.js"]
+  },
+  "evals": {
+    "_comment": "Skill evals in claude plugin eval format (.agents is packaged as a plugin via .agents/.claude-plugin/plugin.json). harness-optimize reads result deltas from .agents/evals/results/. Every skill edit that changes behaviour should keep or raise its case scores.",
+    "dir": ".agents/evals/",
+    "run": "claude plugin eval .agents --ablation with-without --no-publish"
+  },
+  "data_files": [
+    {
+      "path": ".agents/memory/",
+      "scope": "repo",
+      "removal_rule": "Git-tracked memory. Never auto-pruned; consolidation happens only via the reflect skill."
+    },
+    {
+      "path": ".agents/rules/",
+      "scope": "path-scoped-rules",
+      "removal_rule": "Prune an individual rule only if it is verifiably obsolete."
+    }
+  ],
+  "transcripts": {
+    "_comment": "Where the extractor, spend ledger and healthcheck READ session transcripts. Claude Code: <claude_projects_dir>/<slugified repo path>[--claude-worktrees-<id>]/*.jsonl. Codex: rollout JSONL files matched by codex_sessions_glob, kept only when their session_meta cwd is this repo (or a worktree of it); parsing is best-effort (user messages + tool names) and unknown records are skipped. Set codex=false to ignore Codex entirely. Env overrides: APPBOX_CLAUDE_PROJECTS_DIR, APPBOX_CODEX_SESSIONS_GLOB. Capture/state live in $APPBOX_STATE_DIR or ${XDG_STATE_HOME:-~/.local/state}/appbox/<slug>/, never in the repo.",
+    "claude_projects_dir": "~/.claude/projects",
+    "codex": true,
+    "codex_sessions_glob": "~/.codex/sessions/**/*.jsonl"
+  },
+  "owner_asks": {
+    "_comment": "Skills and subagent roles that reach product-judgement calls (.agents/rules/product-judgement.md). tests/harness/test_owner_asks.py fails if a listed skill loses its '## Ask the owner' step or a listed role stops returning ⚖️ QUESTION blocks. Removing an entry is a harness change: say why in the PR.",
+    "skills": ["feature-discovery", "build-feature", "pr-review", "backlog", "next", "ship", "north-star-report", "market-watch", "routines"],
+    "agents": ["product-manager", "ux-designer", "growth", "chair"]
+  },
+  "complexity_budget": {
+    "_comment": "An ACCRETION ALARM, not a dismantle mandate. Over budget means harness-optimize owes a deliberate look for something to retire, never an automatic removal. Protected components are exempt and memory is never auto-pruned. Limits sit above the template baseline so they fire on growth; raising one is fine when it is deliberate and logged in CHANGELOG.md.",
+    "limits": {
+      "agents_md_lines": 160,
+      "rules": 9,
+      "registered_hooks": 10,
+      "skills": 14,
+      "agents": 12,
+      "memory_entries": 45
+    }
+  },
+  "spend_budget": {
+    "_comment": "SOFT weekly spend budget in input-token equivalents (see spend_ledger.py). null = off. Set it from a measured baseline: `python3 .claude/hooks/spend_ledger.py --days 28 --by day`, then ~1.5x a typical week. Over budget is a SessionStart nudge; nothing is blocked.",
+    "weekly_ite": null
+  },
+  "sunset": {
+    "_comment": "Removal is staged, never abrupt. Non-protected components only.",
+    "dir": ".claude/_sunset/",
+    "protocol": [
+      "1. Capability re-test: in a clean session WITHOUT the component, give the task that motivated it and check the agent gets it right 3/3. Scaffolding the model has outgrown is drag; scaffolding still doing work is not.",
+      "2. Move (don't delete) to .claude/_sunset/ and log the date + the 3/3 evidence in CHANGELOG.md.",
+      "3. Wait two weeks of real use. No regression -> delete. Regression -> restore and annotate 'still load-bearing as of <date>'.",
+      "4. A hook must also be unregistered from .claude/settings.json (and the Codex adapter regenerated) in step 2, or it keeps firing."
+    ]
+  },
+  "cadence": {
+    "_comment": "Days after which the SessionStart healthcheck nudges (then escalates at 2x and 3x) to run each ritual. Last-run stamps live in state.json, written by `python3 .claude/hooks/harness_paths.py stamp <ritual>` at the end of each ritual. `scheduled` lists rituals a Routine or cron already runs (set by the routines skill); they're never nudged. Dependency PRs reach the next skill through GitHub signals, not a cadence.",
+    "reflect_days": 10,
+    "optimize_days": 7,
+    "north_star_days": 7,
+    "market_watch_days": 30,
+    "capture_stale_days": 3,
+    "scheduled": []
+  },
+  "registered_hook_check": {
+    "_comment": "Hooks that MUST appear in .claude/settings.json (and so in the generated .codex/hooks.json). Wired, not just present on disk.",
+    "must_be_registered": [
+      "session-start.sh",
+      "harness-healthcheck.py",
+      "memory_recall.py",
+      "capture-activity.sh",
+      "bash-safety.sh",
+      "inject-path-rules.py",
+      "session-reflect.sh"
+    ]
+  }
+}

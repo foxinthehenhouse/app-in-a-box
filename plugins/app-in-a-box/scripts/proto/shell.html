@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="generator" content="app-in-a-box prototype.py">
+<title>{{TITLE}}</title>
+{{FONTS}}
+<style>
+{{CSS}}
+</style>
+</head>
+<body>
+<div class="page">
+  <main class="stage" aria-label="Prototype">
+    <div class="phone-slot" id="phone-slot">
+      <div class="phone" id="phone" data-direction="" data-mode="light" data-density="regular" data-temperature="calm" data-icons="rounded">
+        <div class="statusbar" aria-hidden="true">
+          <span class="statusbar-time">9:41</span>
+          <span class="statusbar-glyphs"><i class="sig"></i><i class="bat"></i></span>
+        </div>
+        <div class="viewport" id="viewport"></div>
+        <nav class="tabbar" id="tabbar" aria-label="Tabs" hidden></nav>
+        <div class="toast-host" id="toast-host" role="status" aria-live="polite"></div>
+        <div class="sheet-host" id="sheet-host"></div>
+        <div class="home-indicator" aria-hidden="true"></div>
+      </div>
+    </div>
+    <p class="stage-caption" id="stage-caption" aria-live="polite"></p>
+  </main>
+  <aside class="panel" id="panel" aria-label="Design controls">
+    <button class="panel-handle" id="panel-handle" type="button" aria-expanded="false" aria-controls="panel-body">
+      <span class="panel-handle-bar" aria-hidden="true"></span>
+      <span>Design controls</span>
+    </button>
+    <div class="panel-body" id="panel-body"></div>
+  </aside>
+</div>
+<noscript><p class="noscript">This prototype needs JavaScript to click through.</p></noscript>
+<script type="application/json" id="proto-spec">{{SPEC}}</script>
+<script type="application/json" id="proto-config">{{CONFIG}}</script>
+<script>
+{{JS}}
+</script>
+</body>
+</html>

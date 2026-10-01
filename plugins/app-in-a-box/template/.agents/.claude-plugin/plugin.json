@@ -1,0 +1,6 @@
+{
+  "name": "__APP_SLUG__-harness",
+  "version": "0.1.0",
+  "author": { "name": "__OWNER__" },
+  "description": "This repo's own skills and subagents, packaged so `claude plugin eval .agents` can measure whether they trigger and perform. Not meant to be installed."
+}

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_PAT}" }
+    },
+    "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp" },
+    "posthog": { "type": "http", "url": "https://mcp.posthog.com/mcp" },
+    "sentry": { "type": "http", "url": "https://mcp.sentry.dev/mcp" },
+    "linear": { "type": "http", "url": "https://mcp.linear.app/mcp" },
+    "expo": { "type": "http", "url": "https://mcp.expo.dev/mcp" },
+    "railway": { "command": "npx", "args": ["-y", "@railway/mcp-server"] },
+    "chrome-devtools": { "command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"] }
+  }
+}

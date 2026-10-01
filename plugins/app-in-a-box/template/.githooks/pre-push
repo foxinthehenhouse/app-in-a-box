@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Agent-neutral guard: no direct pushes to main; fast gates before anything leaves.
+# SKIP_GATES=1 skips the gates (not the main-branch block) for a WIP push; CI still runs.
+set -euo pipefail
+
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/master)
+      if [ "${APPBOX_BOOTSTRAP:-0}" != "1" ]; then
+        echo "pre-push: direct push to ${remote_ref#refs/heads/} is blocked. Open a PR from a branch." >&2
+        exit 1
+      fi ;;
+  esac
+done
+
+if [ "${SKIP_GATES:-0}" = "1" ]; then exit 0; fi
+root="$(git rev-parse --show-toplevel)"
+
+# Harness lint first: seconds, and it is what an agent most often breaks without
+# noticing (a skill's frontmatter, a hook path, a workflow, AGENTS.md).
+if [ -d "$root/tests/harness" ]; then
+  echo "pre-push: harness lint (tests/harness)" >&2
+  if [ -x "$root/scripts/dev-venv.sh" ] && [ -f "$root/requirements.txt" ]; then
+    "$root/scripts/dev-venv.sh" python -m pytest -q -x tests/harness >&2
+  elif python3 -c 'import pytest, yaml' 2>/dev/null; then
+    (cd "$root" && python3 -m pytest -q -x tests/harness) >&2
+  else
+    echo "pre-push: harness lint skipped (python3 lacks pytest/pyyaml); CI will run it" >&2
+  fi
+fi
+
+if [ -x "$root/scripts/dev-venv.sh" ] && [ -d "$root/backend" ]; then
+  echo "pre-push: backend tests" >&2
+  "$root/scripts/dev-venv.sh" python -m pytest -q --ignore=tests/harness >&2
+fi
+if [ -f "$root/mobile/package.json" ] && [ -d "$root/mobile/node_modules" ]; then
+  echo "pre-push: mobile gates" >&2
+  (cd "$root/mobile" && npm run -s gates) >&2
+fi
