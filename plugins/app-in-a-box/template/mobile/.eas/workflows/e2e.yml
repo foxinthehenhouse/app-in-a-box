@@ -1,0 +1,99 @@
+# E2E on every PR: the `smoke` Maestro flows on an Android emulator and an iOS
+# simulator. Follows the documented fingerprint + repack pattern (expo/expo
+# docs/pages/eas/workflows/pre-packaged-jobs.mdx, "Continuous deployment with
+# Fingerprint and Repack"):
+#   an e2e-test build with this native fingerprint exists -> repack it with this PR's JS
+#     (minutes, no native rebuild; reusing it as-is would test stale JS)
+#   none exists -> build one (the next PR with the same native layer reuses it)
+#
+# Only `smoke` flows run here: an EAS build is release-mode, and demo mode (which the
+# `demo` flows sign in through) is __DEV__-only by design, so a store build can never
+# ship the fake backend. Run the `demo` flows locally (docs/qa/MAESTRO.md).
+# Maestro on EAS is in alpha. Needs the `e2e-test` profile in eas.json (no
+# credentials: a simulator build and an APK).
+
+name: E2E
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  fingerprint:
+    name: Fingerprint native layer
+    type: fingerprint
+    environment: preview
+
+  get_android_build:
+    name: Find Android e2e build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: android
+      profile: e2e-test
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+
+  get_ios_build:
+    name: Find iOS simulator e2e build
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: ios
+      profile: e2e-test
+      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+
+  repack_android:
+    name: Repack Android with this PR's JS
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: repack
+    params:
+      build_id: ${{ needs.get_android_build.outputs.build_id }}
+
+  repack_ios:
+    name: Repack iOS with this PR's JS
+    needs: [get_ios_build]
+    if: ${{ needs.get_ios_build.outputs.build_id }}
+    type: repack
+    params:
+      build_id: ${{ needs.get_ios_build.outputs.build_id }}
+
+  build_android:
+    name: Native changed - build Android e2e APK
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    type: build
+    params:
+      platform: android
+      profile: e2e-test
+
+  build_ios:
+    name: Native changed - build iOS simulator app
+    needs: [get_ios_build]
+    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: e2e-test
+
+  maestro_android:
+    name: Maestro smoke (Android emulator)
+    after: [repack_android, build_android]
+    type: maestro
+    environment: preview
+    runs_on: linux-medium-nested-virtualization
+    params:
+      build_id: ${{ needs.repack_android.outputs.build_id || needs.build_android.outputs.build_id }}
+      flow_path: [".maestro"]
+      include_tags: smoke
+
+  maestro_ios:
+    name: Maestro smoke (iOS simulator)
+    after: [repack_ios, build_ios]
+    type: maestro
+    environment: preview
+    runs_on: macos-medium
+    params:
+      build_id: ${{ needs.repack_ios.outputs.build_id || needs.build_ios.outputs.build_id }}
+      flow_path: [".maestro"]
+      include_tags: smoke

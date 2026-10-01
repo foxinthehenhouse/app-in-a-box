@@ -1,0 +1,19 @@
+# Home: signed in, the profile loads (skeleton -> content) and the tab bar works.
+appId: __BUNDLE_ID__
+tags:
+  - demo
+---
+- runFlow: common/signin-demo.yaml
+- assertVisible:
+    id: "home-avatar"
+- assertNotVisible:
+    id: "home-error"
+- tapOn:
+    id: "tab-settings"
+- assertVisible:
+    id: "settings-screen"
+- tapOn:
+    id: "tab-home"
+- assertVisible:
+    id: "home-screen"
+- takeScreenshot: home

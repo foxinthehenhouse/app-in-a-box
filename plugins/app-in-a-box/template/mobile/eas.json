@@ -22,6 +22,17 @@
       },
       "env": {}
     },
+    "e2e-test": {
+      "withoutCredentials": true,
+      "environment": "preview",
+      "channel": "e2e-test",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "environment": "production",
       "channel": "production",
