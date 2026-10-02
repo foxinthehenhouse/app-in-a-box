@@ -42,7 +42,7 @@ RUNTIME=(
 )
 # babel-plugin-react-compiler: app.json sets experiments.reactCompiler; babel-preset-expo
 # loads the plugin from the project, so it must be installed (expo install pins its version).
-DEV=(eslint eslint-config-expo jest jest-expo @types/jest @testing-library/react-native babel-plugin-react-compiler)
+DEV=(eslint eslint-config-expo jest jest-expo @types/jest "@testing-library/react-native@^14" babel-plugin-react-compiler)
 
 expo_install() {
   npx expo install "$@" || EXPO_OFFLINE=1 npx expo install "$@"

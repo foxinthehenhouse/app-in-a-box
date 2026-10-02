@@ -14,7 +14,6 @@ function load(env: Record<string, string | undefined>) {
     else process.env[k] = env[k];
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("../config") as typeof import("../config");
   } finally {
     for (const k of Object.keys(saved)) {

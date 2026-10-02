@@ -68,7 +68,7 @@ describe("haptics are graded by commitment", () => {
     });
     const onPress = jest.fn();
     await render(<Button label="Save" onPress={onPress} testID="b" />);
-    expect(() => fireEvent(screen.getByTestId("b"), "pressIn")).not.toThrow();
+    await expect((async () => { await fireEvent(screen.getByTestId("b"), "pressIn"); })()).resolves.toBeUndefined();
     await fireEvent.press(screen.getByTestId("b"));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
