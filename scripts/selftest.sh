@@ -46,7 +46,14 @@ skip() {
   if [ "${APPBOX_SELFTEST_STRICT:-}" = 1 ]; then bad "$1 (could not run: needs $2)"
   else echo "  SKIP  $1 (needs $2)"; SKIP=$((SKIP+1)); fi
 }
-check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else bad "$1"; fi; }
+# A FAIL with no output is a guard nobody can act on (CI logs only showed the name):
+# keep the command's output and print its tail when it fails.
+check() {
+  local out
+  if out="$(eval "$2" 2>&1)"; then ok "$1"; else
+    bad "$1"; printf '%s\n' "$out" | tail -n 25 | sed 's/^/        | /'
+  fi
+}
 # refuses NAME CMD [NEEDLE]: CMD must fail. With NEEDLE, its output must also name the
 # rule that fired: without that, a plant that fails for an unrelated reason (an import
 # error, a syntax error in the hook, pytest exit 5) reads as "the guard caught it".
