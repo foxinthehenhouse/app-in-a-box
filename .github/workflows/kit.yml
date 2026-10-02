@@ -66,8 +66,10 @@ jobs:
         run: |
           curl -fsSL -o maestro.zip "https://github.com/mobile-dev-inc/maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
           echo "${MAESTRO_SHA256}  maestro.zip" | sha256sum -c -
-          unzip -q maestro.zip -d "$HOME/.local/share" && rm maestro.zip
-          mkdir -p "$HOME/.local/bin" && ln -sf "$HOME/.local/share/maestro/bin/maestro" "$HOME/.local/bin/maestro"
+          mkdir -p "$HOME/.local/share" "$HOME/.local/bin"
+          unzip -q maestro.zip -d "$HOME/.local/share"
+          rm maestro.zip
+          ln -sf "$HOME/.local/share/maestro/bin/maestro" "$HOME/.local/bin/maestro"
           "$HOME/.local/bin/maestro" --version
           curl -fsSL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum -c -
