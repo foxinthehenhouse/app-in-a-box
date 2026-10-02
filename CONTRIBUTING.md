@@ -57,3 +57,6 @@ The selftest covers everything a container can run. A device, EAS builds and sto
 submission need real accounts, so they're a release checklist anyone can run with
 free-tier accounts: [RELEASING.md](RELEASING.md).
 
+## Security
+
+Found a vulnerability? Don't open a public issue. See [SECURITY.md](SECURITY.md).
