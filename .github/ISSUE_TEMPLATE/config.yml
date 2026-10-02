@@ -3,3 +3,6 @@ contact_links:
   - name: Real-cloud release check results
     url: https://github.com/foxinthehenhouse/app-in-a-box/blob/main/RELEASING.md
     about: Ran the release checklist? Post your results on the release's tracking issue (format in RELEASING.md).
+  - name: Report a security vulnerability
+    url: https://github.com/foxinthehenhouse/app-in-a-box/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
