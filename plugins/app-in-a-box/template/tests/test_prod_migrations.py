@@ -163,19 +163,11 @@ def test_migrations_have_rollback_notes() -> None:
 
 # --- the SQL, for real ------------------------------------------------------------
 
-AUTH_STUB = """
-do $$ begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon; end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    create role authenticated; end if;
-  if not exists (select 1 from pg_roles where rolname = 'service_role') then
-    create role service_role; end if;
-end $$;
-create schema if not exists auth;
-create table if not exists auth.users (id uuid primary key);
-create or replace function auth.uid() returns uuid language sql stable as
-  $f$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $f$;
-"""
+# The same platform stubs the DB gate (scripts/db-test.sh) applies, from the one file
+# that defines them: supabase/ci/platform_stubs.sql. A private minimal stub here used to
+# leave an `auth.users` without `email` behind, and the DB gate, running next against the
+# same throwaway database, took that for a real Supabase stack and skipped its stubs.
+PLATFORM_STUBS = ROOT / "supabase" / "ci" / "platform_stubs.sql"
 
 
 def _psql(url: str, sql: str) -> str:
@@ -196,8 +188,9 @@ def test_migrations_apply_and_functions_behave() -> None:
     url = os.environ.get("DATABASE_URL", "")
     if not url or not shutil.which("psql"):
         pytest.skip("needs DATABASE_URL (throwaway Postgres) and psql")
-    schema_sql = AUTH_STUB + "\n".join(p.read_text() for p in MIGRATIONS)
-    _psql(url, schema_sql)
+    if _psql(url, "select to_regclass('auth.users') is null;") == "t":
+        _psql(url, PLATFORM_STUBS.read_text())  # plain Postgres: stub what GoTrue would own
+    _psql(url, "\n".join(p.read_text() for p in MIGRATIONS))
     _psql(url, "\n".join(p.read_text() for p in MIGRATIONS[1:]))  # re-runnable
     a, b = str(uuid.uuid4()), str(uuid.uuid4())
     _psql(url, f"insert into auth.users (id) values ('{a}'), ('{b}');")

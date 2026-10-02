@@ -37,8 +37,14 @@ say "2. platform stubs"
 if [ "$("${PSQL[@]}" -tAc "select to_regclass('auth.users') is null")" = "t" ]; then
   "${PSQL[@]}" -f supabase/ci/platform_stubs.sql
   echo "applied supabase/ci/platform_stubs.sql (plain Postgres)"
+elif [ "$("${PSQL[@]}" -tAc "select count(*) from information_schema.columns where table_schema = 'auth' and table_name = 'users' and column_name = 'email'")" = "1" ]; then
+  echo "auth.users exists with GoTrue's shape: a real Supabase stack, stubs skipped"
 else
-  echo "auth.users exists: a real Supabase stack, stubs skipped"
+  # Not GoTrue's table and not ours: something else prepared this database (an earlier
+  # test with its own stub). Skipping the stubs here made every pgTAP insert fail with
+  # "column email does not exist" while the gate reported the RLS tests "blind".
+  echo "db-test: auth.users exists but is not Supabase-shaped (no email column); use a fresh database" >&2
+  exit 2
 fi
 
 say "3. migrations"
