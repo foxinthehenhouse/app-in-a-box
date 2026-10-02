@@ -109,7 +109,9 @@ neg_tap="$(pgtap "$TMPD/plant.sql")"
 if grep -q '^not ok' <<<"$neg_tap"; then
   echo "pgTAP caught the planted over-broad policies ($(grep -c '^not ok' <<<"$neg_tap") failing assertions)"
 else
-  printf '%s\n' "$neg_tap"
+  # Show the distinct errors, not the "transaction is aborted" line repeated per statement:
+  # the first error is the cause and the flood after it buries it.
+  printf '%s\n' "$neg_tap" | grep -v 'current transaction is aborted' | awk '!seen[$0]++' | head -60
   echo "::error::pgTAP stayed green with RLS holes planted; the RLS tests are blind"; fail=1
 fi
 # The negative control must leave nothing behind.

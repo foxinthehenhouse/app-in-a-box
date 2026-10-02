@@ -244,11 +244,19 @@ def test_pre_push_fails_open_when_gh_fails(repo: Path, tmp_path: Path) -> None:
 
 
 def test_pre_push_fails_open_when_gh_is_absent(repo: Path, tmp_path: Path) -> None:
-    empty = tmp_path / "emptybin"
-    empty.mkdir()
-    out = _pre_push(
-        repo, "refs/heads/feat/test", PUSHED, SKIP_GATES="1", PATH=f"{empty}:/usr/bin:/bin"
-    )
+    """A PATH with everything the hook needs except `gh`. Built from the real binaries
+    rather than by naming directories: on a GitHub runner `gh` lives in /usr/bin, so
+    `PATH=emptybin:/usr/bin:/bin` still found it and this test hit the other branch."""
+    import shutil
+
+    only = tmp_path / "nogh-bin"
+    only.mkdir()
+    for tool in ("bash", "sh", "git", "grep", "sed", "awk", "head", "tail", "cut", "tr", "cat", "printf", "env"):
+        real = shutil.which(tool)
+        if real:
+            (only / tool).symlink_to(real)
+    assert shutil.which("gh", path=str(only)) is None
+    out = _pre_push(repo, "refs/heads/feat/test", PUSHED, SKIP_GATES="1", PATH=str(only))
     assert out.returncode == 0 and "gh not on PATH" in out.stderr
 
 

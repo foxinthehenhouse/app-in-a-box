@@ -51,7 +51,7 @@ skip() {
 check() {
   local out
   if out="$(eval "$2" 2>&1)"; then ok "$1"; else
-    bad "$1"; printf '%s\n' "$out" | tail -n 25 | sed 's/^/        | /'
+    bad "$1"; printf '%s\n' "$out" | awk 'NR<=12 || NR>n-28 {print} {a[NR]=$0} END{}' n="$(printf '%s\n' "$out" | wc -l)" | sed 's/^/        | /'
   fi
 }
 # refuses NAME CMD [NEEDLE]: CMD must fail. With NEEDLE, its output must also name the
