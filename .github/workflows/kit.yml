@@ -11,7 +11,7 @@
 #   (selftest runs with APPBOX_SELFTEST_STRICT=1: a check that can't run fails)
 #   workflows  actionlint on this repo's workflows and the template's
 #   mobile     nightly: a real create-expo-app + `npm run gates` + mobile guard plants
-# Skill evals live in evals.yml (weekly + dispatch; needs the ANTHROPIC_API_KEY secret).
+# Skill evals live in evals.yml (manual dispatch with your own ANTHROPIC_API_KEY; skips without one).
 name: Kit
 on:
   pull_request:

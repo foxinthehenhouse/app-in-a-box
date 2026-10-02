@@ -3,7 +3,7 @@ mobile/lib/api.ts, compared field by field in BOTH directions.
 
 There is no codegen; the two sides are mirrored by hand, and mobile ships on a release
 train, so a build from weeks ago is always reading today's JSON. `apiFetch<T>()` is a
-cast, not a check: TypeScript cannot see drift. In Forge the backend nested a field
+cast, not a check: TypeScript cannot see drift. In a real app the backend nested a field
 the client read at the top level; eight fields drifted unnoticed for months and users
 saw "Set weight" instead of their prescribed load.
 

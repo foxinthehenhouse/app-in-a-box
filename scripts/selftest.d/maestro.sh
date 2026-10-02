@@ -1,4 +1,4 @@
-# Maestro (PUL-551): the MCP is registered for both agents, every route has a flow
+# Maestro: the MCP is registered for both agents, every route has a flow
 # (and the coverage lint fails when one goes missing), flows parse, and the flows EAS
 # runs never depend on demo mode (which a release build doesn't have).
 

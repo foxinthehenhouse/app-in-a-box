@@ -1,4 +1,4 @@
-# v1.0 production, mobile side (PUL-397): sourced by selftest.sh with $KIT, $APP (the
+# v1.0 production, mobile side: sourced by selftest.sh with $KIT, $APP (the
 # rendered app, a git repo), $T and the check/refuses helpers. Fast: python + node,
 # no npm. The full mobile proof (jest for delete-account, offline rollback, push,
 # forms, i18n pseudo-locale, deep links, request ids, export) runs under --mobile via

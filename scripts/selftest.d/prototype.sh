@@ -1,4 +1,4 @@
-# PUL-542 prototype renderer: sourced by selftest.sh with $KIT, $APP, $T and the
+# Prototype renderer: sourced by selftest.sh with $KIT, $APP, $T and the
 # check/refuses helpers. Python + (optionally) node only; no browser, no network.
 # Every negative control asserts BOTH a non-zero exit AND the specific message, so a
 # lint that silently stops firing (or a mutant that fails to write) fails the check.
@@ -220,7 +220,7 @@ _fonts_wired() {
 check "template loads the tokens' custom fonts (and a test fails when one isn't registered)" "_fonts_wired"
 
 
-# From the PUL-542 review: spec text must never become page markup or spec structure.
+# From the prototype review: spec text must never become page markup or spec structure.
 _proto_render_refuses_mut() {  # <mutation> <expected message>: check AND render refuse, nothing written
   local out rc
   _proto_catches "$1" "$2" || return 1

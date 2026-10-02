@@ -1,9 +1,9 @@
 # Cost: an afternoon, not a fortune
 
 Setup runs a team of agents. These rules keep it fast and affordable without making
-it worse. They come from Forge's token-efficiency study: fixed context was about 13k
-tokens per session before the first prompt, fan-out reviewers each re-read the same
-material, and rework (building the wrong thing) was the real bill.
+it worse. They come from a token-efficiency study on the app this kit was extracted
+from: fixed context was about 13k tokens per session before the first prompt, fan-out
+reviewers each re-read the same material, and rework (building the wrong thing) was the real bill.
 
 ## The rules
 

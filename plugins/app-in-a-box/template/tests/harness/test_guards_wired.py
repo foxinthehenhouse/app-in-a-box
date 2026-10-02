@@ -1,6 +1,6 @@
 """Every guard this repo claims is actually wired, and able to fail the build.
 
-Ported (simplified) from Forge's test_guards_are_wired.py. A guard fails silently in
+Ported (simplified) from a real app's guard-wiring test. A guard fails silently in
 three ways, each checked here with a negative control:
 
 1. **Unwired.** A `scripts/check_*.py` or `mobile/scripts/check-*.js` that no workflow,

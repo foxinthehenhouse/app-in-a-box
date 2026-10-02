@@ -4,7 +4,7 @@ The listing (`name` + `description`) is the only part of a skill that is always 
 context, so it decides when the skill fires. A broken one is invisible when you read
 the file: Claude Code tolerates an unquoted colon or an over-long description, Codex
 parses the frontmatter as strict YAML and drops the skill, and a description past
-1,024 characters (the Agent Skills spec limit) is cut. Forge shipped exactly that:
+1,024 characters (the Agent Skills spec limit) is cut. A real app shipped exactly that:
 one prepended sentence pushed a description to 1,140 chars.
 
 Rules, each with a negative control below:

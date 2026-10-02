@@ -1,4 +1,4 @@
-# Production backend (PUL-397, v1.0): sourced by selftest.sh with $APP, $KIT, $T and
+# Production backend (v1.0): sourced by selftest.sh with $APP, $KIT, $T and
 # the check/refuses helpers. Proves the new tests pass in the rendered app, the cron
 # endpoint fails closed, trailing slashes never redirect, and each guard's test FAILS
 # when the guard is removed (a guard that can't fail reads as a guard that passes).

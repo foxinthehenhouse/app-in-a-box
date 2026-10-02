@@ -1,0 +1,48 @@
+name: Bug
+description: Something in the kit, or in an app it generated, doesn't work.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please don't paste secrets: keys, `.env` contents and tokens stay out of issues.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Setup (new-app, shape, prototype, scaffold, provision)
+        - The generated app (mobile)
+        - The generated app (backend, database)
+        - The generated harness (skills, hooks, CI, evals)
+        - The kit itself (selftest, renderer, docs)
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options: [Claude Code, Codex, Other / pasted prompt]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+      description: The exact error or output helps most.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Kit version or commit
+      placeholder: e.g. 64d468a, or the plugin version

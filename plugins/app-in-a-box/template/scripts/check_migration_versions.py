@@ -4,7 +4,7 @@
 A migration's *version* is the digit prefix before the first `_`, the key the Supabase
 CLI writes to `supabase_migrations.schema_migrations`. Two files with one version
 collide there: the second silently never applies, or `supabase db reset` dies on the
-primary key. (Forge shipped this more than once.) Pick a fresh timestamp instead:
+primary key. (A real app shipped this more than once.) Pick a fresh timestamp instead:
 `date -u +%Y%m%d%H%M%S`.
 
 If a collision ever reaches the live database, don't rename the applied file (that

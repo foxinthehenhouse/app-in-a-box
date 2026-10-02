@@ -2,7 +2,7 @@
 
 The backend talks to Supabase with the SERVICE key, so row-level security never
 applies: a query is exactly as user-scoped as the filters it chains, and no more.
-Forge shipped two cross-user leaks from reads that filtered only by some other id.
+A real app shipped two cross-user leaks from reads that filtered only by some other id.
 The ownership tests in tests/test_me.py catch a missing filter for the endpoints
 they cover; this guard covers every `.table(...)` chain in backend/, including the
 ones nobody has written a test for yet.

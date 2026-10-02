@@ -1,14 +1,17 @@
 # Skill evals: do the kit's skills (and the generated app's) still behave?
 # Runs `claude plugin eval` on both suites (plugins/app-in-a-box/evals and
 # template/.agents/evals) and fails if any case averages below 0.8.
-# Weekly plus on demand, not per PR: each run is about 33 agent runs (~$3-4).
 #
-# Needs the ANTHROPIC_API_KEY repository secret. Without it the job FAILS with a
-# message saying so. It doesn't skip, because a skipped eval reads as a passing one.
+# Manual only (Actions -> Evals -> Run workflow): each run is about 33 agent runs
+# (~$3-4 of Anthropic API credit), billed to whoever's key it uses. To run it, add
+# an ANTHROPIC_API_KEY secret to YOUR fork and dispatch it there. Or run the same
+# command locally (CONTRIBUTING.md).
+#
+# Without the secret the job does NOT fail: forks and the upstream repo carry no key
+# by default. It ends with a SKIPPED notice and job summary instead, so a skipped run
+# can't be mistaken for a passing one. Nothing runs this on a schedule or on PRs.
 name: Evals
 on:
-  schedule:
-    - cron: "17 4 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -26,24 +29,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      - name: API key present
+      - name: API key present?
+        id: key
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "${ANTHROPIC_API_KEY}" ]; then
-            echo "::error::ANTHROPIC_API_KEY repository secret is not set, so the skill evals cannot run. Add it under Settings > Secrets and variables > Actions."
-            exit 1
+          if [ -n "${ANTHROPIC_API_KEY}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Evals SKIPPED: no ANTHROPIC_API_KEY secret in this repo. Add one to your fork, or run them locally (CONTRIBUTING.md)."
+            echo "### Evals SKIPPED: no ANTHROPIC_API_KEY secret. Nothing was evaluated." >> "$GITHUB_STEP_SUMMARY"
           fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.key.outputs.present == 'true'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: steps.key.outputs.present == 'true'
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.key.outputs.present == 'true'
+        with:
+          node-version: 22
       - name: Install Claude Code + the eval sandbox (bubblewrap, socat)
+        if: steps.key.outputs.present == 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq bubblewrap socat >/dev/null
@@ -51,6 +62,7 @@ jobs:
           npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" >/dev/null
           claude --version
       - name: Run both suites (threshold 0.8 per case)
+        if: steps.key.outputs.present == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
@@ -59,6 +71,6 @@ jobs:
             --scaffold --allow-tools Write Edit Bash -j 4 --threshold 0.8 \
             --no-publish --json eval-result.json 2>&1 | tee eval.log
       - name: Summary
-        if: always()
+        if: always() && steps.key.outputs.present == 'true'
         run: |
           { echo '```'; sed -n '/^CASE/,/case(s)/p' eval.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true

@@ -4,7 +4,7 @@
 # reads AGENTS.md "Review guidelines") and leave this variable unset.
 #
 # tests/harness/test_workflow_lint.py pins the rules this file follows; each one is a
-# failure that shipped in Forge with green CI:
+# failure that shipped in a real app with green CI:
 #   - no --allowedTools in claude_args (every run died at ~300ms with zero turns)
 #   - --max-turns >= 100 (40 ran out on review-sized work)
 #   - id-token: write (the action fetches an OIDC token at startup)

@@ -1,4 +1,4 @@
-# Opt-in services + ticket capture (PUL-541): sourced by selftest.sh with $KIT, $APP,
+# Opt-in services + ticket capture: sourced by selftest.sh with $KIT, $APP,
 # $T and the check/refuses helpers.
 
 # A declined service loses its MCP server in BOTH agents' configs; a bare render

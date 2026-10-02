@@ -1,4 +1,4 @@
-# Mobile tests (PUL-548): every UI/lib module has a test or a stated reason, the
+# Mobile tests: every UI/lib module has a test or a stated reason, the
 # gates run jest with a coverage floor over ALL of app/components/lib, and the
 # component behaviour tests ship with the template. The tests themselves run in the
 # nightly --mobile job (a real Expo app); the presence lint is fs-only, so it runs here.
