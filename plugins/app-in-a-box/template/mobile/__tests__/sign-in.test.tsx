@@ -5,6 +5,8 @@
  */
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
+import { pressWhenEnabled } from "./support/press";
+
 import { en } from "../locales/en";
 
 // Set before the routes (and lib/demo.ts) are required by renderRouter.
@@ -16,7 +18,7 @@ const auth = require("../lib/auth") as typeof import("../lib/auth");
 async function sendCode(email = "sam@example.com") {
   await renderRouter("./app", { initialUrl: "/" });
   await fireEvent.changeText(await screen.findByTestId("signin-email-input"), email);
-  await fireEvent.press(screen.getByTestId("signin-send-button"));
+  await pressWhenEnabled("signin-send-button");
   await screen.findByTestId("signin-code-input");
 }
 
@@ -41,7 +43,7 @@ it("shows a translated message for an auth error, never the raw server text", as
   jest.spyOn(demo.demoAuth, "verify").mockReturnValue({ error: raw });
   await sendCode();
   await fireEvent.changeText(screen.getByTestId("signin-code-input"), "123456");
-  await fireEvent.press(screen.getByTestId("signin-verify-button"));
+  await pressWhenEnabled("signin-verify-button");
   await waitFor(() => expect(demo.demoAuth.verify).toHaveBeenCalled());
   await act(async () => undefined); // let the error render
   // ErrorText prefixes a warning glyph, hence exact: false.

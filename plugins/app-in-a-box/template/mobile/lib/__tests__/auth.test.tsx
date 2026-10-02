@@ -93,6 +93,9 @@ it("a fresh sign-in (signed out -> B) shows B's data instead of a skeleton forev
 
 it("switching accounts (A -> B) drops A's data and loads B's", async () => {
   await mount();
+  // Let the stored-session read settle first (as the test above does): emitting before it
+  // resolves lets its "no session" result land after A's sign-in and overwrite it.
+  expect(await screen.findByText("signed out")).toBeTruthy();
   await emit("user-a");
   expect(await screen.findByText("Alex", {}, { timeout: 2000 })).toBeTruthy();
   await emit("user-b");

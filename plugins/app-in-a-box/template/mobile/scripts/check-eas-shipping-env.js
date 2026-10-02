@@ -15,6 +15,15 @@
  *   npx eas-cli env:list --environment production   (and preview)
  * and `eas env:delete` it if it's there. lib/demo.ts ANDs it with __DEV__, so a
  * release build ignores a leaked value, but a preview/dev-client build would not.
+ *
+ * EAS_MANAGED is a CLAIM about the EAS env store that this script cannot see. To
+ * verify it, feed it the store:
+ *   npx eas-cli env:list --environment preview --format json > /tmp/eas-preview.json
+ *   npx eas-cli env:list --environment production --format json > /tmp/eas-production.json
+ *   node scripts/check-eas-shipping-env.js --eas-env /tmp/eas-preview.json --eas-env /tmp/eas-production.json
+ * Every name in EAS_MANAGED must appear in EVERY file given, or the check fails naming
+ * the gap. Without --eas-env it passes on the claim and prints those commands.
+ * Self-tests: scripts/__tests__/check-eas-shipping-env.test.js
  */
 const fs = require("fs");
 const path = require("path");
@@ -56,14 +65,41 @@ const inProfile = (name) => new Set(Object.keys(eas.build?.[name]?.env ?? {}));
 const preview = inProfile("preview");
 const production = inProfile("production");
 
-// Demo mode swaps the backend for an in-memory fake: it must never reach users.
-const demoShipped = ["preview", "production"].filter((p) => {
+// Demo mode swaps the backend for an in-memory fake: it must never reach users, and a
+// development (dev-client) build is __DEV__, so it would HONOUR a leaked value there too.
+const demoShipped = ["development", "preview", "production"].filter((p) => {
   const v = eas.build?.[p]?.env?.EXPO_PUBLIC_DEMO;
   return v !== undefined && v !== "" && v !== "0";
 });
 if (demoShipped.length) {
   console.error(`check-eas-shipping-env FAILED: EXPO_PUBLIC_DEMO is set in eas.json ${demoShipped.join(" + ")}. Demo mode is dev-only.`);
   process.exit(1);
+}
+
+// --eas-env <file>: the JSON from `eas env:list --format json`; EAS_MANAGED is checked against it.
+const storeFiles = process.argv.flatMap((a, i, all) => (a === "--eas-env" && all[i + 1] ? [all[i + 1]] : []));
+function namesIn(value, out = new Set()) {
+  if (Array.isArray(value)) value.forEach((v) => namesIn(v, out));
+  else if (value && typeof value === "object") {
+    if (typeof value.name === "string") out.add(value.name);
+    for (const [k, v] of Object.entries(value)) {
+      if (/^EXPO_PUBLIC_[A-Z0-9_]+$/.test(k)) out.add(k);
+      namesIn(v, out);
+    }
+  }
+  return out;
+}
+for (const file of storeFiles) {
+  const names = namesIn(JSON.parse(fs.readFileSync(file, "utf8")));
+  const gap = [...EAS_MANAGED].filter((v) => !names.has(v));
+  if (gap.length) {
+    console.error(
+      `check-eas-shipping-env FAILED: EAS_MANAGED claims these are in the EAS env store, but ${file} does not list them:\n  - ` +
+        gap.join("\n  - ") +
+        "\nRun `npx eas-cli env:create` for each (preview AND production), or remove it from EAS_MANAGED.",
+    );
+    process.exit(1);
+  }
 }
 
 const missing = [...used].filter(
@@ -78,6 +114,16 @@ if (missing.length) {
   process.exit(1);
 }
 console.log(`check-eas-shipping-env: ${used.size} EXPO_PUBLIC_* var(s), all wired for shipping builds.`);
+if (storeFiles.length) {
+  console.log(`  EAS_MANAGED (${EAS_MANAGED.size}) verified against: ${storeFiles.join(", ")}`);
+} else if (EAS_MANAGED.size) {
+  console.log(
+    `  note: EAS_MANAGED (${[...EAS_MANAGED].join(", ")}) is unverified here. Diff it against the store:\n` +
+      "    npx eas-cli env:list --environment preview --format json > /tmp/eas-preview.json\n" +
+      "    npx eas-cli env:list --environment production --format json > /tmp/eas-production.json\n" +
+      "    node scripts/check-eas-shipping-env.js --eas-env /tmp/eas-preview.json --eas-env /tmp/eas-production.json",
+  );
+}
 if (used.has("EXPO_PUBLIC_DEMO")) {
   console.log(
     "  note: EXPO_PUBLIC_DEMO must also be absent from the EAS env store: `npx eas-cli env:list --environment production` (and preview).",

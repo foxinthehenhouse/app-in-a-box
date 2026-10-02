@@ -6,6 +6,8 @@
 import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
+import { pressWhenEnabled } from "./support/press";
+
 // Set before the routes (and lib/demo.ts) are required by renderRouter.
 process.env.EXPO_PUBLIC_DEMO = "1";
 
@@ -17,9 +19,9 @@ it("signs in with any 6-digit code and lands on home with seeded data", async ()
   expect(screen.getByTestId("signin-demo-badge")).toBeTruthy();
 
   await fireEvent.changeText(screen.getByTestId("signin-email-input"), "sam@example.com");
-  await fireEvent.press(screen.getByTestId("signin-send-button"));
+  await pressWhenEnabled("signin-send-button");
   await fireEvent.changeText(await screen.findByTestId("signin-code-input"), "123456");
-  await fireEvent.press(screen.getByTestId("signin-verify-button"));
+  await pressWhenEnabled("signin-verify-button");
 
   // Signed in: the guard swaps to the tabs and home finishes loading. Anchored on the
   // home-screen / home-skeleton testIDs, not on Home's copy, so replacing the template
@@ -33,7 +35,7 @@ it("signs in with any 6-digit code and lands on home with seeded data", async ()
   const input = await screen.findByTestId("edit-name-input");
   expect(input.props.value).toBe("Sam");
   await fireEvent.changeText(input, "Riley");
-  await fireEvent.press(screen.getByTestId("edit-name-save-button"));
+  await pressWhenEnabled("edit-name-save-button");
   expect(await screen.findByTestId("toast-success")).toBeTruthy();
 
   // Settings reflects the change on focus, then sign-out returns to sign-in.

@@ -4,6 +4,7 @@ import { confettiPieces } from "../ui/Celebration";
 import { countFrame } from "../ui/AnimatedNumber";
 import { initials } from "../ui/Feedback";
 import { Field } from "../ui/Field";
+import { Toggle } from "../ui/Toggle";
 
 jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
@@ -24,6 +25,18 @@ describe("Field", () => {
     await render(<Field label="Email" value="x" onChangeText={() => undefined} error="Enter a valid email" testID="e" />);
     expect(screen.getByTestId("e").props.accessibilityLabel).toBe("Email");
     expect(screen.getByRole("alert")).toBeTruthy();
+  });
+});
+
+describe("Toggle", () => {
+  // The native switch is ~31pt tall; the control must still offer a 48pt target.
+  it("pads the switch's touch area to the minimum tap target and keeps its own label", async () => {
+    await render(<Toggle value={false} onValueChange={() => undefined} accessibilityLabel="Push notifications" testID="tg" />);
+    const sw = screen.getByTestId("tg");
+    const slop = sw.props.hitSlop as { top: number; bottom: number; left: number; right: number };
+    expect(31 + slop.top + slop.bottom).toBeGreaterThanOrEqual(48);
+    expect(slop.left).toBeGreaterThan(0);
+    expect(sw.props.accessibilityLabel).toBe("Push notifications");
   });
 });
 

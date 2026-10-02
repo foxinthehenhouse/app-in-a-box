@@ -15,13 +15,19 @@ Don't jump to code off a one-line idea. Twenty minutes here saves days of rework
 - Read the code the feature touches: screens, `lib/api.ts` adapters, routers, tables.
   Note what already exists that can be reused.
 
-## 2. Three perspectives (parallel subagents if available)
+## 2. Three perspectives
+
+In Claude Code, spawn `product-manager`, `ux-designer` and `lead-engineer` as
+parallel subagents, each with the brief, the ticket and the code you found in step 1;
+they return findings and `⚖️ QUESTION:` blocks, and you ask the owner. In Codex, take
+the three views one after another.
 
 - **Product:** what user problem, which step of the core loop, how we'll know it
   worked (which event moves which metric), what's explicitly out of scope.
 - **Design:** the screens/states (loading, empty, error, success), copy in the
-  project's voice, accessibility notes. For a real UI fork, render 2 options as HTML
-  mockups and ask the owner. Don't pick silently.
+  project's voice, accessibility notes, judged against `docs/design/TASTE.md` (the
+  rubric the prototype passed). For a real UI fork, render 2 options as HTML mockups
+  and ask the owner. Don't pick silently.
 - **Engineering:** data model changes (additive migration + RLS), endpoints (wire
   shape, auth, `user_id` scoping), mobile adapter, analytics events (success +
   failure), env vars/feature config, test plan, risks.

@@ -20,6 +20,7 @@ export const en = {
   },
   errors: {
     offline: "You're offline or the server is unreachable.",
+    misconfigured: "This version of the app isn't set up to reach its server. Update the app, or contact support if it keeps happening.",
     sessionEnded: "Your session ended. Sign in again.",
     status: "Something went wrong ({{status}}). Try again.",
     generic: "Something went wrong. Try again.",
@@ -48,6 +49,17 @@ export const en = {
     home: "Home",
     settings: "Settings",
   },
+  errorBoundary: {
+    title: "Something went wrong",
+    body: "The app hit a problem it couldn't recover from on its own. Your data is safe.",
+    retry: "Try again",
+    retryLabel: "Try loading the screen again",
+  },
+  notFound: {
+    title: "That page doesn't exist",
+    body: "The link may be old or mistyped.",
+    home: "Go to Home",
+  },
   auth: {
     demoBadge: "Demo mode · any 6-digit code works",
     email: "Email",
@@ -64,6 +76,7 @@ export const en = {
       rateLimited: "Too many tries. Wait a minute, then try again.",
       invalidEmail: "That email address doesn't look right.",
       network: "Couldn't reach the server. Check your connection and try again.",
+      misconfigured: "This version of the app isn't set up to reach its server. Update the app, or contact support if it keeps happening.",
       generic: "Something went wrong signing in. Try again.",
     },
   },

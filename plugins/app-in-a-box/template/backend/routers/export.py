@@ -67,7 +67,10 @@ def _read_push_tickets(db: Any, user_id: str, start: int, end: int) -> list[dict
         db.table("push_tickets")
         .select("ticket_id, token, created_at")
         .eq("user_id", user_id)
+        # A batch insert shares one created_at; without a unique tiebreaker Postgres may
+        # return the ties in a different order per page, and .range() duplicates/skips.
         .order("created_at")
+        .order("ticket_id")
         .range(start, end)
         .execute()
         .data

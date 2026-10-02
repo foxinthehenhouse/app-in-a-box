@@ -9,6 +9,10 @@
  *   2. a user-facing prop set to a literal: label="Save", accessibilityLabel={"Close"}
  *   3. a user-facing object key in app code: { label: "System" }, { title: "Home" }
  *   4. a literal passed to toast.*(), announceForAccessibility(), Alert.alert()
+ *   5. a literal rendered through a JSX expression: {`Welcome back`}, {"Hello, " + name},
+ *      {ok ? "Saved" : "Failed"} (the expression must sit where JSX text would, right
+ *      after a tag's `>`; `${placeholders}` are stripped before the letter test, so
+ *      {`✓ ${label}`} is fine)
  *
  * Pragmatic regexes, not a parser: it runs with no node_modules (the kit
  * selftest calls it on a fresh render). Escape hatches, each needing a reason:
@@ -83,6 +87,19 @@ const RULES = [
     name: "literal in toast/announce/alert",
     re: /\b(?:toast\.(?:success|error|info|show)|announceForAccessibility|Alert\.alert)\(\s*(["'`])([^"'`]*)\1/g,
     bad: (m) => LETTER.test(m[2]),
+  },
+  {
+    name: "template literal as JSX text",
+    // {`...`} directly where JSX text would go (after a tag's `>`, not an arrow's)
+    re: /(?<=(?<![=\-])>\s*)\{\s*`([^`]*)`\s*\}/g,
+    bad: (m) => LETTER.test(m[1].replace(/\$\{[^}]*\}/g, "")),
+  },
+  {
+    name: "string literal in a JSX expression",
+    // {"Hello, " + name} / {ok ? "Saved" : "Failed"} / {ok ? "Saved" : label}: any quoted
+    // literal with letters inside a brace-free expression rendered as JSX text
+    re: /(?<=(?<![=\-])>\s*)\{[^{}]*[+?:][^{}]*\}/g,
+    bad: (m) => [...m[0].matchAll(/(["'`])([^"'`]*)\1/g)].some((q) => LETTER.test((q[2] ?? "").replace(/\$\{[^}]*\}/g, ""))),
   },
 ];
 

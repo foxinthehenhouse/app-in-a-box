@@ -81,9 +81,10 @@ export function Avatar({ name, uri, size = 44, testID }: { name: string; uri?: s
   return (
     <View style={[s.avatar, box]} testID={testID} accessible accessibilityRole="image" accessibilityLabel={name || t("common.profile")}>
       {uri ? (
-        <Image source={{ uri }} style={box} accessibilityIgnoresInvertColors />
+        <Image source={{ uri }} style={box} accessibilityIgnoresInvertColors accessible={false} />
       ) : (
-        <Text variant="heading" tone="onAccent" style={{ fontSize: size * 0.4, lineHeight: size * 0.5 }} maxFontSizeMultiplier={1}>
+        // A type role, not a computed size: heading (20) fits the 44 default; meta (12) fits a 32 chip.
+        <Text variant={size >= 40 ? "heading" : "meta"} tone="onAccent" maxFontSizeMultiplier={1}>
           {initials(name)}
         </Text>
       )}

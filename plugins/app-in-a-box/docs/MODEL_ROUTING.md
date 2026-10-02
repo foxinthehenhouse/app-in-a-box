@@ -8,7 +8,7 @@ model where a wrong answer is expensive, and the cheap one where the work is sor
 |---|---|---|---|
 | Fable 5.1 | `model: fable`, `effort: high` | Final ruling on calls that are expensive to reverse (risky merges, migrations, locked specs). One call per decision, never for volume. | `chair` |
 | Opus 5.5 | `model: opus` | Orchestration, judgement, review verdicts, specs | `correctness-reviewer` (high), `lead-engineer` (high), `product-manager` (medium) |
-| Sonnet 5.5 | `model: sonnet`, `effort: medium` | Building and focused review | `mobile-engineer`, `qa-engineer`, `ux-designer`, `growth`, `design-a11y-reviewer` |
+| Sonnet 5 | `model: sonnet`, `effort: medium` | Building and focused review | `mobile-engineer`, `qa-engineer`, `ux-designer`, `growth`, `design-a11y-reviewer` |
 | Haiku 4.5 | `model: haiku`, `effort: low` | Cheap sweeps: CI-log and lint triage, dependency PRs, capture summaries, signal gathering for `next` | `triage` |
 
 The values are Claude Code's model aliases (`opus`, `sonnet`, `haiku`, `fable`), so
@@ -42,6 +42,10 @@ explicit-only skills (`ship`, `routines`) stay explicit in Codex too.
   halves subagent spend at some cost to spec and review quality. Change the
   `model:` lines; `harness-optimize` proposes downgrades when the spend ledger shows
   a role costing more than it returns.
+- **Copy on Sonnet, not Haiku.** ⚖️ Kyle 2026-10-02: Sonnet over Haiku for copy. The
+  kit's `agents/copywriter.md` runs `model: sonnet` (effort low): every string a user
+  reads is written once and shipped, so the cheaper tier's savings weren't worth its
+  misses. Extraction (`scribe`) stays on Haiku.
 - **Codex inherits rather than pins.** The alternative is a tier table
   (e.g. haiku → the fast Codex model) pinned in the renderer, which saves money in
   Codex but breaks whenever OpenAI retires a slug. Pin per role with `codex_model:`

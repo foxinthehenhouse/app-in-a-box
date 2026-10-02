@@ -23,7 +23,7 @@ In an empty folder, run these three lines. The `-c` flag gives Codex's sandbox
 network access, which every setup CLI needs; without it phase 0 fails with DNS errors.
 
 ```
-codex plugin marketplace add <owner>/app-in-a-box
+codex plugin marketplace add foxinthehenhouse/app-in-a-box
 codex plugin add app-in-a-box@app-in-a-box
 codex -c sandbox_workspace_write.network_access=true "Use \$new-app to build my app idea here."
 ```
@@ -38,7 +38,7 @@ This repo is a plugin marketplace for both agents.
 **Claude Code**
 
 ```
-/plugin marketplace add <owner>/app-in-a-box
+/plugin marketplace add foxinthehenhouse/app-in-a-box
 ```
 
 ```
@@ -50,7 +50,7 @@ Then, in an empty folder, run `/app-in-a-box:new-app`.
 **Codex**
 
 ```
-codex plugin marketplace add <owner>/app-in-a-box
+codex plugin marketplace add foxinthehenhouse/app-in-a-box
 ```
 
 ```
@@ -99,9 +99,9 @@ checklist like this one, so you always know where you are:
 
 ```
   [x] 0. Preflight: tools installed
-  [x] 1a. Idea check: market researched, verdict + VALIDATION.md
-  [x] 1b. Interview: brief + appbox.yaml
-  [>] 2. Design: direction picked, tokens written
+  [x] 1a. Shape: your idea in your words: brief + appbox.yaml
+  [x] 1b. Idea check: market researched, verdict + VALIDATION.md
+  [>] 2. Prototype: clicked through, tuned and frozen: tokens + screens
   [ ] 3. Accounts: CLIs logged in
   ...
 ```
@@ -184,5 +184,5 @@ walkthrough, are in
 - Create accounts in your name, or handle your Apple identity verification.
 - Put a secret in a committed file. Secrets live in `.env` (gitignored), GitHub
   secrets, EAS env and Railway variables, and git hooks block anything that slips.
-- Generate "AI slop" UI. The design phase shows you real mockups before any code
-  exists.
+- Generate "AI slop" UI. You click through a prototype of every screen, checked
+  against a taste rubric, before any code exists.

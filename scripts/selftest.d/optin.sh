@@ -94,5 +94,5 @@ _agents_md_lint_fails() {
 check "AGENTS.md lint fails on an unmapped router and on markers left after scaffold" "_agents_md_lint_fails"
 
 check "scaffold drafts AGENTS.md from the brief and asks the owner to review it" \
-  "grep -q 'Draft AGENTS.md from the interview' '$KIT/skills/scaffold/SKILL.md' \
+  "grep -q 'Draft AGENTS.md from the brief' '$KIT/skills/scaffold/SKILL.md' \
    && grep -q 'Does this describe your app?' '$KIT/skills/scaffold/SKILL.md'"

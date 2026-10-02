@@ -8,7 +8,7 @@
 
 [Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Status](#status--roadmap) · [FAQ](#faq)
 
-![status](https://img.shields.io/badge/status-alpha%20v0.6-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
+![status](https://img.shields.io/badge/status-alpha%20v0.6.0-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
 
 </div>
 
@@ -19,11 +19,12 @@ with row-level security, an API, analytics, crash reporting, CI, a design system
 environment variables for three deploy targets, and a way to make your coding agent
 behave like a disciplined team instead of a very fast intern.
 
-App in a Box does that plumbing for you, then gets out of the way. You describe your
-idea. It asks you about a dozen questions, shows you three design directions and
-walks you through a few "Continue with GitHub" signups. Then it scaffolds, provisions
-and wires everything, and hands you a repo where your agent builds features through a
-spec → tests → PR → review loop.
+App in a Box does that plumbing for you, then gets out of the way. You talk about your
+idea however it comes out; a product advisor plays it back, asks only what's missing
+and checks the market while you talk. You click through a prototype of every screen
+and tune it. Then it walks you through a few "Continue with GitHub" signups,
+scaffolds, provisions and wires everything, and hands you a repo where your agent
+builds features through a spec → tests → PR → review loop.
 
 It was extracted from a real production app (an AI strength-coaching app), with the
 app-specific parts taken out. The guards and recipes exist because that app shipped
@@ -85,10 +86,10 @@ A repo that's ready to ship on day one, not a starter you'll spend a week harden
 | **📱 Mobile app** | Expo Router native tabs (Liquid Glass on iOS 26, Material 3 on Android) and form-sheet routes, email-code sign-in behind an auth gate, light + dark themes from your tokens, and a component library with a dev-only gallery. Production pieces are built in and tested: offline-first data (TanStack Query, queued edits), push client, deep links through one resolver, OTA updates, react-hook-form + zod forms, i18n with a pseudo-locale test, account deletion and "Download my data". PostHog analytics (typed events, masked replay, opt-out) and Sentry. A demo mode runs the whole app with no accounts. |
 | **⚙️ Backend** | FastAPI with Supabase JWT auth (JWKS). A `/health` that names every unconfigured feature instead of failing silently, error ids on every 500, PII-scrubbed Sentry, and an example resource that's correctly scoped to the user, with ownership tests. |
 | **🗄️ Database** | Supabase Postgres migrations with row-level security on every table, a profile-on-signup trigger, and a keep-alive for the free tier. |
-| **🎨 Design** | Three rendered design directions of *your* core screen. The one you pick becomes `design/tokens.json`, and a WCAG contrast gate rejects unreadable palettes before any code exists. |
+| **🎨 Design** | A clickable prototype of every v1 screen, with three design directions, layout variants per screen, density, motion and copy tone to switch between. The frozen version becomes `design/tokens.json` + `docs/product/SCREENS.md`, and a WCAG contrast gate rejects unreadable palettes before any code exists. |
 | **🛡️ Guards** | Git hooks that bind every agent and human: no commits on `main`, no staged `.env`, no key-shaped strings, gates before push. Mobile guard scripts: every screen instrumented, every env var wired for shipping builds, replay never unmasked. Harness lints: every PR names its ticket, product skills ask the owner instead of deciding, and `AGENTS.md`'s map of screens, APIs and tables can't drift from the code. |
 | **🔁 CI/CD** | Backend (ruff + pyright + pytest), mobile (tsc + eslint + guards + jest), migrations + RLS tested with pgTAP on a throwaway Postgres (Supabase Branching opt-in), gitleaks + CodeQL, workflow lint (actionlint + zizmor) and harness lint for prompts/hooks, AI PR review (Claude or Codex), EAS build/OTA workflows, scheduled jobs behind a secret, and a Supabase keep-alive. |
-| **🤖 Agent harness** | `AGENTS.md` (Claude reads it via `CLAUDE.md`). 13 skills: backlog, next, feature-discovery, build-feature, pr-review, new-worktree, ship, north-star-report, market-watch, routines, reflect, harness-optimize, harness-check. 10 subagent roles on routed models, with a `chair` for irreversible calls. Path rules that inject when you touch migrations, API contracts or screens. A git-tracked memory vault. |
+| **🤖 Agent harness** | `AGENTS.md` (Claude reads it via `CLAUDE.md`). 14 skills: backlog, next, feature-discovery, build-feature, pr-review, land, new-worktree, ship, north-star-report, market-watch, routines, reflect, harness-optimize, harness-check. 10 subagent roles on routed models, with a `chair` for irreversible calls. Path rules that inject when you touch migrations, API contracts or screens. A git-tracked memory vault. |
 | **🧠 Self-learning loop** | Every tool call is captured. `reflect` turns corrections into memory, and a pattern extractor mines transcripts for repeated failures. `harness-optimize` then proposes harness changes as a PR, with a protected-components manifest and a sunset protocol. |
 
 ### One harness, two agents
@@ -109,8 +110,8 @@ generated from it, so the two never drift.
 
 ```mermaid
 flowchart LR
-  A[0 · Preflight] --> B[1 · Interview]
-  B --> C[2 · Design<br/>3 mockups → tokens]
+  A[0 · Preflight] --> B[1a · Shape<br/>1b · idea check alongside]
+  B --> C[2 · Prototype<br/>click it → tokens + screens]
   C --> D[3 · Accounts<br/>you click, it logs in]
   D --> E[4 · Scaffold<br/>render + shape to brief]
   E --> F[5 · Provision<br/>Supabase · EAS · Railway<br/>PostHog · Sentry · GitHub]
@@ -153,17 +154,24 @@ plugins/app-in-a-box/
   .claude-plugin/plugin.json         Claude Code manifest
   .codex-plugin/plugin.json          Codex manifest (same skills/)
   .mcp.json                          MCP servers used while provisioning
-  skills/                            the phases: new-app (start here), doctor,
-                                     validate-idea, interview, design-directions,
-                                     accounts, scaffold, provision, harness,
-                                     first-feature (+ recipe-* add-ons)
+  skills/                            the phases: new-app (start here), doctor, shape,
+                                     validate-idea, prototype, accounts, scaffold,
+                                     provision, harness, first-feature; references:
+                                     interview (question bank), design-directions;
+                                     recipe-* add-ons
+  agents/                            the shaping + prototype team (Rae and 8 helpers)
+  evals/                             `claude plugin eval` cases for the kit's own skills
   scripts/render.py                  deterministic renderer + Claude/Codex adapter generator
+  scripts/prototype.py               prototype.json → check / render / freeze
   scripts/check_contrast.py          WCAG gate for design/tokens.json
   scripts/doctor.sh                  tools / logins / gates health check
-  template/                          everything that lands in your new repo
-  docs/                              PERMISSIONS.md, SOCIAL_AUTH.md
+  template/                          everything that lands in your new repo, including
+                                     .agents/skills (land drives a PR to merged)
+  docs/                              COST, MODEL_ROUTING, PERMISSIONS, PRODUCTION,
+                                     SOCIAL_AUTH, TASTE, TROUBLESHOOTING
 scripts/fixtures/                    test-only inputs for the selftest (not example apps)
 scripts/selftest.sh                  proves the kit works (see below)
+scripts/selftest.d/                  one check file per area, sourced by the selftest
 ```
 
 ## Verify it yourself
@@ -188,8 +196,8 @@ env var must each fail.
 
 ## Status
 
-**v1.0 code-complete, community verification in progress.** Everything on the original
-roadmap has shipped, and it's all checked by the selftest, the strict kit CI and the
+**Alpha (v0.6.0): the v1.0 roadmap is code-complete, community verification in progress.**
+Everything on the original roadmap has shipped, and it's all checked by the selftest, the strict kit CI and the
 skill evals:
 
 | | Shipped |
@@ -229,7 +237,7 @@ guard, rule and skill can be specific. Swapping the backend host (Railway, Fly,
 or Render) is supported. A Supabase-only stack is not in v1.
 
 **Does it add AI to my app?**
-Only if you say so in the interview. When it does, the model is fenced into one
+Only if you say so while shaping the idea. When it does, the model is fenced into one
 backend module and the rest of the logic stays deterministic.
 
 **Claude Code or Codex: which is better here?**

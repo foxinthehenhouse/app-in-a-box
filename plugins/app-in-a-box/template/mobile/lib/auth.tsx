@@ -4,7 +4,7 @@ import { identifyUser, resetAnalytics } from "./analytics";
 import { DEMO, demoAuth } from "./demo";
 import { forgetPushToken } from "./push";
 import { setCacheOwner } from "./query";
-import { supabase } from "./supabase";
+import { supabase, supabaseConfigured } from "./supabase";
 
 export interface AuthUser {
   id: string;
@@ -100,7 +100,7 @@ export function useAuth(): AuthState {
  * `t("auth.errors." + code)`: Supabase's messages are English, change between
  * versions and sometimes leak internals, so they never reach the UI.
  */
-export type AuthErrorCode = "invalidCode" | "expired" | "rateLimited" | "invalidEmail" | "network" | "generic";
+export type AuthErrorCode = "invalidCode" | "expired" | "rateLimited" | "invalidEmail" | "network" | "misconfigured" | "generic";
 
 interface AuthErrorLike {
   code?: string;
@@ -128,6 +128,7 @@ export function authErrorCode(err: AuthErrorLike | null | undefined, fallback: A
 /** Email one-time code: works in Expo Go with no deep-link setup. */
 export async function sendEmailCode(email: string): Promise<{ error: AuthErrorCode | null }> {
   if (DEMO) return { error: null };
+  if (!supabaseConfigured) return { error: "misconfigured" }; // the build, not the user, is at fault
   try {
     const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
     return { error: authErrorCode(error) };
@@ -141,6 +142,7 @@ export async function verifyEmailCode(email: string, token: string): Promise<{ e
     const res = demoAuth.verify(email, token);
     return { error: authErrorCode(res.error ? { message: res.error } : null, "invalidCode") };
   }
+  if (!supabaseConfigured) return { error: "misconfigured" };
   try {
     const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
     return { error: authErrorCode(error, "invalidCode") };

@@ -15,13 +15,13 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from backend.auth import CurrentUser, get_current_user
 from backend.config import feature_missing
 from backend.db import get_db, rpc
 from backend.ratelimit import rate_limit
-from backend.routers.me import Wire
+from backend.routers.me import WireIn
 from backend.services.push_service import FEATURE, is_valid_token
 
 router = APIRouter(prefix="/api/v1/me", tags=["push"])
@@ -29,8 +29,9 @@ router = APIRouter(prefix="/api/v1/me", tags=["push"])
 MAX_TOKENS_PER_USER = 10
 
 
-class PushTokenIn(Wire):
-    model_config = ConfigDict(extra="ignore")
+class PushTokenIn(WireIn):
+    """POST body. Mirrored by `PushTokenWire` in mobile/lib/api.ts. A body `userId` is a
+    422 (WireIn), not ignored: the owner is the verified caller, full stop."""
 
     token: str = Field(max_length=256)
     platform: Literal["ios", "android", "web"] | None = None
@@ -43,7 +44,9 @@ class PushTokenIn(Wire):
         return v
 
 
-class PushTokenOut(Wire):
+class PushTokenRef(WireIn):
+    """DELETE body: just the token to forget. Mirrored by `PushTokenRefWire` in mobile/lib/api.ts."""
+
     token: str = Field(max_length=256)
 
 
@@ -81,7 +84,7 @@ def register_push_token(
     dependencies=[Depends(_require_push), Depends(rate_limit("push_token.write", 20))],
 )
 def unregister_push_token(
-    body: PushTokenOut,
+    body: PushTokenRef,
     user: CurrentUser = Depends(get_current_user),
     db: Any = Depends(get_db),
 ) -> Response:

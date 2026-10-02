@@ -3,8 +3,9 @@
 # endpoint fails closed, trailing slashes never redirect, and each guard's test FAILS
 # when the guard is removed (a guard that can't fail reads as a guard that passes).
 #
-# Optional: APPBOX_TEST_DATABASE_URL=<throwaway Postgres> also applies the migrations
-# and exercises the SQL functions for real (tests/test_prod_migrations.py -m integration).
+# With APPBOX_SELFTEST_DATABASE_URL=<throwaway Postgres> (the same variable trust.sh and
+# kit CI use) the migrations are applied and the SQL functions exercised for real
+# (tests/test_prod_migrations.py -m integration); otherwise that check is a visible SKIP.
 
 PROD_PY="$APP/.venv/bin/python"
 
@@ -19,7 +20,7 @@ _prod_negative() {
   if cmp -s "$T/prod-neg.bak" "$APP/$2"; then
     bad "$1 (planted change did not apply; update prod.sh)"
   else
-    refuses "$1" "cd '$APP' && '$PROD_PY' -m pytest -q -x -p no:warnings $4"
+    refuses "$1" "cd '$APP' && '$PROD_PY' -m pytest -q -x -p no:warnings $4" "FAILED tests/"
   fi
   cp "$T/prod-neg.bak" "$APP/$2"
 }
@@ -41,6 +42,8 @@ _prod_negative "deletion tests fail when extra body fields are accepted" \
 _prod_negative "RLS rule fails on a table without RLS" \
   supabase/migrations/20260315120100_rate_limits_and_jobs.sql 's/^alter table public\.job_runs enable row level security;//' tests/test_prod_migrations.py
 
-if [ -n "${APPBOX_TEST_DATABASE_URL:-}" ]; then
-  check "migrations apply + SQL functions behave (real Postgres)" "cd '$APP' && DATABASE_URL='$APPBOX_TEST_DATABASE_URL' '$PROD_PY' -m pytest -q -p no:warnings -m integration tests/test_prod_migrations.py"
+if [ -n "${APPBOX_SELFTEST_DATABASE_URL:-}" ]; then
+  check "migrations apply + SQL functions behave (real Postgres)" "cd '$APP' && DATABASE_URL='$APPBOX_SELFTEST_DATABASE_URL' '$PROD_PY' -m pytest -q -p no:warnings -m integration tests/test_prod_migrations.py"
+else
+  skip "migrations apply + SQL functions behave (real Postgres)" "APPBOX_SELFTEST_DATABASE_URL (Postgres + pgTAP)"
 fi

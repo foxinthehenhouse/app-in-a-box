@@ -16,8 +16,27 @@ MOBILE=0; KEEP=0
 for a in "$@"; do case "$a" in --mobile) MOBILE=1 ;; --keep) KEEP=1 ;; esac; done
 # The selftest reads the generated workflows as YAML. Say so up front rather than
 # failing two checks with a swallowed ImportError.
-python3 -c "import yaml" 2>/dev/null || { echo "selftest: needs PyYAML (python3 -m pip install pyyaml)"; exit 2; }
 T="$(mktemp -d)"; [ "$KEEP" = 1 ] || trap 'rm -rf "$T"' EXIT
+# Interpreter. Every check calls bare `python3`, and they need Python >= 3.11 (tomllib
+# parses the Codex adapters) with PyYAML (the generated workflows are read as YAML).
+# macOS ships `python3` = 3.9, so the first run on a Mac used to fail three checks with
+# a swallowed ModuleNotFoundError and no hint. Pick the interpreter up front: $PYTHON
+# if set, else the first qualifying python3 / python3.13 / python3.12 / python3.11 on
+# PATH, and put it first on PATH as `python3` so every check and sourced area uses it.
+_py_ok() { "$1" -c 'import sys, tomllib, yaml; sys.exit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1; }
+PY_BIN=""
+for c in ${PYTHON:-} python3 python3.13 python3.12 python3.11; do
+  [ -n "$c" ] && command -v "$c" >/dev/null 2>&1 && _py_ok "$c" && { PY_BIN="$(command -v "$c")"; break; }
+done
+if [ -z "$PY_BIN" ]; then
+  echo "selftest: needs Python >= 3.11 with PyYAML. Found: $(python3 --version 2>&1 || echo 'no python3')."
+  echo "          Install one (brew install python@3.12; python3.12 -m pip install pyyaml) or run PYTHON=/path/to/python3.12 $0"
+  exit 2
+fi
+# A wrapper script, not a symlink: a symlink named python3 makes CPython look for
+# pyvenv.cfg beside the LINK, so a venv interpreter would silently run as its base.
+mkdir -p "$T/bin" && printf '#!/bin/sh\nexec "%s" "$@"\n' "$PY_BIN" > "$T/bin/python3" && chmod +x "$T/bin/python3" && export PATH="$T/bin:$PATH"
+echo "python3: $PY_BIN ($(python3 -c 'import sys; print(".".join(map(str, sys.version_info[:3])))'))"
 PASS=0; FAIL=0; SKIP=0
 ok()  { echo "  PASS  $1"; PASS=$((PASS+1)); }
 bad() { echo "  FAIL  $1"; FAIL=$((FAIL+1)); }
@@ -27,8 +46,26 @@ skip() {
   if [ "${APPBOX_SELFTEST_STRICT:-}" = 1 ]; then bad "$1 (could not run: needs $2)"
   else echo "  SKIP  $1 (needs $2)"; SKIP=$((SKIP+1)); fi
 }
-check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else bad "$1"; fi; }
-refuses() { if eval "$2" >/dev/null 2>&1; then bad "$1"; else ok "$1"; fi; }
+# A FAIL with no output is a guard nobody can act on (CI logs only showed the name):
+# keep the command's output and print its tail when it fails.
+check() {
+  local out
+  if out="$(eval "$2" 2>&1)"; then ok "$1"; else
+    bad "$1"
+    # Head, tail, and every failure marker in between (jest/pytest/TAP/eslint): the names
+    # of what failed are usually in the middle of a long run, which head+tail alone drop.
+    printf '%s\n' "$out" | awk 'NR<=12 || NR>n-28 {print}' n="$(printf '%s\n' "$out" | wc -l)" | sed 's/^/        | /'
+    printf '%s\n' "$out" | grep -E '^\s*(FAIL |ERROR|✕|● |not ok|E   |FAILED |error[: ])' | awk '!seen[$0]++' | head -40 | sed 's/^/        ! /'
+  fi
+}
+# refuses NAME CMD [NEEDLE]: CMD must fail. With NEEDLE, its output must also name the
+# rule that fired: without that, a plant that fails for an unrelated reason (an import
+# error, a syntax error in the hook, pytest exit 5) reads as "the guard caught it".
+refuses() {
+  local out
+  if out="$(eval "$2" 2>&1)"; then bad "$1 (still green)"; return; fi
+  if [ -z "${3:-}" ] || grep -qF -- "$3" <<<"$out"; then ok "$1"; else bad "$1 (failed, but not on: $3)"; fi
+}
 
 APP="$T/app"; mkdir -p "$APP"
 echo "Renderer"
@@ -38,7 +75,7 @@ check ".claude/skills symlink" "[ -L '$APP/.claude/skills' ] && [ -f '$APP/.clau
 check ".codex agents + config are valid TOML" "python3 -c \"import tomllib,glob; [tomllib.load(open(f,'rb')) for f in glob.glob('$APP/.codex/**/*.toml', recursive=True)]\""
 check "JSON configs parse" "for f in '$APP/.mcp.json' '$APP/.claude/settings.json' '$APP/.codex/hooks.json' '$APP/mobile/eas.json' '$APP/mobile/app.json'; do python3 -m json.tool \"\$f\"; done"
 refuses "rejects unsafe names" "python3 '$KIT/scripts/render.py' --target '$T/x' --name 'a\"b' --slug abc --bundle-id com.a.b --owner o"
-check "protected files survive --force" "echo '{\"name\":\"mine\",\"color\":{}}' > '$APP/design/tokens.json' && python3 '$KIT/scripts/render.py' --target '$APP' --name P --slug penny-jar --bundle-id com.a.b --owner o --force && grep -q mine '$APP/design/tokens.json'"
+check "protected files survive --force (and an unusable palette makes render exit 2, not 0)" "echo '{\"name\":\"mine\",\"color\":{}}' > '$APP/design/tokens.json'; python3 '$KIT/scripts/render.py' --target '$APP' --name P --slug penny-jar --bundle-id com.a.b --owner o --force; [ \$? -eq 2 ] && grep -q mine '$APP/design/tokens.json'"
 cp "$KIT/template/design/tokens.json" "$APP/design/tokens.json"
 python3 "$KIT/scripts/render.py" --target "$APP" --name "Penny Jar" --slug penny-jar --bundle-id com.alex.pennyjar --owner alex --one-liner "Savers build a daily streak" --force >/dev/null
 

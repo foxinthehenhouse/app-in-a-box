@@ -109,7 +109,7 @@ def load_notes(memory_dir: Path = MEMORY_DIR) -> list[dict]:
                 tf[t] += w
         notes.append(
             {
-                "path": f".claude/memory/{p.name}",
+                "path": f".agents/memory/{p.name}",
                 "keys": {_key(p.stem), _key(meta.get("name", p.stem))},
                 "title": title,
                 "description": meta.get("description", ""),

@@ -9,6 +9,12 @@ title = "app secrets"
 useDefault = true
 
 [[rules]]
+id = "supabase-service-role-jwt-payload"
+description = "Supabase service_role JWT under any variable name: the payload's role claim, in each base64 alignment"
+regex = '''eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*(InJvbGUiOiJzZXJ2aWNlX3Jv|b2xlIjoic2VydmljZV9yb2xl|cm9sZSI6InNlcnZpY2Vfcm9s)'''
+keywords = ["eyJ"]
+
+[[rules]]
 id = "supabase-secret-key"
 description = "Supabase secret API key (server-only; bypasses RLS)"
 regex = '''sb_secret_[A-Za-z0-9_-]{16,}'''

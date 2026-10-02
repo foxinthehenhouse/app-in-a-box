@@ -93,6 +93,34 @@ def run(name):
     return f"the `{name}` skill (`/{name}` in Claude Code, `${name}` in Codex)"
 
 
+def _note_names(d):
+    """Memory note filenames in `d` (never the MEMORY.md index or `_` scratch files)."""
+    try:
+        return {
+            fn
+            for fn in os.listdir(d)
+            if fn.endswith(".md") and fn != "MEMORY.md" and not fn.startswith("_")
+        }
+    except Exception:
+        return set()
+
+
+def unported_local_memory(local_memory_dirs, repo_memory_dir):
+    """Notes Claude Code's machine-local auto-memory holds that the repo vault does not.
+
+    Claude Code writes its own notes to `<claude_projects_dir>/<slug>/memory/` (one dir
+    per checkout, same slug rule as transcripts). Those notes exist on ONE laptop: not in
+    CI, not in Codex, not in a teammate's clone. The repo vault `.agents/memory/` is what
+    every agent reads, so a note that lives only locally is knowledge the team does not
+    have. Returns the sorted filenames to port. Fails open: a missing dir is an empty set.
+    """
+    repo_notes = _note_names(repo_memory_dir)
+    local = set()
+    for d in local_memory_dirs:
+        local |= _note_names(d)
+    return sorted(local - repo_notes)
+
+
 def run_checks(root, deep=False):
     captures = captures_dir(root)
     mem = os.path.join(root, ".agents", "memory")
@@ -257,6 +285,21 @@ def run_checks(root, deep=False):
             add(False, "memory index matches disk", " · ".join(bits) + f". Run {run('reflect')}.")
         else:
             add(True, "memory index matches disk", f"{len(on_disk)} note(s)")
+
+    # 4b. Machine-local memory that never reached the repo vault (a nudge: the fix is a
+    # PR, not a flag). The local dir follows the transcript slug, so one derivation.
+    try:
+        local_dirs = [os.path.join(d, "memory") for d in claude_transcript_dirs(root)]
+        unported = unported_local_memory(local_dirs, mem)
+        if unported:
+            nudges.append(
+                f"{len(unported)} machine-local memory note(s) are not in .agents/memory/: "
+                f"{', '.join(unported[:4])}{'...' if len(unported) > 4 else ''}. They exist on "
+                "this machine only. Copy the ones worth keeping into .agents/memory/ (and "
+                "MEMORY.md) via a PR so every agent and machine gets them."
+            )
+    except Exception:
+        pass
 
     # 5. Memory cross-links: dangling [[links]] and orphans (nudges, not failures).
     alias, bodies = {}, {}

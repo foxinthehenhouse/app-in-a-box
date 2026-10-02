@@ -1,3 +1,12 @@
+[project]
+# Not a distributable package (nothing installs it; Railway runs uvicorn from the tree),
+# but `requires-python` is where tooling and humans look for the floor. 3.12 is not a
+# preference: backend/services/push_service.py uses PEP 695 generics (`def chunks[T]`),
+# which is a SyntaxError on 3.11. scripts/dev-venv.sh and CI both build 3.12 venvs.
+name = "__APP_SLUG__"
+version = "0.0.0"
+requires-python = ">=3.12"
+
 [tool.pytest.ini_options]
 # Every guard under tests/ (including tests/harness/) is wired by THIS line and nothing
 # else. tests/harness/test_guards_wired.py fails if it is narrowed or if addopts starts

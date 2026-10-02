@@ -11,20 +11,40 @@ the serialized settings) so the test and the sensor can't disagree.
 Plus the Codex half: `.codex/hooks.json` is generated from the same settings, so it
 must wire the same scripts and must not reference `$CLAUDE_PROJECT_DIR` (Codex never
 sets it, so the hook would run `/.claude/hooks/x` and fail silently).
+
+Plus the wrapper: every hook command checks its script EXISTS before running it. When a
+worktree is moved or deleted under a live session, `bash "$CLAUDE_PROJECT_DIR/..."` dies
+with exit 127 on every call, which Claude Code reports nowhere, and a safety hook that
+dies is a safety hook that is OFF. The wrapper falls back to `git rev-parse
+--show-toplevel`, then says so in a `systemMessage` and exits 0.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
 import warnings
+from pathlib import Path
 from typing import Any
 
+import pytest
 from harness_lib import AGENTS_DIR, HOOKS_DIR, MANIFEST, ROOT, SETTINGS, load_json
 
 PROTECTED_GROUPS = ("protected_hooks", "protected_skills", "protected_agents")
 CODEX_HOOKS = ROOT / ".codex" / "hooks.json"
 HOOK_REF = re.compile(r"hooks/([\w.-]+\.(?:sh|py))")
+INTERPRETERS = ("bash", "python3", "node", "sh")
+# The guarded shape every hook command must have. `name` is the script; the message
+# must say the hook is OFF so the session knows a guard is missing, and `exit 0` keeps
+# a missing hook from blocking the tool call (the hook is gone; the work isn't).
+WRAPPER_RE = re.compile(
+    r'^f="\$CLAUDE_PROJECT_DIR/\.claude/hooks/(?P<name>[\w.-]+)"; '
+    r'\[ -f "\$f" \] \|\| f="\$\(git rev-parse --show-toplevel 2>/dev/null\)/\.claude/hooks/(?P=name)"; '
+    r'\[ -f "\$f" \] \|\| \{ printf \'\{"systemMessage":"hook (?P=name) is OFF[^\']*\'; exit 0; \}; '
+    r"(?P<interp>" + "|".join(INTERPRETERS) + r') "\$f"( .*)?$'
+)
 
 
 def protected_files(manifest: dict[str, Any]) -> list[str]:
@@ -63,6 +83,49 @@ def codex_hook_problems(settings: dict[str, Any], codex: dict[str, Any]) -> list
     return problems
 
 
+def hook_command_problems(cmd: str) -> list[str]:
+    """Pure core for the wrapper rule. Empty list = guarded."""
+    m = WRAPPER_RE.match(cmd)
+    if m:
+        return []
+    if re.match(r"^(" + "|".join(INTERPRETERS) + r") ", cmd):
+        return [
+            "hook command has no existence check (a moved or deleted worktree kills it with "
+            f"exit 127, silently): {cmd[:80]}"
+        ]
+    return [f"hook command is neither a bare interpreter call nor the guarded wrapper: {cmd[:80]}"]
+
+
+def all_hook_commands(settings: dict[str, Any]) -> list[tuple[str, str]]:
+    return [
+        (event, h.get("command", ""))
+        for event, groups in settings.get("hooks", {}).items()
+        for g in groups
+        for h in g.get("hooks", [])
+    ]
+
+
+def event_problems(manifest: dict[str, Any], settings: dict[str, Any]) -> list[str]:
+    """Each protected hook's declared `event` must be where settings.json registers it.
+
+    `event` is prose ("PostToolUse + UserPromptSubmit (async)"); its first token is the
+    claim. "library" and "on-demand" make no registration claim and are skipped."""
+    problems = []
+    by_event = {ev: json.dumps(groups) for ev, groups in settings.get("hooks", {}).items()}
+    for item in manifest.get("protected_hooks", []):
+        ev = str(item.get("event", ""))
+        m = re.match(r"[A-Za-z]+", ev)
+        if not m or m.group(0) in ("library", "on"):
+            continue
+        name = os.path.basename(str(item.get("file", "")))
+        if name not in by_event.get(m.group(0), ""):
+            problems.append(
+                f"{name}: manifest says `{ev}` but settings.json does not register it under "
+                f"{m.group(0)}"
+            )
+    return problems
+
+
 def _exists(relpath: str) -> bool:
     return (ROOT / relpath).exists()
 
@@ -92,16 +155,57 @@ def test_path_rules_present() -> None:
     assert rules, ".agents/rules/ is empty: inject-path-rules.py has nothing to inject"
 
 
-def test_hook_scripts_are_executable_or_invoked_via_interpreter() -> None:
-    """settings.json runs every hook as `bash x.sh` / `python3 x.py`, so no exec bit is
-    needed. A bare path (no interpreter) would need +x; flag it before it fails."""
-    for group in load_json(SETTINGS).get("hooks", {}).values():
-        for g in group:
-            for h in g.get("hooks", []):
-                cmd = h.get("command", "")
-                assert re.match(
-                    r"^(bash|python3|node|sh) ", cmd
-                ), f"hook without interpreter: {cmd}"
+def test_every_hook_command_is_the_guarded_wrapper() -> None:
+    """Every command runs its script via an interpreter (no exec bit needed) AFTER
+    checking the file exists, and the wrapper names the same script three times."""
+    problems = [
+        p for _, cmd in all_hook_commands(load_json(SETTINGS)) for p in hook_command_problems(cmd)
+    ]
+    assert not problems, "\n".join(problems)
+
+
+def test_protected_hook_events_match_registration() -> None:
+    assert event_problems(load_json(MANIFEST), load_json(SETTINGS)) == []
+
+
+def _run_wrapper(cmd: str, project_dir: Path, cwd: Path) -> subprocess.CompletedProcess:
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(project_dir), "GIT_DIR": str(cwd / "nogit")}
+    return subprocess.run(
+        ["bash", "-c", cmd],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=cwd,
+        timeout=60,
+    )
+
+
+def _hook_id(cmd: str) -> str:
+    m = WRAPPER_RE.match(cmd)
+    return m.group("name") if m else "?"
+
+
+@pytest.mark.parametrize(
+    "cmd", [c for _, c in all_hook_commands(load_json(SETTINGS))], ids=_hook_id
+)
+def test_wrapper_reports_a_missing_hook_and_exits_zero(cmd: str, tmp_path: Path) -> None:
+    """The failure the wrapper exists for: project dir gone, git unusable. It must say
+    which hook is OFF (stdout, as a systemMessage) and exit 0, never 127."""
+    out = _run_wrapper(cmd, tmp_path / "gone", tmp_path)
+    m = WRAPPER_RE.match(cmd)
+    assert m is not None
+    assert out.returncode == 0, out.stderr
+    assert '"systemMessage"' in out.stdout and m.group("name") in out.stdout and "OFF" in out.stdout
+
+
+def test_wrapper_runs_the_hook_when_present(tmp_path: Path) -> None:
+    """Positive control: with a live project dir the same command runs the real hook."""
+    cmd = next(c for ev, c in all_hook_commands(load_json(SETTINGS)) if "session-start.sh" in c)
+    out = _run_wrapper(cmd, ROOT, tmp_path)
+    assert (
+        out.returncode == 0 and "Session start" in out.stdout and "systemMessage" not in out.stdout
+    )
 
 
 def over_budget(actual: dict[str, int], limits: dict[str, int]) -> list[str]:
@@ -161,3 +265,39 @@ def test_codex_drift_fails() -> None:
 def test_budget_alarm_fires() -> None:
     assert over_budget({"skills": 15, "rules": 2}, {"skills": 14, "rules": 9}) == ["skills 15/14"]
     assert over_budget({"skills": 14}, {"skills": 14}) == []
+
+
+WRAPPED = (
+    'f="$CLAUDE_PROJECT_DIR/.claude/hooks/a.sh"; [ -f "$f" ] || f="$(git rev-parse --show-toplevel '
+    '2>/dev/null)/.claude/hooks/a.sh"; [ -f "$f" ] || { printf \'{"systemMessage":"hook a.sh is '
+    'OFF for this session: not found."}\\n\'; exit 0; }; bash "$f"'
+)
+
+
+def test_wrapper_rule_passes_the_guarded_shape_and_fails_the_rest() -> None:
+    assert hook_command_problems(WRAPPED) == []
+    assert hook_command_problems(WRAPPED + " --session") == []
+    assert any(
+        "no existence check" in p
+        for p in hook_command_problems('bash "$CLAUDE_PROJECT_DIR/.claude/hooks/a.sh"')
+    )
+    # The three names must agree: a wrapper that checks a.sh but runs b.sh guards nothing.
+    assert hook_command_problems(WRAPPED.replace('hooks/a.sh"; [ -f', 'hooks/b.sh"; [ -f', 1))
+    # Dropping `exit 0` turns "hook OFF" into "every tool call blocked".
+    assert hook_command_problems(WRAPPED.replace("; exit 0; }", "; }"))
+    assert hook_command_problems(WRAPPED.replace("is OFF", "is fine"))
+
+
+def test_event_rule_can_fail() -> None:
+    manifest = {
+        "protected_hooks": [
+            {"file": ".claude/hooks/a.sh", "event": "Stop"},
+            {"file": ".claude/hooks/lib.py", "event": "library (imported)"},
+            {"file": ".claude/hooks/x.py", "event": "on-demand"},
+        ]
+    }
+    assert event_problems(manifest, SETTINGS_OK) == []
+    moved = {"hooks": {"PreToolUse": SETTINGS_OK["hooks"]["Stop"]}}
+    assert event_problems(manifest, moved) == [
+        "a.sh: manifest says `Stop` but settings.json does not register it under Stop"
+    ]

@@ -16,25 +16,29 @@
 import { useEffect } from "react";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, type ErrorBoundaryProps } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 
-import { OfflineBanner, ToastProvider, UpdateBanner } from "../components/ui";
+import { Button, EmptyState, OfflineBanner, Screen, ToastProvider, UpdateBanner } from "../components/ui";
 import { AuthProvider, useAuth } from "../lib/auth";
+import { MISSING_CONFIG, configured } from "../lib/config";
 import { fontAssets } from "../lib/fonts";
-import "../lib/i18n";
+import { useT } from "../lib/i18n";
 import { usePendingLinkReplay } from "../lib/links";
-import { initMonitoring, wrapRoot } from "../lib/monitoring";
+import { initMonitoring, reportError, wrapRoot } from "../lib/monitoring";
 import { usePushNavigation } from "../lib/push";
 import { persistOptions, queryClient, wireConnectivity } from "../lib/query";
 import { ThemeProvider, useTheme, useThemePreference } from "../lib/theme";
 import { useUpdatePrompt } from "../lib/updates";
 
 initMonitoring();
+// A build missing its server settings is reported once, at boot, with the names of what
+// is missing (never values). Users see t("errors.misconfigured") on sign-in and on calls.
+if (!configured) reportError(new Error("App build is missing configuration"), { missing: MISSING_CONFIG.join(",") });
 wireConnectivity();
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // Expo Go owns its splash; the fade only applies to your own builds.
@@ -126,3 +130,32 @@ function RootLayout() {
 }
 
 export default wrapRoot(RootLayout);
+
+/**
+ * Expo Router renders this in place of the app when a route throws during render.
+ * Themed (the theme hook falls back to the OS scheme outside its provider), reported
+ * to monitoring, and recoverable: Retry re-renders the failed route.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const t = useT();
+  useEffect(() => {
+    reportError(error, { boundary: "root" });
+  }, [error]);
+  return (
+    <Screen scroll={false} edges={["top", "left", "right", "bottom"]} testID="root-error-boundary">
+      <EmptyState
+        icon={{ sf: "exclamationmark.triangle", md: "error" }}
+        title={t("errorBoundary.title")}
+        body={t("errorBoundary.body")}
+        action={
+          <Button
+            label={t("errorBoundary.retry")}
+            accessibilityLabel={t("errorBoundary.retryLabel")}
+            onPress={() => void retry()}
+            testID="root-error-retry-button"
+          />
+        }
+      />
+    </Screen>
+  );
+}

@@ -31,16 +31,28 @@ def _env(monkeypatch: pytest.MonkeyPatch) -> None:
 # --- endpoints --------------------------------------------------------------------
 
 
-def test_register_uses_the_verified_user_not_the_body() -> None:
+def test_register_uses_the_verified_user() -> None:
     db = FakeDB()
-    resp = client_for(db, "me").post(
-        "/api/v1/me/push-token", json={"token": TOK, "platform": "ios", "userId": "victim"}
-    )
+    resp = client_for(db, "me").post("/api/v1/me/push-token", json={"token": TOK, "platform": "ios"})
     assert resp.status_code == 204
     fn, params = db.rpc_calls[-1]
     assert fn == "register_push_token"
     assert params["p_user_id"] == "me"
     assert db.tables["push_tokens"][0]["user_id"] == "me"
+
+
+@pytest.mark.parametrize("path_method", [("POST", "register"), ("DELETE", "unregister")])
+def test_a_body_supplied_owner_is_rejected_not_ignored(path_method: tuple[str, str]) -> None:
+    """`userId` in the body is a 422, not a silent drop (extra="forbid"): an attacker
+    learns nothing they didn't know, and a drifted client build fails loudly."""
+    method, _ = path_method
+    db = FakeDB({"push_tokens": [{"user_id": "victim", "token": TOK}]})
+    resp = client_for(db, "me").request(
+        method, "/api/v1/me/push-token", json={"token": TOK, "userId": "victim"}
+    )
+    assert resp.status_code == 422
+    assert [fn for fn, _ in db.rpc_calls] == ["rate_limit_hit"]  # the limiter ran; nothing else did
+    assert db.tables["push_tokens"] == [{"user_id": "victim", "token": TOK}]
 
 
 def test_register_is_one_atomic_rpc_not_separate_writes() -> None:

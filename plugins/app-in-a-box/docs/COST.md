@@ -12,7 +12,7 @@ reviewers each re-read the same material, and rework (building the wrong thing) 
    and switching a variant or a palette re-renders for free.
 2. **The brief is the context.** `design/brief.json` (below, ≤ ~1.5k tokens) is all the
    helpers get. The conversation stays with `product-advisor`.
-3. **Route by job.** Extraction and copy run on haiku, generation on sonnet, and
+3. **Route by job.** Extraction runs on haiku, copy and generation on sonnet, and
    talking and judging on opus (each agent's `model:` sets it). Don't override without
    a reason.
 4. **Bounded fan-out.** At most 4 helpers at once. In Codex, run them one after another.

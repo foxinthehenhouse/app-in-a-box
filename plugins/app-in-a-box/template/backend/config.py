@@ -93,6 +93,19 @@ def supabase_service_key() -> str:
     return env("SUPABASE_SERVICE_ROLE_KEY") or env("SUPABASE_SECRET_KEY")
 
 
+def supabase_auth_apikey() -> str:
+    """The `apikey` header for Supabase Auth's REST endpoints (`/auth/v1/user`).
+
+    Any project API key passes the gateway; the user's Bearer token does the identifying.
+    Least privilege first: SUPABASE_ANON_KEY when set, else the same secret key the DB
+    client uses, so every key configuration FEATURE_CONFIG accepts works here too.
+    SUPABASE_ANON_KEY is OPTIONAL and deliberately not in FEATURE_CONFIG: nothing else in
+    the backend needs it. Empty only when the Supabase feature is unconfigured, which
+    backend/auth.py turns into a 503, never a 401 (a 401 signs the user out).
+    """
+    return env("SUPABASE_ANON_KEY") or supabase_service_key()
+
+
 def app_version() -> str | None:
     """The deployed git sha (Railway sets RAILWAY_GIT_COMMIT_SHA), or None locally."""
     for name in ("APP_VERSION", "RAILWAY_GIT_COMMIT_SHA", "GIT_SHA", "SENTRY_RELEASE"):

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Database gate: apply every migration to a THROWAWAY Postgres and prove RLS holds.
-# Run by .github/workflows/db.yml on every PR that touches supabase/; runs locally too.
+# Run by .github/workflows/db.yml on every PR and push to main (a required check has no
+# paths filter); runs locally too.
 #
 #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres scripts/db-test.sh
 #
@@ -36,8 +37,14 @@ say "2. platform stubs"
 if [ "$("${PSQL[@]}" -tAc "select to_regclass('auth.users') is null")" = "t" ]; then
   "${PSQL[@]}" -f supabase/ci/platform_stubs.sql
   echo "applied supabase/ci/platform_stubs.sql (plain Postgres)"
+elif [ "$("${PSQL[@]}" -tAc "select count(*) from information_schema.columns where table_schema = 'auth' and table_name = 'users' and column_name = 'email'")" = "1" ]; then
+  echo "auth.users exists with GoTrue's shape: a real Supabase stack, stubs skipped"
 else
-  echo "auth.users exists: a real Supabase stack, stubs skipped"
+  # Not GoTrue's table and not ours: something else prepared this database (an earlier
+  # test with its own stub). Skipping the stubs here made every pgTAP insert fail with
+  # "column email does not exist" while the gate reported the RLS tests "blind".
+  echo "db-test: auth.users exists but is not Supabase-shaped (no email column); use a fresh database" >&2
+  exit 2
 fi
 
 say "3. migrations"
@@ -97,8 +104,9 @@ fi
 say "6. negative control (planted RLS holes must be caught)"
 neg_adv="$(run_sql "$TMPD/plant.sql" supabase/ci/advisors.sql "$TMPD/rollback.sql")"
 if grep -q '^ERROR|rls_disabled_in_public|public.negctl_unprotected' <<<"$neg_adv" \
-   && grep -q '^ERROR|function_search_path_mutable|public.negctl_definer' <<<"$neg_adv"; then
-  echo "advisors caught the planted table without RLS and the mutable-search_path function"
+   && grep -q '^ERROR|function_search_path_mutable|public.negctl_definer' <<<"$neg_adv" \
+   && grep -q '^ERROR|security_definer_callable_by_api|public.negctl_definer()' <<<"$neg_adv"; then
+  echo "advisors caught the planted table without RLS, the mutable-search_path function, and the API-callable definer"
 else
   printf '%s\n' "$neg_adv"
   echo "::error::advisors did NOT catch the planted issues; the advisor gate is blind"; fail=1
@@ -107,7 +115,9 @@ neg_tap="$(pgtap "$TMPD/plant.sql")"
 if grep -q '^not ok' <<<"$neg_tap"; then
   echo "pgTAP caught the planted over-broad policies ($(grep -c '^not ok' <<<"$neg_tap") failing assertions)"
 else
-  printf '%s\n' "$neg_tap"
+  # Show the distinct errors, not the "transaction is aborted" line repeated per statement:
+  # the first error is the cause and the flood after it buries it.
+  printf '%s\n' "$neg_tap" | grep -v 'current transaction is aborted' | awk '!seen[$0]++' | head -60
   echo "::error::pgTAP stayed green with RLS holes planted; the RLS tests are blind"; fail=1
 fi
 # The negative control must leave nothing behind.

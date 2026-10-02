@@ -19,7 +19,7 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from backend.config import env, supabase_url
+from backend.config import supabase_auth_apikey, supabase_url
 
 logger = logging.getLogger(__name__)
 _bearer = HTTPBearer(auto_error=False)
@@ -70,7 +70,12 @@ def _verify_locally(token: str) -> CurrentUser | None:
 
 
 def _verify_remotely(token: str) -> CurrentUser:
-    apikey = env("SUPABASE_ANON_KEY") or env("SUPABASE_SERVICE_ROLE_KEY")
+    apikey = supabase_auth_apikey()
+    if not apikey:
+        # Nothing to call the Auth API with. 503, not 401: a 401 tells the client its
+        # session is over and it signs the user out; this is our configuration, not
+        # a verdict on the token. An empty apikey could only ever come back 401.
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Auth not configured")
     try:
         resp = httpx.get(
             f"{supabase_url()}/auth/v1/user",

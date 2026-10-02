@@ -2,6 +2,7 @@
 name: build-feature
 description: Implement an approved feature spec end to end on its own branch/worktree. Migration → backend endpoint + tests → mobile adapter + screen + analytics → gates → E2E flow → PR → review. Use after feature-discovery has produced an approved spec, or when asked to build a specced ticket.
 argument-hint: "<spec path or ticket id>"
+allowed-tools: "Bash(git:*), Bash(gh:*), Bash(scripts/dev-venv.sh:*), Bash(npm:*), Bash(npx:*), Bash(maestro:*), Bash(cd:*), Read, Glob, Grep, Edit, Write"
 ---
 
 # Build feature
@@ -32,9 +33,11 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
    loading/empty/error states → testIDs. `cd mobile && npm run gates`.
 6. **E2E:** give the new screen a root `<screen>-screen` (or `-sheet`) testID and add
    a flow under `mobile/.maestro/` for its happy path (`check-maestro-coverage` in the
-   gates fails without one). Run it through the Maestro MCP (`list_devices` → `run`;
-   `inspect_screen` when a selector misses) and say in the PR whether it ran on a
-   device or only passed `maestro check-syntax`. See `docs/qa/MAESTRO.md`.
+   gates fails without one). Write the flow even when `maestro` isn't installed here:
+   the YAML is the spec of the happy path. Run it through the Maestro MCP
+   (`list_devices` → `run`; `inspect_screen` when a selector misses) and say in the PR
+   whether it ran on a device, only passed `maestro check-syntax`, or is
+   written but unrun. Never report an E2E pass you didn't watch. See `docs/qa/MAESTRO.md`.
 7. **Self-review:** re-read your diff as a hostile reviewer. What would break for a
    user on last month's app build? What if the request comes from a different user?
    What if the user taps twice on a slow network? For each important test, **break

@@ -64,6 +64,19 @@ Only the ones listed in `compilerOptions.types` load.
 If you replaced it, add that line back (and add `"node"` if you use Node globals in
 scripts), and make sure `@types/jest` is installed.
 
+## Provision (phase 5)
+
+### The first push to `main` is refused by `bash-safety`
+**Symptom:** in Claude Code, the one allowed push of `main` (`APPBOX_BOOTSTRAP=1 git
+push -u origin main:main`, phase 5 step 1) is blocked with "pushing to main/master
+directly", but only in a session that was resumed after the scaffold.
+**Why:** that is the generated repo's own hook. Claude Code loads `.claude/settings.json`
+at session start, so a run that began before phase 4 never had it; a resumed session
+does, and the hook has no bootstrap flag (on purpose: it guards the agent, not you).
+**Fix:** run that one command yourself, in a terminal, from the project folder. Then
+tell the agent "done"; it verifies with `git ls-remote --heads origin main` and carries
+on with the setup branch. Don't edit or disable the hook.
+
 ## Backend (phase 4 and CI)
 
 ### `ruff check` fails on a fresh checkout

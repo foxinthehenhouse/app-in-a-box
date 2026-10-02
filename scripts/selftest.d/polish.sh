@@ -14,6 +14,10 @@ refuses "contrast catches a dim DARK-mode ink" \
   "$P \"import json;d=json.load(open('$TOK'));d['color']['dark']['inkFaint']='#4E525B';json.dump(d,open('$T/bad-dark.json','w'))\" && python3 '$KIT/scripts/check_contrast.py' '$T/bad-dark.json'"
 refuses "contrast catches a pale LIGHT-mode ink" \
   "$P \"import json;d=json.load(open('$TOK'));d['color']['light']['inkDim']='#B8B4AA';json.dump(d,open('$T/bad-light.json','w'))\" && python3 '$KIT/scripts/check_contrast.py' '$T/bad-light.json'"
+refuses "contrast catches a sub-AA accent used as text (light accent on control)" \
+  "$P \"import json;d=json.load(open('$TOK'));d['color']['light']['accent']='#E8590C';json.dump(d,open('$T/bad-accent.json','w'))\" && python3 '$KIT/scripts/check_contrast.py' '$T/bad-accent.json'" "accent"
+check "contrast gate treats accent and danger as TEXT (names them in its text set)" \
+  "python3 '$KIT/scripts/check_contrast.py' '$TOK' | grep -q 'text tokens: accent, danger'"
 refuses "schema rejects a palette missing a key in one mode" \
   "$P \"import json;d=json.load(open('$TOK'));del d['color']['light']['danger'];json.dump(d,open('$T/bad-keys.json','w'))\" && python3 '$KIT/scripts/check_contrast.py' '$T/bad-keys.json'"
 check "v1 single-palette tokens still validate (backward compatible)" \
@@ -26,7 +30,7 @@ check "v1 tokens render locked to their mode (tokens.ts + app.json)" \
 check "app.json: automatic appearance + splash background per mode" \
   "$P \"import json;e=json.load(open('$APP/mobile/app.json'))['expo'];assert e['userInterfaceStyle']=='automatic';s=[p for p in e['plugins'] if isinstance(p,list) and p[0]=='expo-splash-screen'][0][1];assert s['backgroundColor']!=s['dark']['backgroundColor']\""
 check "brand icons generated as valid PNGs" \
-  "for f in icon adaptive-icon splash-icon favicon; do head -c 8 '$APP/mobile/assets/brand/'\$f.png | od -An -tx1 | grep -q '89 50 4e 47'; done"
+  "for f in icon adaptive-icon splash-icon favicon; do head -c 8 '$APP/mobile/assets/brand/'\$f.png | od -An -tx1 | tr -d ' \\n' | grep -q '^89504e470d0a1a0a'; done"
 
 check "no hex literals in template screens/components/lib (tokens only)" \
   "! grep -rnE \"['\\\"]#[0-9a-fA-F]{3,8}['\\\"]\" '$APP/mobile/app' '$APP/mobile/components' '$APP/mobile/lib' --include=*.ts --include=*.tsx | grep -v 'lib/tokens.ts'"

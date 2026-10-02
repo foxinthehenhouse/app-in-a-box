@@ -8,3 +8,35 @@ jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
 jest.mock("@react-native-community/netinfo", () => require("@react-native-community/netinfo/jest/netinfo-mock.js"));
+// supabase-js (realtime-js) refuses to construct without a global WebSocket, which the
+// app has on every device and the browser but Node < 22 under jest does not. Tests never
+// open a realtime socket, so an inert stand-in is enough for `createClient` to build.
+if (typeof globalThis.WebSocket === "undefined") {
+  class JestWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+    readyState = 3;
+    close(): void {}
+    send(): void {}
+    addEventListener(): void {}
+    removeEventListener(): void {}
+  }
+  (globalThis as { WebSocket?: unknown }).WebSocket = JestWebSocket;
+}
+// expo-secure-store has no JS fallback. This in-memory stand-in enforces the real
+// 2048-byte value limit, so a test that stores an unchunked session fails here too.
+jest.mock("expo-secure-store", () => {
+  const items = new Map<string, string>();
+  return {
+    getItemAsync: jest.fn(async (key: string) => items.get(key) ?? null),
+    setItemAsync: jest.fn(async (key: string, value: string) => {
+      if (new TextEncoder().encode(value).length > 2048) throw new Error(`expo-secure-store: value for ${key} exceeds 2048 bytes`);
+      items.set(key, value);
+    }),
+    deleteItemAsync: jest.fn(async (key: string) => {
+      items.delete(key);
+    }),
+  };
+});

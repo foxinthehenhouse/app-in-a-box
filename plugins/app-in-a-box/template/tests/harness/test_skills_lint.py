@@ -12,6 +12,7 @@ Rules, each with a negative control below:
   - name present, matches the directory, lowercase-hyphen, <= 64 chars, no reserved words
   - description present, <= 1024 chars, no XML tags, says when to use the skill
   - body present, SKILL.md <= 500 lines (move detail into references/)
+  - only known frontmatter keys (a misspelled `disable-model-invocation` is silently on)
   - Claude Code's .claude/skills adapter exposes exactly the same skills
 """
 
@@ -29,6 +30,11 @@ MAX_LINES = 500
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 RESERVED = ("anthropic", "claude")
 TRIGGER_RE = re.compile(r"\bUse\b|\bInvoke\b|\bRun\b", re.I)
+# Keys Claude Code / the Agent Skills spec read. Anything else is ignored without a word.
+ALLOWED_KEYS = {
+    "name", "description", "disable-model-invocation", "model", "user-invocable",
+    "allowed-tools", "context", "agent", "when_to_use", "argument-hint", "paths",
+}  # fmt: skip
 
 
 def lint_skill(text: str, dirname: str) -> list[str]:
@@ -37,6 +43,11 @@ def lint_skill(text: str, dirname: str) -> list[str]:
     except FrontmatterError as exc:
         return [str(exc)]
     problems: list[str] = []
+    unknown = sorted(str(k) for k in meta if k not in ALLOWED_KEYS)
+    if unknown:
+        problems.append(
+            f"unknown frontmatter key(s) {unknown}: ignored silently, so a typo is a no-op"
+        )
     name = meta.get("name")
     if not isinstance(name, str) or not name:
         problems.append("`name` missing")
@@ -97,6 +108,13 @@ GOOD = "---\nname: ok\ndescription: Does a thing. Use when asked to do the thing
 
 def test_good_skill_passes() -> None:
     assert lint_skill(GOOD, "ok") == []
+    rich = GOOD.replace(
+        "---\nBody",
+        "argument-hint: <ticket>\nuser-invocable: true\nallowed-tools: Read, Grep\n"
+        "context: fork\nagent: triage\nwhen_to_use: Use when asked.\npaths: backend/**\n"
+        "disable-model-invocation: true\nmodel: sonnet\n---\nBody",
+    )
+    assert lint_skill(rich, "ok") == []
 
 
 @pytest.mark.parametrize(
@@ -118,6 +136,11 @@ def test_good_skill_passes() -> None:
         ("no frontmatter at all\n", "ok", "no `---` frontmatter"),
         (GOOD.replace("Body\n", ""), "ok", "no body"),
         (GOOD + "line\n" * MAX_LINES, "ok", "over 500 lines"),
+        (
+            GOOD.replace("---\nBody", "disable_model_invocation: true\n---\nBody"),
+            "ok",
+            "unknown frontmatter key",
+        ),
     ],
     ids=[
         "no-description",
@@ -132,6 +155,7 @@ def test_good_skill_passes() -> None:
         "no-frontmatter",
         "empty-body",
         "too-many-lines",
+        "unknown-key",
     ],
 )
 def test_each_rule_can_fail(text: str, dirname: str, needle: str) -> None:

@@ -28,6 +28,9 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
 - Type hints on every function; Pydantic models at the boundary; Black, line length 100.
 - Response models inherit `Wire` (camelCase aliases). When you add or change one,
   update the matching `*Wire` interface in `mobile/lib/api.ts` in the same PR.
+- Request-body models inherit `WireIn` (`extra="forbid"`: an unknown field is a 422,
+  never a silent drop) and are mirrored the same way; `tests/test_wire_contract.py`
+  pairs both directions and fails on an unlisted body or response model.
 - Read-only handlers are plain `def` (threadpool), not `async def` around blocking I/O.
 - Never trust an id from the request body for ownership; it comes from the token.
 - **Exact paths.** `redirect_slashes=False`: React Native drops `Authorization` on a

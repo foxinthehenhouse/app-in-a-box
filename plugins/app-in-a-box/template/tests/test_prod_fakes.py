@@ -60,7 +60,7 @@ class FakeQuery:
         self.op = "select"
         self.payload: Any = None
         self.filters: list[tuple[str, str, Any]] = []
-        self._order: tuple[str, bool] | None = None
+        self._orders: list[tuple[str, bool]] = []  # like SQL: first key wins, rest break ties
         self._limit: int | None = None
         self._range: tuple[int, int] | None = None
 
@@ -103,7 +103,7 @@ class FakeQuery:
         return self
 
     def order(self, col: str, desc: bool = False) -> FakeQuery:
-        self._order = (col, desc)
+        self._orders.append((col, desc))
         return self
 
     def limit(self, n: int) -> FakeQuery:
@@ -153,8 +153,7 @@ class FakeQuery:
             for r in matched:
                 r.update(self.payload)
             return Result(matched)
-        if self._order:
-            col, desc = self._order
+        for col, desc in reversed(self._orders):  # stable sorts, minor key first
             matched.sort(key=lambda r: str(r.get(col)), reverse=desc)
         if self._range:
             matched = matched[self._range[0] : self._range[1] + 1]
@@ -263,3 +262,9 @@ def test_fake_enforces_job_runs_primary_key() -> None:
     db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
     with pytest.raises(FakeAPIError):
         db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
+
+
+def test_fake_order_breaks_ties_with_later_keys() -> None:
+    db = FakeDB({"t": [{"a": 1, "b": "y"}, {"a": 0, "b": "z"}, {"a": 1, "b": "x"}]})
+    rows = db.table("t").select("*").order("a").order("b").execute().data
+    assert [(r["a"], r["b"]) for r in rows] == [(0, "z"), (1, "x"), (1, "y")]

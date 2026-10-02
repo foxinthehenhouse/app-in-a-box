@@ -27,7 +27,7 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import type * as NotificationsModule from "expo-notifications";
 
 import { analytics, startTimer } from "./analytics";
@@ -231,7 +231,7 @@ export function usePushNavigation(enabled: boolean): void {
       const route = response ? routeFromNotification(response.notification.request.content.data) : null;
       if (!route || !alive) return;
       analytics.pushOpened(route);
-      router.push(route as never);
+      router.push(route as Href); // resolveDeepLink only returns routes from LINKABLE_ROUTES
     };
     void loadNotifications()
       .then(async (N) => {

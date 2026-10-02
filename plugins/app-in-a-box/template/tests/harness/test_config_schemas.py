@@ -20,12 +20,26 @@ import pytest
 import yaml
 from harness_lib import ROOT, SETTINGS, load_json
 
+# Claude Code hook events as of 2026-10-02 (reference: Claude Code docs, "Hooks reference"
+# -> "Hook events"). The 2026-05 list had the first twelve; the second block was added
+# since. A hook under an event missing here is reported as "unknown", so widen this set
+# when Claude Code adds an event; never trim it to make a config pass.
 CLAUDE_HOOK_EVENTS = {
     "PreToolUse", "PostToolUse", "PostToolUseFailure", "UserPromptSubmit", "Notification",
     "Stop", "SubagentStart", "SubagentStop", "PreCompact", "SessionStart", "SessionEnd",
     "PermissionRequest",
+    "Setup", "PostToolBatch", "StopFailure", "TaskCreated", "TaskCompleted",
+    "InstructionsLoaded", "ConfigChange", "CwdChanged", "FileChanged", "WorktreeCreate",
+    "WorktreeRemove", "PostCompact", "PreModelSwitch",
 }  # fmt: skip
 TOOL_EVENTS = {"PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest"}
+# Events whose groups may carry a `matcher` (same reference, same date): tool events match
+# the tool name; SessionStart the source; Notification the type; Subagent* the agent;
+# PreCompact the trigger; InstructionsLoaded / ConfigChange the file or kind.
+MATCHER_EVENTS = TOOL_EVENTS | {
+    "SessionStart", "Notification", "SubagentStart", "SubagentStop", "PreCompact",
+    "InstructionsLoaded", "ConfigChange",
+}  # fmt: skip
 PERMISSION_RE = re.compile(r"^(mcp__[\w-]+(__[\w-]+)?|[A-Z][A-Za-z]+(\(.+\))?)$")
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]+$")
 BUNDLE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*){2,}$")
@@ -40,7 +54,7 @@ def claude_settings_problems(s: dict[str, Any]) -> list[str]:
         for g in groups:
             matcher = g.get("matcher")
             if matcher is not None:
-                if event not in TOOL_EVENTS and event != "SessionStart":
+                if event not in MATCHER_EVENTS:
                     problems.append(f"hooks.{event}: `matcher` is ignored on this event")
                 try:
                     re.compile(matcher)
@@ -235,6 +249,22 @@ def test_railway_healthcheck_is_health() -> None:
 )
 def test_settings_rules_can_fail(settings: dict, needle: str) -> None:
     assert any(needle in p for p in claude_settings_problems(settings))
+
+
+def test_newer_events_and_their_matchers_are_accepted() -> None:
+    """The positive half of the event rule: a 2026 event is not "unknown", and a matcher on
+    an event that takes one is not "ignored" (the `PreToolUze` control above still fails)."""
+    hook = [{"type": "command", "command": "x"}]
+    ok = {
+        "hooks": {
+            "PostCompact": [{"hooks": hook}],
+            "WorktreeCreate": [{"hooks": hook}],
+            "Notification": [{"matcher": "permission_prompt", "hooks": hook}],
+            "SubagentStop": [{"matcher": "reviewer", "hooks": hook}],
+            "PreCompact": [{"matcher": "auto", "hooks": hook}],
+        }
+    }
+    assert claude_settings_problems(ok) == []
 
 
 def test_mcp_rules_can_fail() -> None:

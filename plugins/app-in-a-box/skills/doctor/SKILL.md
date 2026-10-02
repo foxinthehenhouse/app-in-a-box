@@ -2,6 +2,7 @@
 name: doctor
 description: App in a Box health check. In preflight mode it checks local tools and installs what's missing; in accounts mode it checks CLI logins; in full mode it checks tools, logins and repo gates, plus backend /health and the first analytics event. Use it before starting, after provisioning, or whenever something seems broken.
 argument-hint: "[preflight|accounts|full]"
+allowed-tools: "Bash(bash:*), Bash(gh:*), Bash(git:*), Bash(curl:*), Bash(python3:*), Read, Glob, Grep"
 ---
 
 # Doctor
@@ -12,8 +13,9 @@ Run:
 bash "$KIT/scripts/doctor.sh" <mode>
 ```
 
-(`$KIT` is the plugin root: `${CLAUDE_PLUGIN_ROOT}` when installed as a plugin,
-or `<clone>/plugins/app-in-a-box` otherwise.)
+`$KIT` is the plugin root: `appbox.yaml` → `kit_root` if present, else
+`${CLAUDE_PLUGIN_ROOT}` (Claude Code) or the folder two levels above this file (Codex /
+pasted prompt).
 
 ## Preflight (phase 0)
 
@@ -46,9 +48,22 @@ script can't do:
   monitoring under `features_unavailable`, which is correct, not a failure). Hit `GET /debug/sentry` on the backend (enabled only when
   `APP_ENV != production`) and confirm the issue lands in Sentry.
 - **PR loop.** A PR exists, CI ran on it, and the Claude review workflow commented.
+- **Branch protection** (deferred from phase 6, because GitHub only offers checks it
+  has seen). Once the first PR's checks have reported, run the `gh api -X PUT ...
+  /protection` command from `$KIT/skills/harness/SKILL.md` § 2, then verify:
+  ```
+  gh api "repos/<owner>/<slug>/branches/main/protection" --jq '.required_status_checks.contexts'
+  ```
+  All five ids (`python`, `mobile`, `migrations-rls`, `gitleaks`, `ticket`) must be
+  listed. A 403 on a private repo means the GitHub plan has no branch protection:
+  record `resources.github.protection: unavailable (plan)` in `appbox.yaml`, say so,
+  and count the row as done (the git hooks still refuse commits on `main`). Record
+  `resources.github.protection: on` otherwise.
 
 Report a table: check → result → fix. "Green" means every row passes. Don't
-round up. For the fix column, look the symptom up in `$KIT/docs/TROUBLESHOOTING.md`
+round up. When every row is green, set `appbox.yaml` → `progress.verify: done` and
+commit it on `chore/appbox-setup`; without that key a resumed `new-app` runs this
+phase again. For the fix column, look the symptom up in `$KIT/docs/TROUBLESHOOTING.md`
 first (Codex network, `EXPO_OFFLINE`, `ERESOLVE`, TypeScript 6 types, ruff, MCP
 restart). Every entry there came from a real run.
 

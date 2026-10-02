@@ -1,9 +1,14 @@
 ---
 name: provision
 description: Phase 5 of App in a Box. Creates the cloud resources (GitHub repo, Supabase project, Expo/EAS project, Railway service, PostHog and Sentry projects) idempotently, then wires every secret into .env, GitHub secrets, EAS env and Railway variables. It records IDs in appbox.yaml and never writes secret values to tracked files or chat.
+allowed-tools: "Bash(gh:*), Bash(git:*), Bash(supabase:*), Bash(eas:*), Bash(railway:*), Bash(node:*), Bash(npx:*), Bash(openssl:*), Bash(python3:*), Bash(curl:*), Bash(set:*), Bash(grep:*), Bash(touch:*), Bash(cd:*), Read, Write, Edit, Glob, Grep"
 ---
 
 # Phase 5: Provision
+
+`$KIT` is the plugin root: `appbox.yaml` → `kit_root` if present, else
+`${CLAUDE_PLUGIN_ROOT}` (Claude Code) or the folder two levels above this file (Codex /
+pasted prompt).
 
 ## Ground rules
 
@@ -47,8 +52,22 @@ git push -u origin chore/appbox-setup
 ```
 
 The first is the only direct push to `main` ever. `.githooks/pre-push` refuses it
-without the flag, and phase 6 adds branch protection on GitHub. Record
-`resources.github.repo`.
+without the flag, and phase 7 (the doctor's Full mode) adds branch protection on
+GitHub once CI has reported. Record `resources.github.repo`.
+
+**If the push is refused by `bash-safety`** ("pushing to main/master directly"): that
+is the generated repo's own Claude Code hook. It loads from `.claude/settings.json` at
+session start, so a session that began before phase 4 doesn't run it, but a RESUMED
+session does, and the hook has no bootstrap flag. Don't edit or disable the hook.
+Hand the owner the one command to run in their own terminal, from the project folder:
+
+```
+APPBOX_BOOTSTRAP=1 git push -u origin main:main
+```
+
+Wait for "done", then verify with `git ls-remote --heads origin main` (one line
+means it landed) and carry on with the setup branch. Symptom and fix also live in
+`$KIT/docs/TROUBLESHOOTING.md`.
 
 ## 2. Supabase
 

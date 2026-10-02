@@ -8,6 +8,7 @@ import { Badge, Body, Button, Display, ErrorText, FormField, Screen } from "../.
 import { analytics, startTimer } from "../../lib/analytics";
 import { APP } from "../../lib/app";
 import { sendEmailCode, verifyEmailCode, type AuthErrorCode } from "../../lib/auth";
+import { configured } from "../../lib/config";
 import { DEMO } from "../../lib/demo";
 import { codeSchema, emailSchema, type CodeForm, type EmailForm } from "../../lib/forms";
 import { useT } from "../../lib/i18n";
@@ -26,11 +27,13 @@ export default function SignIn() {
   const email = useWatch({ control: emailForm.control, name: "email" }) ?? "";
 
   const send = emailForm.handleSubmit(async (values) => {
+    const elapsed = startTimer();
     setBusy(true);
     setError(null);
     analytics.signInRequested("email_otp");
     const res = await sendEmailCode(values.email);
     setBusy(false);
+    analytics.signInCodeSent({ success: !res.error, error_code: res.error ? `send_${res.error}` : null, duration_ms: elapsed() });
     if (res.error) {
       haptic.error();
       setError(res.error);
@@ -71,6 +74,7 @@ export default function SignIn() {
         <Body dim>{APP.oneLiner}</Body>
       </Animated.View>
       <Animated.View entering={entrance(1, reduced)} style={s.form}>
+        {configured ? null : <ErrorText testID="signin-misconfigured">{t("errors.misconfigured")}</ErrorText>}
         <FormField
           control={emailForm.control}
           name="email"

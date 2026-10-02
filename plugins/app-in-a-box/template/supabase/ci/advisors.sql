@@ -26,6 +26,20 @@ where n.nspname = 'public' and p.prosecdef
   and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) cfg where cfg like 'search_path=%')
 
 union all
+-- ERROR security_definer_callable_by_api: a SECURITY DEFINER function runs as its owner
+-- (bypassing RLS); Postgres grants EXECUTE to PUBLIC by default, so unless it is revoked
+-- the anon key can call it over PostgREST. Trigger functions are skipped: the API can't
+-- call them. The static twin is tests/test_prod_migrations.py::unrestricted_definers.
+select 'ERROR', 'security_definer_callable_by_api',
+       format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)),
+       'revoke execute ... from public, anon, authenticated; grant execute ... to service_role'
+from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.prosecdef and p.prorettype <> 'trigger'::regtype
+  and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+  and (has_function_privilege('anon', p.oid, 'execute')
+       or has_function_privilege('authenticated', p.oid, 'execute'))
+
+union all
 -- ERROR security_definer_view: a view runs with its owner's rights and bypasses the
 -- caller's RLS unless it is security_invoker.
 select 'ERROR', 'security_definer_view', format('%I.%I', n.nspname, c.relname),

@@ -51,8 +51,10 @@ _maestro_syntax() {
   JAVA_TOOL_OPTIONS= maestro check-syntax "$T/bad-flow.yaml" >/dev/null 2>&1 && { echo "check-syntax accepted a bad flow"; bad=1; }
   [ "$bad" = 0 ]
 }
-if command -v maestro >/dev/null 2>&1; then
+# `command -v maestro` is not enough: the launcher is a shell script that fails without a
+# Java runtime, and a check that cannot run must read as SKIP, never as FAIL or PASS.
+if command -v maestro >/dev/null 2>&1 && JAVA_TOOL_OPTIONS= maestro --version >/dev/null 2>&1; then
   check "maestro check-syntax: every flow parses (and a bad one is rejected)" _maestro_syntax
 else
-  skip "maestro check-syntax: every flow parses (and a bad one is rejected)" "maestro"
+  skip "maestro check-syntax: every flow parses (and a bad one is rejected)" "maestro with a Java runtime"
 fi

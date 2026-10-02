@@ -17,29 +17,32 @@
       "Bash(eas env:list:*)", "Bash(railway status:*)", "Bash(curl -fsS:*)"
     ],
     "deny": [
-      "Read(./.env)", "Read(./.env.*)", "Read(./mobile/.env)",
+      "Read(./.env)", "Read(./.env.local)", "Read(./.env.development)", "Read(./.env.production)", "Read(./mobile/.env)", "Read(./mobile/.env.local)",
       "Bash(git push --force:*)", "Bash(git push -f:*)",
       "Bash(rm -rf /)", "Bash(rm -rf ~)"
     ]
   },
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"" } ] },
-      { "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/harness-healthcheck.py\" --session" } ] }
+      { "hooks": [ { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/session-start.sh\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook session-start.sh is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; bash \"$f\"" } ] },
+      { "hooks": [ { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/harness-healthcheck.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/harness-healthcheck.py\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook harness-healthcheck.py is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; python3 \"$f\" --session" } ] }
     ],
     "UserPromptSubmit": [
-      { "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/memory_recall.py\"" } ] },
-      { "hooks": [ { "type": "command", "async": true, "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/capture-activity.sh\"" } ] }
+      { "hooks": [ { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/memory_recall.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/memory_recall.py\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook memory_recall.py is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; python3 \"$f\"" } ] },
+      { "hooks": [ { "type": "command", "async": true, "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/capture-activity.sh\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/capture-activity.sh\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook capture-activity.sh is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; bash \"$f\"" } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/bash-safety.sh\"" } ] },
-      { "matcher": "Write|Edit|MultiEdit", "hooks": [ { "type": "command", "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-path-rules.py\"" } ] }
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/bash-safety.sh\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/bash-safety.sh\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook bash-safety.sh is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; bash \"$f\"" } ] },
+      { "matcher": "Write|Edit|MultiEdit", "hooks": [
+        { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/warn-sensitive-files.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/warn-sensitive-files.py\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook warn-sensitive-files.py is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; python3 \"$f\"" },
+        { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/inject-path-rules.py\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/inject-path-rules.py\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook inject-path-rules.py is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; python3 \"$f\"" }
+      ] }
     ],
     "PostToolUse": [
-      { "hooks": [ { "type": "command", "async": true, "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/capture-activity.sh\"" } ] }
+      { "hooks": [ { "type": "command", "async": true, "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/capture-activity.sh\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/capture-activity.sh\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook capture-activity.sh is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; bash \"$f\"" } ] }
     ],
     "Stop": [
-      { "hooks": [ { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-reflect.sh\"" } ] }
+      { "hooks": [ { "type": "command", "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-reflect.sh\"; [ -f \"$f\" ] || f=\"$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/session-reflect.sh\"; [ -f \"$f\" ] || { printf '{\"systemMessage\":\"hook session-reflect.sh is OFF for this session: not found (worktree moved or deleted?). Start a new session in a live checkout.\"}\\n'; exit 0; }; bash \"$f\"" } ] }
     ]
   }
 }

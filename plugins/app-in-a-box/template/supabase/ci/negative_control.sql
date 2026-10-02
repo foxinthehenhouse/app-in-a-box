@@ -15,7 +15,11 @@ create policy profiles_update_own on public.profiles for update using (true) wit
 grant select, update on public.keep_alive to anon, authenticated;
 create policy keep_alive_open on public.keep_alive for all using (true);
 
--- A new table with RLS forgotten, and a hijackable SECURITY DEFINER function.
+-- A new table with RLS forgotten, and a hijackable SECURITY DEFINER function that is
+-- also left callable by the API roles (Postgres' default EXECUTE to PUBLIC, made
+-- explicit here) -- two advisor rows from one function: function_search_path_mutable
+-- and security_definer_callable_by_api.
 create table public.negctl_unprotected (id int);
 create function public.negctl_definer() returns int
   language sql security definer as $$ select 1 $$;
+grant execute on function public.negctl_definer() to anon, authenticated;

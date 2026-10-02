@@ -25,4 +25,5 @@ Then, inside the worktree:
   worktrees; this just confirms it)
 
 Tell the user the worktree path; the session should `cd` there. When the PR merges:
-`git worktree remove .claude/worktrees/<id>` and delete the branch.
+`git worktree remove .claude/worktrees/<id>`, then `git branch -d <branch>`. Lower-case
+`-d` refuses a branch that isn't merged, which is the point; never `-D`.

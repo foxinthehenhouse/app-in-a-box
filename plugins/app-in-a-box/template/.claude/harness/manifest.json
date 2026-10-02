@@ -57,6 +57,12 @@
       "removal_rule": "Without it .agents/rules/*.md never load at edit time. Remove only if the rules move into always-on AGENTS.md context."
     },
     {
+      "file": ".claude/hooks/warn-sensitive-files.py",
+      "event": "PreToolUse(Write|Edit|MultiEdit)",
+      "load_bearing": true,
+      "removal_rule": "The explicit are-you-sure before a migration, workflow, build-config, lock or .env edit. Remove only if those edits get a strictly-better confirmation path."
+    },
+    {
       "file": ".claude/hooks/memory_recall.py",
       "event": "UserPromptSubmit",
       "load_bearing": false,
@@ -207,6 +213,7 @@
       "capture-activity.sh",
       "bash-safety.sh",
       "inject-path-rules.py",
+      "warn-sensitive-files.py",
       "session-reflect.sh"
     ]
   }

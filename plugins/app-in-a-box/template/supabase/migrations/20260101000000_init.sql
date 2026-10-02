@@ -1,7 +1,12 @@
 -- __APP_NAME__: initial schema.
 -- Conventions (see .claude/rules/db-migrations.md): additive + reversible, RLS on
 -- every table, user-owned rows keyed by user_id -> auth.users with cascade.
--- Rollback: drop table public.keep_alive; drop table public.profiles;
+-- Rollback (in this order: the trigger inserts into profiles, so it and its function
+-- must go BEFORE the table, or every sign-up after the rollback fails inside it):
+--   drop trigger if exists on_auth_user_created on auth.users;
+--   drop function if exists public.handle_new_user();
+--   drop table if exists public.keep_alive;
+--   drop table if exists public.profiles;
 
 -- Profiles: one row per auth user, created on sign-up by trigger.
 create table if not exists public.profiles (

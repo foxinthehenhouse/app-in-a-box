@@ -29,6 +29,8 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly errorId?: string,
     public readonly requestId?: string,
+    /** "misconfigured": the BUILD has no server address (lib/config.ts), not a network problem. */
+    public readonly reason?: "misconfigured",
   ) {
     super(message);
     this.name = "ApiError";
@@ -72,7 +74,7 @@ async function send(path: string, init: RequestInit, requestId: string): Promise
     const res = await demoFetch(path, init);
     return { ...res, requestId };
   }
-  if (!API_URL) throw new ApiError("EXPO_PUBLIC_API_URL is not set", 0, undefined, requestId);
+  if (!API_URL) throw new ApiError("EXPO_PUBLIC_API_URL is not set", 0, undefined, requestId, "misconfigured");
   const auth = await authHeader();
   const headers: Record<string, string> = {
     Accept: "application/json",
@@ -135,6 +137,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 /** A short, human message for any error a screen catches. */
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) {
+    if (e.reason === "misconfigured") return i18n.t("errors.misconfigured");
     if (e.status === 0) return i18n.t("errors.offline");
     if (e.status === 401) return i18n.t("errors.sessionEnded");
     return i18n.t("errors.status", { status: e.status });
@@ -176,15 +179,26 @@ export async function getMe(): Promise<Profile> {
   return toProfile(await apiFetch<ProfileWire>("/api/v1/me"));
 }
 
+/**
+ * Mirrors backend/routers/me.py `ProfileUpdate` (camelCase aliases). The API rejects
+ * any other field with a 422 (`extra="forbid"`), so a field added here must land in
+ * `ProfileUpdate` in the same PR; tests/test_wire_contract.py compares the two.
+ */
+export interface ProfilePatchWire {
+  displayName?: string | null;
+  onboarded?: boolean | null;
+}
+
 export type ProfilePatch = Partial<Pick<Profile, "displayName" | "onboarded">>;
 
 export async function updateMe(patch: ProfilePatch): Promise<Profile> {
+  const body: ProfilePatchWire = patch;
   return toProfile(
-    await apiFetch<ProfileWire>("/api/v1/me", { method: "PATCH", body: JSON.stringify(patch) }),
+    await apiFetch<ProfileWire>("/api/v1/me", { method: "PATCH", body: JSON.stringify(body) }),
   );
 }
 
-/** Mirrors backend/routers/me.py `AccountDeletion`: the literal confirm is required. */
+/** Mirrors backend/routers/me.py `AccountDeletion`: the literal confirm is required, nothing else is accepted. */
 export interface AccountDeletionWire {
   confirm: "DELETE";
 }
@@ -195,10 +209,15 @@ export async function deleteAccount(): Promise<void> {
   await apiFetch<void>("/api/v1/me", { method: "DELETE", body: JSON.stringify(body) });
 }
 
-/** Mirrors backend/routers/push.py `PushTokenIn` / `PushTokenOut`. */
+/** Mirrors backend/routers/push.py `PushTokenIn` (POST). */
 export interface PushTokenWire {
   token: string;
   platform?: "ios" | "android" | "web" | null;
+}
+
+/** Mirrors backend/routers/push.py `PushTokenRef` (DELETE): the token to forget, nothing else. */
+export interface PushTokenRefWire {
+  token: string;
 }
 
 export async function registerPushToken(token: string, platform: PushTokenWire["platform"]): Promise<void> {
@@ -207,7 +226,7 @@ export async function registerPushToken(token: string, platform: PushTokenWire["
 }
 
 export async function unregisterPushToken(token: string): Promise<void> {
-  const body: PushTokenWire = { token };
+  const body: PushTokenRefWire = { token };
   await apiFetch<void>("/api/v1/me/push-token", { method: "DELETE", body: JSON.stringify(body) });
 }
 

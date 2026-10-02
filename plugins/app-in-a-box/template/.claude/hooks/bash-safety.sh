@@ -168,5 +168,3 @@ RC=$?
 # Propagate hook block (exit 2) if Python decided so.
 [ $RC -eq 2 ] && exit 2
 exit 0
-
-exit 0

@@ -80,31 +80,31 @@ The source → adapter table and how to regenerate: `.agents/README.md`.
 
 | Editing | Read first |
 |---|---|
-| `backend/routers/**`, `backend/models/**`, `mobile/lib/api.ts` | `.agents/rules/api-contract.md` |
+| `backend/routers/**`, `mobile/lib/api.ts` | `.agents/rules/api-contract.md` |
 | `supabase/migrations/**` | `.agents/rules/db-migrations.md` |
-| `mobile/app/**`, `mobile/components/**` | `.agents/rules/mobile-a11y.md`, `.agents/rules/analytics-coverage.md` |
-| `mobile/lib/**`, `mobile/eas.json`, `backend/config.py` | `.agents/rules/env-var-wiring.md` |
+| `mobile/app/**`, `mobile/components/**`, `mobile/lib/analytics.ts` | `.agents/rules/mobile-a11y.md`, `.agents/rules/analytics-coverage.md` |
+| `mobile/lib/**`, `mobile/app.json`, `mobile/eas.json`, `backend/config.py`, `backend/main.py` | `.agents/rules/env-var-wiring.md` |
 | `docs/product/**`, `mobile/app/**`, `mobile/locales/**`, `mobile/components/**`, and any product call anywhere | `.agents/rules/product-judgement.md` |
 <!-- appbox:domain-rules: rows for any .agents/rules/<domain>.md enabled from optional/ -->
 
 ## How work flows here
 
-Skills are invoked as `/name` in Claude Code and `$name` in Codex; both agents
-also pick them up automatically from their descriptions.
+Skills are invoked as `/name` in Claude Code and `$name` in Codex; both agents also pick them up from their descriptions.
 
 1. **Every change has a ticket.** Use the `backlog` skill to pick or file one (Linear or
    GitHub Issues, per `appbox.yaml`). Branch `<type>/<ticket>-<slug>`; the PR references
    it, and the `ticket` CI check enforces that. **File sub-tasks and follow-ups the
    moment you find them** (sub-issues of the current ticket, or new related tickets),
    never "later" in chat.
-2. **New feature → `feature-discovery` first**, which emits the brief + PRD + tech spec,
-   then `build-feature` implements it against the spec.
+2. **New feature → `feature-discovery` first** (brief + PRD + tech spec), then `build-feature` builds it against the spec.
 3. **One unit of work = one branch = one worktree = one PR.** `new-worktree` skill.
    Never commit on `main`; `.githooks/` enforces it for every agent.
 4. **Verify before claiming done.** Run the gate and report real output. A test you
    didn't run doesn't count.
 5. **`pr-review` reviews each PR; the `land` skill drives it to merged** (CI, every
-   thread, re-review per push). Squash merge, delete the branch; follow-ups get a new one.
+   thread, re-review per push). Merging without asking needs `appbox.yaml` →
+   `policy.auto_merge_low_risk: true` (default `false`) AND a ✅ low-risk verdict with
+   green CI; otherwise the owner merges. Squash merge, delete the branch; follow-ups get a new one.
 6. **Ask, don't decide, on product calls.** Scope, what users see, money, positioning,
    data and priorities belong to the owner: ask with a structured question
    (recommended option first) per `.agents/rules/product-judgement.md`. Calls you make
@@ -147,4 +147,4 @@ Used by the `pr-review` skill, Claude's CI review and Codex code review alike.
 
 ## Voice (copy that ships to users)
 
-<!-- appbox:voice: from the interview, e.g. "Warm, encouraging, never shaming about money." -->
+<!-- appbox:voice: from the brief and the copy tone frozen in SCREENS.md, e.g. "Warm, encouraging, never shaming about money." -->

@@ -20,8 +20,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: security-${{ github.ref }}
-  cancel-in-progress: true
+  # PR runs share a per-PR group (a newer push cancels the stale run). Every other run
+  # (push to main, schedule, manual) gets its OWN group: under a shared `github.ref`
+  # key GitHub keeps one PENDING run per group and silently cancels older ones, so a
+  # burst of merges left main's middle commits unchecked in the app this kit came from.
+  group: security-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   gitleaks:

@@ -8,8 +8,10 @@ exactly that (drops a `.eq(...)` from backend/routers/export.py) and expects a f
 from __future__ import annotations
 
 import json
+import random
 import re
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -109,6 +111,42 @@ def test_pages_through_large_tables(monkeypatch: pytest.MonkeyPatch) -> None:
     rows = [{"id": i, "user_id": "b", "token": f"ExponentPushToken[{i:04d}]"} for i in range(8)]
     body = client_for(FakeDB({"push_tokens": rows}), "b").get("/api/v1/me/export").json()
     assert len(body["tables"]["push_tokens"]) == 8
+
+
+class ShuffledHeap(FakeDB):
+    """Rows come off the heap in no particular order among ties, as in Postgres: an
+    `order by created_at` over rows inserted in one batch (same timestamp) is a
+    different permutation on every page, so `.range()` pages overlap and skip."""
+
+    def __init__(self, tables: dict[str, list[dict[str, Any]]], seed: int) -> None:
+        super().__init__(tables)
+        self._rng = random.Random(seed)
+
+    def table(self, name: str) -> Any:
+        self._rng.shuffle(self.tables.setdefault(name, []))
+        return super().table(name)
+
+
+@pytest.mark.parametrize("seed", range(6))
+def test_paging_is_stable_when_rows_share_a_timestamp(
+    monkeypatch: pytest.MonkeyPatch, seed: int
+) -> None:
+    """Every paged reader must order by a unique key (the primary key) as a tiebreaker,
+    or a batch of same-second rows is exported with duplicates and holes."""
+    monkeypatch.setattr(export_router, "PAGE_SIZE", 3)
+    same_second = "2026-09-30T12:00:00+00:00"
+    tickets = [
+        {"ticket_id": f"t{i}", "user_id": "b", "token": "x", "created_at": same_second}
+        for i in range(7)
+    ]
+    tokens = [
+        {"id": i, "user_id": "b", "token": f"ExponentPushToken[{i:04d}]", "created_at": same_second}
+        for i in range(7)
+    ]
+    db = ShuffledHeap({"push_tickets": tickets, "push_tokens": tokens}, seed)
+    body = client_for(db, "b").get("/api/v1/me/export").json()
+    assert sorted(r["ticket_id"] for r in body["tables"]["push_tickets"]) == [f"t{i}" for i in range(7)]
+    assert sorted(r["token"] for r in body["tables"]["push_tokens"]) == sorted(t["token"] for t in tokens)
 
 
 def test_export_is_rate_limited() -> None:

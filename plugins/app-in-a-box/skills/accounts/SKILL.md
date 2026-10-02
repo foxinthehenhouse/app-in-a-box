@@ -45,9 +45,12 @@ isn't on it, and neither is Linear when `tracker: github`. Skip anything already
 3. For every finished service, run its login command. Commands that open a browser
    (`gh auth login --web`, `supabase login`, `railway login`) need the user to
    approve in the browser. Tell them which tab.
-4. **Pasted secrets.** When a token is needed (PostHog, Sentry, Anthropic), ask the
-   user to add it to `.env` themselves (`KEY=value`), not paste it into chat. Chat
-   transcripts are stored. Then confirm the name is present with
+4. **Pasted secrets.** When a token is needed (PostHog, Sentry, Anthropic), first run
+   `touch .env` in the project folder so there is a file to paste into (the repo
+   doesn't exist yet; the template's `.gitignore`, which lists `.env`, arrives with
+   the phase 4 overlay, and phase 5's step 0 re-checks it before the first push).
+   Ask the user to add the token to `.env` themselves (`KEY=value`), not paste it into
+   chat. Chat transcripts are stored. Then confirm the name is present with
    `grep -c '^KEY=' .env` (never print the value).
 5. Re-run `doctor.sh accounts` until green.
 

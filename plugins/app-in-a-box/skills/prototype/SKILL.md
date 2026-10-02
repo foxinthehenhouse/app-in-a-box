@@ -48,6 +48,16 @@ Every helper gets `design/brief.json` + `docs/TASTE.md` as a stable prefix, noth
    Fix every line it prints (dangling links, two primary buttons or one behind a
    feature toggle, lorem, missing empty states, contrast, too many tabs, unknown icons,
    unused features) and re-run until clean.
+
+   **If `prototype.py` itself crashes** (a Python traceback rather than a list of
+   check lines), it's a kit bug, not a spec problem. Don't hand-write the HTML to get
+   past it. Save the traceback and `design/prototype.json`, file an issue on the kit
+   repo (`gh issue create -R foxinthehenhouse/app-in-a-box`, or give the founder the
+   text to paste), and tell the founder in one line. Then keep going: if `freeze`
+   still runs, freeze from the spec; if not, write `docs/product/SCREENS.md` by hand
+   from the spec's screens, variants and states (same headings the freeze would
+   write), set `progress.design: done`, and continue from phase 3. The scaffold builds
+   from SCREENS.md either way.
 5. `design-critic` (Vera) reviews against TASTE.md. On FAIL, apply her fixes and re-check.
    After 2 failed rounds, turn the disagreement into a ⚖️ question for the founder.
 6. Render:

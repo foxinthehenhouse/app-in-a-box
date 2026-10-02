@@ -25,8 +25,30 @@ fi
 
 # ...and no key-shaped strings in any added line.
 added="$(git diff --cached -U0 --diff-filter=ACM | grep -E '^\+' || true)"
-if grep -Eq '(sb_secret_[A-Za-z0-9]{10,}|sk-ant-[A-Za-z0-9_-]{20,}|service_role[^\n]{0,20}eyJ[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|phx_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})' <<<"$added"; then
+# Case-insensitive on purpose: provisioning writes SUPABASE_SERVICE_ROLE_KEY=eyJ... in
+# capitals, and the first version of this regex only matched lower-case service_role.
+# The shapes mirror .gitleaks.toml (the CI layer); keep the two in step.
+if grep -Eqi '(sb_secret_[A-Za-z0-9_-]{10,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{16,}|service_role[^\n]{0,24}eyJ[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|phx_[A-Za-z0-9]{20,}|sntrys_[A-Za-z0-9+/=_-]{30,}|xox[abprs]-[A-Za-z0-9-]{20,}|AKIA[0-9A-Z]{16})' <<<"$added"; then
   echo "pre-commit: staged diff looks like it contains a secret key. Move it to .env." >&2
   exit 1
+fi
+# A Supabase service-role JWT under ANY variable name: its payload carries
+# "role":"service_role", which base64 encodes to one of three strings depending on
+# alignment. The anon key's payload ("role":"anon") never matches, so it stays allowed.
+if grep -Eq 'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*(InJvbGUiOiJzZXJ2aWNlX3Jv|b2xlIjoic2VydmljZV9yb2xl|cm9sZSI6InNlcnZpY2Vfcm9s)' <<<"$added"; then
+  echo "pre-commit: staged diff contains a Supabase service_role key (the payload says so). Move it to .env and rotate it." >&2
+  exit 1
+fi
+# A PEM private key: the header counts only when its body follows within three lines
+# (legacy encrypted PEMs put Proc-Type/DEK-Info lines first). The header alone appears
+# legitimately in secret-scanner tests and docs.
+if grep -A3 -E '^\+-----BEGIN [A-Z ]*PRIVATE KEY-----' <<<"$added" | grep -Eq '^\+([A-Za-z0-9+/=]{40,}|Proc-Type: 4,ENCRYPTED)$'; then
+  echo "pre-commit: staged diff contains a private key. Move it out of the repo and rotate it." >&2
+  exit 1
+fi
+# Design tokens: a staged palette change must still clear WCAG AA (same gate as CI).
+if grep -qx 'design/tokens.json' <<<"$staged" && [ -f scripts/check_contrast.py ]; then
+  python3 scripts/check_contrast.py design/tokens.json >&2 || {
+    echo "pre-commit: design/tokens.json fails the contrast gate (see above)." >&2; exit 1; }
 fi
 exit 0
