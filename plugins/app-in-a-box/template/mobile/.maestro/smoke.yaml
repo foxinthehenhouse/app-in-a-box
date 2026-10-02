@@ -1,9 +1,10 @@
-# Smoke flow: the app launches to sign-in and the email field accepts input.
-# Run: maestro test mobile/.maestro/   (per-directory, on a Release/preview build)
+# Smoke: the app launches to sign-in and the email field takes input. Runs on ANY
+# build, including a release-mode EAS build where demo mode is off (tag: smoke).
 appId: __BUNDLE_ID__
+tags:
+  - smoke
 ---
-- launchApp:
-    clearState: true
+- runFlow: common/launch.yaml
 - assertVisible:
     id: "signin-screen"
 - tapOn:

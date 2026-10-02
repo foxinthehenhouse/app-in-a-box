@@ -1,0 +1,31 @@
+# Delete account: the sheet refuses without the confirm word, then deletes and
+# lands on sign-in. Demo mode only: it really deletes the account it signs into.
+appId: __BUNDLE_ID__
+tags:
+  - demo
+---
+- runFlow: common/signin-demo.yaml
+- tapOn:
+    id: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-delete-account-row"
+- tapOn:
+    id: "settings-delete-account-row"
+- assertVisible:
+    id: "delete-account-sheet"
+- tapOn:
+    id: "delete-account-cancel-button"
+- assertNotVisible:
+    id: "delete-account-sheet"
+- tapOn:
+    id: "settings-delete-account-row"
+- tapOn:
+    id: "delete-account-confirm-input"
+- inputText: "DELETE"
+- tapOn:
+    id: "delete-account-submit-button"
+- extendedWaitUntil:
+    visible:
+      id: "signin-screen"
+    timeout: 10000

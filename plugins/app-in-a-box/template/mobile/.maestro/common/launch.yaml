@@ -1,0 +1,13 @@
+# Launch from a clean state. Pass -e APP_URL=<url> when the JS comes from Metro:
+#   Expo Go       exp://127.0.0.1:8081
+#   dev client    __SCHEME__://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081
+# A preview/e2e build (EAS) has its JS embedded and needs no APP_URL.
+appId: __BUNDLE_ID__
+---
+- launchApp:
+    clearState: true
+- runFlow:
+    when:
+      true: ${APP_URL}
+    commands:
+      - openLink: ${APP_URL}

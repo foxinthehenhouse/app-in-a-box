@@ -11,6 +11,7 @@
     "linear": { "type": "http", "url": "https://mcp.linear.app/mcp" },
     "expo": { "type": "http", "url": "https://mcp.expo.dev/mcp" },
     "railway": { "command": "npx", "args": ["-y", "@railway/mcp-server"] },
-    "chrome-devtools": { "command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"] }
+    "chrome-devtools": { "command": "npx", "args": ["-y", "chrome-devtools-mcp@latest"] },
+    "maestro": { "command": "maestro", "args": ["mcp"] }
   }
 }

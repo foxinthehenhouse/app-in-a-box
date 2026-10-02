@@ -54,5 +54,5 @@ npm pkg set main=expo-router/entry \
   jest.preset=jest-expo jest.resolver=react-native-worklets/jest/resolver.js \
   "jest.setupFiles[0]=./jest.setup.ts" \
   scripts.check-strings="node scripts/check-hardcoded-strings.js" \
-  scripts.gates="tsc --noEmit && eslint . && node scripts/check-analytics-coverage.js && node scripts/check-eas-shipping-env.js && node scripts/check-replay-unmask.js && node scripts/check-hardcoded-strings.js && jest --ci --passWithNoTests"
+  scripts.gates="tsc --noEmit && eslint . && node scripts/check-analytics-coverage.js && node scripts/check-eas-shipping-env.js && node scripts/check-maestro-coverage.js && node scripts/check-replay-unmask.js && node scripts/check-hardcoded-strings.js && jest --ci --passWithNoTests"
 npm pkg set jest.testTimeout=30000 --json  # a number, not the string "30000"
