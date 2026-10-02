@@ -1,4 +1,4 @@
-# PUL-548: routines are real files, every name they use resolves, and the self-driving
+# Routines are real files, every name they use resolves, and the self-driving
 # loop's moving parts are tested for behaviour, not just presence. Sourced by selftest.sh.
 
 # Every ritual on the routines menu has a spec file, and every skill a spec names exists.

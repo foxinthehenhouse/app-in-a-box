@@ -1,0 +1,21 @@
+name: Feature or improvement
+description: Something the kit, or the apps it generates, should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd suggest
+      description: Optional. A rough idea is fine.
+  - type: textarea
+    id: proof
+    attributes:
+      label: How we'd know it works
+      description: Optional. What check in the selftest (or the generated app's gates) would fail without it?

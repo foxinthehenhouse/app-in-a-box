@@ -25,8 +25,9 @@ walks you through a few "Continue with GitHub" signups. Then it scaffolds, provi
 and wires everything, and hands you a repo where your agent builds features through a
 spec → tests → PR → review loop.
 
-It's the operating system behind [Forge](https://github.com/foxinthehenhouse/forge),
-an AI strength-coaching app, with the Forge-specific parts taken out.
+It was extracted from a real production app (an AI strength-coaching app), with the
+app-specific parts taken out. The guards and recipes exist because that app shipped
+the bugs they now catch.
 
 ## Quickstart
 
@@ -171,7 +172,7 @@ scripts/selftest.sh                  proves the kit works (see below)
 scripts/selftest.sh
 ```
 
-The selftest renders the template into a temp folder and runs 100+ checks. For each
+The selftest renders the template into a temp folder and runs 200+ checks. For each
 guard, it plants a violation to prove the guard can actually fail:
 
 - placeholders are all replaced, and the generated TOML/JSON adapters are valid
@@ -185,19 +186,26 @@ Add `--mobile` for a real `create-expo-app` + overlay + `npm run gates` run (abo
 3 minutes). In that run, a planted hex colour, an uninstrumented screen and an unwired
 env var must each fail.
 
-## Status & roadmap
+## Status
 
-**Alpha (v0.1).** The code-shaped parts are verified: the renderer, a real Expo
-SDK 57 build, the backend, the guards, the hooks and the review loop. Not yet verified:
-provisioning against real accounts, the app running on a device, and a marketplace
-install in each agent.
+**v1.0 code-complete, community verification in progress.** Everything on the original
+roadmap has shipped, and it's all checked by the selftest, the strict kit CI and the
+skill evals:
 
-| Release | Focus |
+| | Shipped |
 |---|---|
-| **v0.2 Polish** | Native tabs, SF/Material icons, haptics, a Reanimated 4 motion system, light and dark themes, a component library (skeleton, toast, sheet, empty state, celebration), splash/icon pipeline, and a no-accounts demo mode |
-| **v0.3 Trust** | Harness linting (skills, AGENTS.md size, manifest, JSON schemas, `claude plugin validate`), workflow linting (actionlint, zizmor), gitleaks, pgTAP row-level security tests, a wire-contract test, and the kit's own CI |
-| **v0.4 Self-driving** | Per-role models and effort, Claude Code Workflows for build and review, scheduled Routines, skill evals (`claude plugin eval`), and a `next` loop that picks the next ticket from your backlog and analytics |
-| **v1.0 Production** | Offline data, push, deep links, OTA updates and rollback, EAS preview builds per PR, TestFlight submission, and a second dogfood with real cloud accounts |
+| **Polish** | Native tabs, SF/Material icons, graded haptics, a Reanimated 4 motion system, light and dark themes, a component library (skeleton, toast, sheet, empty state, celebration), splash/icon pipeline, and a no-accounts demo mode |
+| **Trust** | Harness linting (skills, AGENTS.md size, manifest, JSON schemas, `claude plugin validate`), workflow linting (actionlint, zizmor), gitleaks, pgTAP row-level security tests, a wire-contract test, and the kit's own strict CI |
+| **Self-driving** | Per-role models and effort, Claude Code Workflows for build and review, scheduled Routines, skill evals (`claude plugin eval`), a `next` loop, and `land`, which drives a PR through review, fixes, CI and merge |
+| **Production** | Offline data, push, deep links, OTA updates with a rollback script, EAS preview builds and Maestro E2E per PR, TestFlight/Play submission, component tests with a coverage floor |
+
+**Verified in CI:** the renderer, a real Expo build and its gates, the backend and
+database guards (each with a planted violation), every Maestro flow's syntax, and
+every EAS workflow's documented schema.
+
+**Verified by people, not CI:** a device run, EAS servers, and store submission need
+real accounts. Before each release, someone runs [RELEASING.md](RELEASING.md) with
+their own (mostly free-tier) accounts and posts the results. Help is very welcome.
 
 ## FAQ
 
@@ -231,8 +239,10 @@ hook system, which asks you to trust each hook once.
 
 ## Contributing
 
-Issues and PRs are welcome. Run `scripts/selftest.sh` before opening a PR. If you
-change the template, add a check to the selftest that fails without your change.
+Issues and PRs are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup, the
+selftest (every guard comes with a check that proves it can fail), evals for skill
+changes, and the PR checklist. Running the [real-cloud release check](RELEASING.md) on
+your own accounts is one of the most useful things you can do.
 
 ## License
 

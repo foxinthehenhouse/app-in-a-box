@@ -1,4 +1,4 @@
-# Shape-first team and canon (PUL-542): sourced by selftest.sh with $KIT, $APP, $T and
+# Shape-first team and canon: sourced by selftest.sh with $KIT, $APP, $T and
 # check/refuses. Pins the named agents, the taste and cost canon, and the shape and
 # prototype skills' key promises, so none of them can quietly disappear.
 

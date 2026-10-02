@@ -2,7 +2,7 @@
 
 You have an idea for a mobile app. This kit gets you from that idea to a real,
 instrumented app on your phone, with a production-grade repo around it. It's the
-same setup that built Forge:
+setup a real production app was built with:
 
 - an Expo (iOS/Android) app with auth, a design system, analytics and error monitoring
 - a FastAPI backend on Supabase Postgres, with row-level security and a `/health`

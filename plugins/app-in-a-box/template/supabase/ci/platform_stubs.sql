@@ -1,6 +1,6 @@
 -- Minimal stand-ins for the Supabase platform objects the migrations reference, so
 -- supabase/migrations/ can be applied to a PLAIN Postgres in CI (.github/workflows/db.yml
--- via scripts/db-test.sh). Ported from Forge (PUL-380).
+-- via scripts/db-test.sh). Ported from the app this kit was extracted from.
 --
 -- CI / local throwaway databases ONLY. scripts/db-test.sh applies this file only when
 -- `auth.users` does not exist yet, so it never runs against a real Supabase stack

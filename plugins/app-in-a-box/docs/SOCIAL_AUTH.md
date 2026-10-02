@@ -23,7 +23,7 @@ Sign in with Apple if you offer any other social login.
 4. `GoogleSignin.configure({ webClientId, iosClientId })` → `signIn()` →
    `supabase.auth.signInWithIdToken({ provider: "google", token: idToken })`.
 5. The new env vars (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`)
-   must be wired for shipping builds: `eas env:create` + `EAS_MANAGED`. Forge once
+   must be wired for shipping builds: `eas env:create` + `EAS_MANAGED`. A real app once
    shipped Google sign-in as a silent no-op because they weren't.
 
 Testing either one needs a **development or preview build**, not Expo Go.

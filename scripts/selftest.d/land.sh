@@ -1,4 +1,4 @@
-# PUL-550 land loop: sourced by selftest.sh with $KIT, $APP, $T and check/refuses.
+# Land loop: sourced by selftest.sh with $KIT, $APP, $T and check/refuses.
 # Drives the generated repo's real land.py through a fake `gh` on PATH, one fixture per
 # PR state, and asserts the ONE next action for each, including the priority order.
 LAND="$APP/.agents/skills/land/land.py"

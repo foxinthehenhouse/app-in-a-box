@@ -1,4 +1,4 @@
-# PUL-539 follow-ups: sourced by selftest.sh with $KIT, $APP, $T and check/refuses.
+# Dogfood follow-ups: sourced by selftest.sh with $KIT, $APP, $T and check/refuses.
 
 # The activity log never records a secret: feed the real capture hook commands, Grep
 # patterns and fetched URLs carrying planted secrets, then search the log for them.

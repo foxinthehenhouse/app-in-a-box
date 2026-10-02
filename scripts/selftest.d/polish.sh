@@ -47,7 +47,7 @@ check "analytics guard passes on the template (gallery + sheet instrumented)" \
 check "demo.sh renders the template app (--no-install) with demo mode on, no repo files needed" \
   "'$KIT/scripts/demo.sh' '$T/demo' --no-install && grep -q 'Demo App' '$T/demo/mobile/lib/app.ts' && grep -q '^EXPO_PUBLIC_DEMO=1' '$T/demo/mobile/.env' && ! grep -q 'examples/' '$KIT/scripts/demo.sh'"
 
-# PUL-543: web had NativeTabs' floating pill over every screen title, and RN-web's teal
+# Web had NativeTabs' floating pill over every screen title, and RN-web's teal
 # "on" switch thumb. Web gets headless tabs with the same routes; switches go through Toggle.
 _web_tabs_match_native() {
   python3 - "$KIT/template/mobile/app/(app)/_layout.tsx" "$KIT/template/mobile/app/(app)/_layout.web.tsx" <<'PYEOF'

@@ -67,7 +67,7 @@ recommendation below.
    Yes, generation/summarisation behind the scenes · Not sure yet. *Why:* an AI
    feature needs an API key, a cost ceiling and a rule fencing where it's allowed.
    *If yes, record where the LLM is allowed. The generated CLAUDE.md fences the LLM
-   into those modules, the same way Forge fences Claude into nutrition only.*
+   into those modules, the same way the app this kit came from fenced its AI into one feature.*
 
 ## Round 3: business and motivation (ask, structured)
 
@@ -111,7 +111,7 @@ If those read as real values rather than `${...}` placeholders, make them the
     - **Error monitoring:** Sentry (Recommended: free tier; crashes arrive with the
       request id the user sees) · Not now. *Why:* without it you learn about crashes
       from store reviews.
-12. **Backend hosting:** Railway (Recommended: what Forge uses, about $5/mo after
+12. **Backend hosting:** Railway (Recommended: what the kit is built and tested on, about $5/mo after
     trial) · Fly.io · Render. *Why:* the only choice here with a monthly cost. (A
     Supabase-only stack with no Python backend isn't supported in v1.)
 13. **Name + bundle ID:** Propose 3 name options if they don't have one. Derive

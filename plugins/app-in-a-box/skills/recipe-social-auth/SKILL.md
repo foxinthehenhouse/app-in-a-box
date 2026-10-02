@@ -53,7 +53,7 @@ No backend change: the API already verifies any Supabase session JWT
 5. `GoogleSignin.configure({ webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID })`
    → `GoogleSignin.signIn()` → `supabase.auth.signInWithIdToken({ provider: "google", token: idToken })`.
 6. If either env var is empty, **hide the button and log once**; never render a button
-   that silently does nothing (Forge shipped exactly that).
+   that silently does nothing (a real app shipped exactly that).
 
 ### Both
 

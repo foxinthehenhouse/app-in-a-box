@@ -1,4 +1,4 @@
-# Idea check (PUL-540): sourced by selftest.sh with $KIT, $APP, $T and the
+# Idea check: sourced by selftest.sh with $KIT, $APP, $T and the
 # check/refuses helpers. Pins phase 1a into the flow and the VALIDATION.md contract
 # that the interview and the generated repo's market-watch skill read.
 VI="$KIT/skills/validate-idea/SKILL.md"

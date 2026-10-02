@@ -1,4 +1,4 @@
-# Release path (PUL-547): EAS workflow rules fail on the real bugs they exist for, and
+# Release path: EAS workflow rules fail on the real bugs they exist for, and
 # scripts/rollback-ota.sh picks the right update group (driven by a fake `eas`).
 echo "Release path"
 

@@ -17,7 +17,7 @@ privacy labels if so).
 
 1. **Fence**: set `AGENTS.md` rule 8 to "Claude API only in `backend/services/ai_<feature>*`."
 2. **Pin the SDK**: `anthropic>=X.Y,<X+1` in `requirements.txt` with a real upper bound
-   (Forge shipped a broken production when a floating pin pulled a new major that
+   (a real app shipped a broken production when a floating pin pulled a new major that
    removed a parameter). `test_every_requirement_has_an_upper_bound` enforces it.
 3. **Config**: `backend/config.py` → `"ai (Anthropic)": ("ANTHROPIC_API_KEY",)` in
    `FEATURE_CONFIG`. The route guards with `feature_missing("ai (Anthropic)")` → 503

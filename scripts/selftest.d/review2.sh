@@ -1,4 +1,4 @@
-# Mobile review #2 (PUL-397): sourced by selftest.sh with $KIT, $APP, $T and the
+# Mobile review #2: sourced by selftest.sh with $KIT, $APP, $T and the
 # check/refuses helpers. Fast static pins on the rendered app (no npm). The
 # behaviour itself is proven by jest under --mobile (`npm run gates`):
 # lib/__tests__/{auth,query-persist,push,api-401,export,demo,links}.test.* and

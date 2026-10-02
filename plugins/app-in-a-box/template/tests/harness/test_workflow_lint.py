@@ -1,6 +1,6 @@
 """Lint for the GitHub Actions defect classes that shipped with green CI.
 
-Ported from Forge (PUL-332, PUL-358), where every rule below is a bug that reached
+Ported from a real app's harness, where every rule below is a bug that reached
 main because nothing could see it; the workflow only failed when it finally ran:
 
   - `--allowedTools ...` in claude_args: every run died at ~300ms, 0 turns, $0

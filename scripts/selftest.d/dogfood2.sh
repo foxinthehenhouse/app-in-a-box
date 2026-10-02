@@ -1,5 +1,5 @@
-# Dogfood-run fixes (PUL-539): sourced by selftest.sh with $KIT, $APP, $T and check/refuses.
-# Each check pins a kit fix found by building a real app on the kit (log: Forge docs/product/discovery/APP_IN_A_BOX_DOGFOOD_LOG.md).
+# Dogfood-run fixes: sourced by selftest.sh with $KIT, $APP, $T and check/refuses.
+# Each check pins a kit fix found by building a real app on the kit 
 
 _expo_before_git() {
   local f="$KIT/skills/scaffold/SKILL.md" a b

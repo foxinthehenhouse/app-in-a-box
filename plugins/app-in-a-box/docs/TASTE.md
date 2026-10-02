@@ -66,7 +66,7 @@ sample content from their domain, never lorem. *(lint: no lorem, TODO or xxx)*
 
 ## Where this comes from
 
-Distilled from Forge's craft canon: its atmosphere diagnostics, a 22-app UX benchmark
+Distilled from the source app's craft canon: its atmosphere diagnostics, a 22-app UX benchmark
 with an "options ladder", and its product leads' heuristics. The lesson that shaped
 this whole kit: "vanilla" is usually a **layout** failure, not a palette failure, so
 the prototype lets founders compare layouts, not just colours.

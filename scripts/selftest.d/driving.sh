@@ -160,3 +160,17 @@ check "progress.py renders a sample appbox.yaml checklist" progress_renders
 check "workflow scripts: pure meta literal, resumable, parse as async bodies" workflows_parse
 check "AGENTS.md stays lean (<= 150 lines)" "[ \$(wc -l < '$APP/AGENTS.md') -le 150 ]"
 check "no owner/Forge references in the template harness" template_clean
+
+# The repo is public: no private ticket IDs, no links into the private source app, and
+# the source app is "a real app", never named. Plain-word matches ("forged") are fine.
+_private_refs() {
+  (cd "$KIT/../.." && git grep -nIE '\bPUL-[0-9]+|\bForge\b|foxinthehenhouse/forge' -- . ':!scripts/selftest.d/driving.sh')
+}
+private_clean() { ! _private_refs; }
+_private_plant() {
+  local f="$KIT/docs/zz-plant.md"; echo "see PUL-123" > "$f"; (cd "$KIT/../.." && git add -N "$f")
+  _private_refs >/dev/null; local rc=$?
+  (cd "$KIT/../.." && git rm -q --cached "$f"); rm -f "$f"; [ "$rc" = 0 ]
+}
+check "public repo: no private ticket IDs or source-app references anywhere" private_clean
+check "public repo: the private-reference check catches a planted ticket ID" _private_plant
