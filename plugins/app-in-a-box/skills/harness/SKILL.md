@@ -1,9 +1,14 @@
 ---
 name: harness
 description: Phase 6 of App in a Box. Switches on the agent harness the scaffold wrote. It covers GitHub branch protection, labels and the AI review workflow, git hooks, Claude Code and Codex adapters (trust, hooks, MCP auth), and a smoke test that every guard actually fires. Use after provisioning, or to repair a harness that drifted.
+allowed-tools: "Bash(git:*), Bash(gh:*), Bash(python3:*), Bash(bash:*), Read, Glob, Grep"
 ---
 
 # Phase 6: Harness
+
+`$KIT` is the plugin root: `appbox.yaml` → `kit_root` if present, else
+`${CLAUDE_PLUGIN_ROOT}` (Claude Code) or the folder two levels above this file (Codex /
+pasted prompt).
 
 The files already exist (the renderer wrote them in phase 4). This phase turns them
 on and **proves each one works**. A guard that can't fail reads as a guard that
@@ -13,8 +18,8 @@ passes.
 
 - `AGENTS.md` (+ `mobile/`, `backend/`) is the instructions every agent reads.
   `CLAUDE.md` files import it.
-- `.agents/`: 13 skills (backlog, next, feature-discovery, build-feature, pr-review,
-  ship, new-worktree, reflect, north-star-report, market-watch, routines,
+- `.agents/`: 14 skills (backlog, next, feature-discovery, build-feature, pr-review,
+  land, ship, new-worktree, reflect, north-star-report, market-watch, routines,
   harness-check, harness-optimize), 10 subagent roles with routed models, path rules, a memory
   vault and skill evals. Claude Code also gets opt-in Workflows in `.claude/workflows/`.
 - Adapters: `.claude/` (settings, hooks, symlinks) and `.codex/` (agents, MCP config,
@@ -30,7 +35,9 @@ git config core.hooksPath .githooks
 
 Branch protection on `main` (require PR + the CI checks). The required contexts are
 the **job ids** from the workflows, every one of which runs on every PR: `python` and
-`mobile` (`ci.yml`), `migrations-rls` (`db.yml`) and `gitleaks` (`security.yml`).
+`mobile` (`ci.yml`), `migrations-rls` (`db.yml`), `gitleaks` (`security.yml`) and
+`ticket` (`ticket.yml`). Five ids; the marker below, the `gh` command and the kit
+selftest all carry the same five, so a sixth job joins all four places or none.
 Never require a job that can be skipped by a path filter or an `if:` condition
 (`codeql`, `review`), or PRs wait forever on a check that never reports. The kit
 selftest fails if this list names a job that doesn't exist.
@@ -41,9 +48,13 @@ selftest fails if this list names a job that doesn't exist.
 gh api -X PUT "repos/<owner>/<slug>/branches/main/protection" -F "required_status_checks[strict]=true" -F "required_status_checks[contexts][]=python" -F "required_status_checks[contexts][]=mobile" -F "required_status_checks[contexts][]=migrations-rls" -F "required_status_checks[contexts][]=gitleaks" -F "required_status_checks[contexts][]=ticket" -F "enforce_admins=false" -F "required_pull_request_reviews=null" -F "restrictions=null"
 ```
 
-GitHub only offers checks it has seen, so run this after the phase 7 PR's first CI
-run. Private repos on a free GitHub plan can't use branch protection: if the call
-returns 403, say so and rely on the git hooks.
+GitHub only offers checks it has seen, so this call is **deferred to phase 7**: the
+doctor's Full mode runs it after the first PR's CI has reported, then verifies with
+`gh api "repos/<owner>/<slug>/branches/main/protection" --jq '.required_status_checks.contexts'`
+(all five ids listed). This phase's exit check only needs the hooks on and the
+command ready. Private repos on a free GitHub plan can't use branch protection: if
+the call returns 403, record `resources.github.protection: unavailable (plan)` in
+`appbox.yaml`, say so, and rely on the git hooks.
 
 Labels for the backlog skill:
 

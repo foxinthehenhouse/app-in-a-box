@@ -1,14 +1,21 @@
 ---
 name: design-directions
+user-invocable: false
 description: App in a Box's design-direction reference: the six archetypes, how to derive a dark palette from a light one (and back), and the tokens v2 format with motion, type roles and elevation, contrast-checked in both modes. The prototype phase's visual designer follows it; also use it for a quick re-skin of an existing app.
 ---
 
 # Design directions (reference)
 
+`$KIT` is the plugin root: `appbox.yaml` → `kit_root` if present, else
+`${CLAUDE_PLUGIN_ROOT}` (Claude Code) or the folder two levels above this file (Codex /
+pasted prompt).
+
 Since v0.6, phase 2 is `skills/prototype`: the founder picks a direction by switching
 between them in a clickable prototype of their whole app. This skill stays as the
 **direction reference** (the archetype table, how to derive the other mode, the tokens
-v2 shape) that `visual-designer` follows, and for a quick re-skin of an existing app.
+v2 shape) that `visual-designer` follows, and for a quick **re-skin** of an existing app
+(Steps 2 and 3 below). It is not a setup phase: it never writes `SCREENS.md` and never
+touches `progress.design`, which the prototype phase owns.
 
 People can't choose a design system from adjectives. Show them their own app in
 three coats of paint, and let them point.
@@ -35,9 +42,12 @@ lightness so it still reads (a light-mode accent usually needs to be *darker* to
 lightness as they elevate (bg < surface < surfaceRaised) because shadows vanish on
 dark grounds. Tint neutrals toward the brand hue rather than pure grey.
 
-## Step 2: render the mockups
+## Step 2: show the three coats of paint (re-skin only)
 
-Write one self-contained HTML file, `design/directions.html`:
+If `design/prototype.json` exists, replace its `directions` with the three new ones and
+run `python3 "$KIT/scripts/prototype.py" check` then `render`: the founder switches
+looks on their real screens, which beats any mockup. Otherwise write one
+self-contained HTML file, `design/directions.html`:
 - Three phone frames (390×844) side by side, stacked on narrow screens.
 - Each frame shows **the user's core-loop screen** from `docs/product/BRIEF.md`,
   with realistic sample content in their domain, not lorem ipsum. Below it, show a
@@ -76,7 +86,7 @@ change values; keep every key.
     "light": {
       "bg": "#F7F6F3", "surface": "#FFFFFF", "surfaceRaised": "#FFFFFF", "control": "#EFEDE8",
       "border": "#DAD7D0", "ink": "#16171A", "inkDim": "#4A4D55", "inkFaint": "#62656D",
-      "accent": "#C2410C", "onAccent": "#FFFFFF", "success": "#1B7F55", "warning": "#A15C00",
+      "accent": "#BE400C", "onAccent": "#FFFFFF", "success": "#1B7F55", "warning": "#A15C00",
       "danger": "#C0283F", "shadow": "#1A1A1A"
     },
     "dark": {
@@ -139,4 +149,9 @@ If it fails, adjust the failing colour's lightness (in the mode it names) until 
 passes. **Don't drop the requirement.** Show the user the before/after only if the
 change is visible.
 
-Set `appbox.yaml` → `design.direction: <name>` and `progress.design: done`.
+Set `appbox.yaml` → `design.direction: <name>`. Leave `progress.design` as it is.
+Then re-render so the app picks the tokens up: run the same `render.py` command the
+scaffold used (values from `appbox.yaml`, **without** `--force`). Existing files are
+skipped; `mobile/lib/tokens.ts`, the `app.json` theme and the brand icons are
+regenerated from the new tokens. Run `cd mobile && npm run gates` and open the app
+before calling the re-skin done.

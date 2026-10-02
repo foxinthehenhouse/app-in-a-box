@@ -91,7 +91,31 @@ def test_every_table_enables_rls() -> None:
 
 
 def _functions(sql: str) -> list[str]:
-    return re.findall(r"create or replace function.*?\$\$;", sql, flags=re.S | re.I)
+    # `or replace` is optional: a plain `create function` is just as callable.
+    return re.findall(r"create\s+(?:or\s+replace\s+)?function.*?\$\$;", sql, flags=re.S | re.I)
+
+
+def unrestricted_definers(sql: str) -> list[str]:
+    """Callable SECURITY DEFINER functions without the revoke-from-API-roles + grant-to-
+    service_role pair. Trigger functions are skipped: PostgREST can't call them."""
+    bad = []
+    for fn in _functions(sql):
+        low = fn.lower()
+        if "security definer" not in low or "returns trigger" in low:
+            continue
+        m = re.search(r"function\s+public\.(\w+)", low)
+        name = m.group(1) if m else f"<unnamed: {low[:60]!r}>"
+        revoked = re.search(
+            rf"revoke execute on function public\.{name}\([^)]*\)\s+from public, anon, authenticated",
+            sql,
+            flags=re.I,
+        )
+        granted = re.search(
+            rf"grant execute on function public\.{name}\([^)]*\)\s+to service_role", sql, re.I
+        )
+        if not (revoked and granted):
+            bad.append(name)
+    return bad
 
 
 def test_security_definer_functions_pin_search_path() -> None:
@@ -101,22 +125,7 @@ def test_security_definer_functions_pin_search_path() -> None:
 
 
 def test_callable_security_definer_functions_are_service_role_only() -> None:
-    sql = _strip_comments(_sql())
-    for fn in _functions(sql):
-        low = fn.lower()
-        if "security definer" not in low or "returns trigger" in low:
-            continue  # trigger functions can't be called over the API
-        m = re.search(r"function public\.(\w+)", low)
-        assert m, f"security definer function without a public name: {low[:80]}"
-        name = m.group(1)
-        assert re.search(
-            rf"revoke execute on function public\.{name}\([^)]*\)\s+from public, anon, authenticated",
-            sql,
-            flags=re.I,
-        ), f"{name} is callable by anon/authenticated"
-        assert re.search(
-            rf"grant execute on function public\.{name}\([^)]*\)\s+to service_role", sql, re.I
-        )
+    assert unrestricted_definers(_strip_comments(_sql())) == []
 
 
 def test_rls_guard_catches_a_planted_table() -> None:
@@ -124,6 +133,27 @@ def test_rls_guard_catches_a_planted_table() -> None:
     tables = set(re.findall(r"create table (?:if not exists )?public\.(\w+)", planted))
     rls = set(re.findall(r"alter table public\.(\w+) enable row level security", planted))
     assert tables - rls == {"sneaky"}
+
+
+_PLANTED_DEFINER = (
+    "create function public.sneaky() returns int language sql "
+    "security definer set search_path = '' as $$ select 1 $$;"
+)
+
+
+def test_definer_guard_catches_a_plain_create_function_without_revoke() -> None:
+    """`create function` (no `or replace`) with no revoke used to pass unseen."""
+    assert _functions(_PLANTED_DEFINER), "the function regex no longer sees a plain `create function`"
+    assert unrestricted_definers(_strip_comments(_sql()) + "\n" + _PLANTED_DEFINER) == ["sneaky"]
+
+
+def test_definer_guard_accepts_the_revoke_grant_pair() -> None:
+    fixed = (
+        _PLANTED_DEFINER
+        + "\nrevoke execute on function public.sneaky() from public, anon, authenticated;"
+        + "\ngrant execute on function public.sneaky() to service_role;"
+    )
+    assert unrestricted_definers(fixed) == []
 
 
 def test_migrations_have_rollback_notes() -> None:

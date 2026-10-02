@@ -7,6 +7,8 @@
 import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
+import { pressWhenEnabled } from "./support/press";
+
 import { APP } from "../lib/app";
 import { PSEUDO_LOCALE, SUPPORTED_LANGUAGES, i18n, pseudoLocalize, setLanguage } from "../lib/i18n";
 import { en } from "../locales/en";
@@ -82,10 +84,10 @@ describe("screens in the pseudo-locale", () => {
     expect(untranslated()).toEqual([]);
 
     await fireEvent.changeText(screen.getByTestId("signin-email-input"), "sam@example.com");
-    await fireEvent.press(screen.getByTestId("signin-send-button"));
+    await pressWhenEnabled("signin-send-button");
     await fireEvent.changeText(await screen.findByTestId("signin-code-input"), "123456");
     expect(untranslated()).toEqual([]);
-    await fireEvent.press(screen.getByTestId("signin-verify-button"));
+    await pressWhenEnabled("signin-verify-button");
 
     await screen.findByTestId("home-screen");
     await waitFor(() => expect(screen.queryByTestId("home-skeleton")).toBeNull()); // loaded, whatever Home shows

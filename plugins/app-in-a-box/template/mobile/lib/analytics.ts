@@ -77,6 +77,9 @@ export const analytics = {
   screenViewed: (screen: string, props: Props = {}) => capture("screen_viewed", { screen, ...props }),
   signInRequested: (method: "email_otp" | "apple" | "google") =>
     capture("sign_in_requested", { method }),
+  /** The code email was (or wasn't) sent: the failure half of sign_in_requested. */
+  signInCodeSent: (p: { success: boolean; error_code: string | null; duration_ms: number }) =>
+    capture("sign_in_code_sent", p),
   signInCompleted: (p: { method: string; success: boolean; error_code: string | null; duration_ms: number }) =>
     capture("sign_in_completed", p),
   profileUpdated: (p: { success: boolean; error_code: string | null; duration_ms: number }) =>

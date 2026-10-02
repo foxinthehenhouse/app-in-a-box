@@ -143,6 +143,53 @@ def test_auth_api_down_is_503_not_401(monkeypatch: pytest.MonkeyPatch) -> None:
     assert exc.value.status_code == 503
 
 
+@pytest.mark.parametrize(
+    "var", ["SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"]
+)
+def test_remote_verify_sends_a_real_apikey_under_each_key_config(
+    monkeypatch: pytest.MonkeyPatch, var: str
+) -> None:
+    """Whichever project key the deploy has, /auth/v1/user gets a non-empty `apikey`.
+
+    FEATURE_CONFIG accepts SUPABASE_SECRET_KEY alone, and the rotation runbook recommends
+    it, but the fallback path used to read only ANON/SERVICE_ROLE: with SECRET_KEY alone it
+    sent `apikey: ""`, Supabase answered 401, and every JWKS blip signed every user out.
+    """
+    monkeypatch.delenv("SUPABASE_ANON_KEY")
+    monkeypatch.setenv(var, f"key-from-{var}")
+    monkeypatch.setattr(auth, "_jwks_client", lambda: _Jwks(fail=True))
+    seen: list[dict[str, str]] = []
+
+    def get(*_a: Any, **kw: Any) -> Any:
+        seen.append(kw["headers"])
+        return type("R", (), {"status_code": 200, "json": lambda self: {"id": "user-9"}})()
+
+    monkeypatch.setattr(auth.httpx, "get", get)
+    assert auth.get_current_user(_creds(_token())).id == "user-9"
+    assert seen[0]["apikey"] == f"key-from-{var}"
+
+
+def test_jwks_blip_with_no_project_key_is_503_not_401(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A valid-looking token + JWKS down + nothing to call the Auth API with.
+
+    503, not 401, on purpose: the client treats 401 as "this session is over" and signs
+    the user out (and forgets the push token). Here the token may well be fine; what is
+    missing is OUR configuration, and that is a server fault the client should retry,
+    not a verdict on the session. 401 is reserved for a token Supabase has actually
+    refused. No request is made with an empty apikey: it could only come back 401.
+    """
+    monkeypatch.delenv("SUPABASE_ANON_KEY")
+    monkeypatch.setattr(auth, "_jwks_client", lambda: _Jwks(fail=True))
+
+    def must_not_call(*_a: Any, **_k: Any) -> Any:
+        raise AssertionError("must not call the Auth API with an empty apikey")
+
+    monkeypatch.setattr(auth.httpx, "get", must_not_call)
+    with pytest.raises(HTTPException) as exc:
+        auth.get_current_user(_creds(_token()))
+    assert exc.value.status_code == 503
+
+
 def test_garbage_token_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(auth.httpx, "get", _fake_get(401))
     with pytest.raises(HTTPException) as exc:

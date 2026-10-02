@@ -5,6 +5,10 @@ description: Add Sign in with Apple and Google sign-in to an App in a Box app (S
 
 # Recipe: Apple + Google sign-in
 
+`$KIT` is the plugin root: `appbox.yaml` → `kit_root` if present, else
+`${CLAUDE_PLUGIN_ROOT}` (Claude Code) or the folder two levels above this file (Codex /
+pasted prompt).
+
 Email one-time codes ship first (zero setup). Add social sign-in before the first
 store build. **Apple requires Sign in with Apple on iOS if you offer any other social
 login** (App Review guideline 4.8), so do both or neither. Source doc:

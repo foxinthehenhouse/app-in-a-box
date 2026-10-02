@@ -1,15 +1,53 @@
 #!/usr/bin/env bash
-# Agent-neutral guard: no direct pushes to main; fast gates before anything leaves.
-# SKIP_GATES=1 skips the gates (not the main-branch block) for a WIP push; CI still runs.
+# Agent-neutral guard: no direct pushes to main, no pushes to a branch whose PR already
+# merged, and fast gates before anything leaves.
+# SKIP_GATES=1 skips the gates (never the two blocks) for a WIP push; CI still runs.
+# Pinned by tests/harness/test_hook_scripts.py.
 set -euo pipefail
 
-while read -r _local_ref _local_sha remote_ref _remote_sha; do
+# A merged branch is dead. Squash-merge copies the branch at merge time, so a commit
+# pushed to it afterwards sits on the branch forever and never reaches main, while the
+# PR page says "merged" and everything looks fine. Refuse the push and name the PR.
+# Fails OPEN (one-line notice) when gh is missing, unauthenticated or offline: a guard
+# that bricks git is worse than the bug it guards.
+stranded_check() {  # $1 = branch, $2 = pushed sha
+  local prs number head
+  command -v gh >/dev/null 2>&1 || { echo "pre-push: gh not on PATH; merged-branch check skipped" >&2; return 0; }
+  if ! prs=$(gh pr list --head "$1" --state merged --json number,headRefOid --limit 1 2>/dev/null); then
+    echo "pre-push: gh unavailable (not logged in, offline, or no remote); merged-branch check skipped" >&2
+    return 0
+  fi
+  number=$(printf '%s' "$prs" | python3 -c 'import json,sys
+try:
+    p = json.load(sys.stdin)
+    p = p[0] if isinstance(p, list) and p else {}
+    print(p.get("number", ""), p.get("headRefOid", ""))
+except Exception:
+    print("", "")' 2>/dev/null) || return 0
+  head=${number#* }; number=${number%% *}
+  [ -n "$number" ] && [ -n "$head" ] || return 0
+  [ "$head" = "$2" ] && return 0  # re-pushing exactly what merged: harmless
+  cat >&2 <<MSG
+pre-push: refused. \`$1\` belongs to PR #$number, which already MERGED. Commits pushed to it
+now will never reach main (squash-merge copied the branch at merge time).
+Start a new branch for the follow-up:
+  git switch -c <type>/<ticket>-<slug> origin/main
+  git cherry-pick ${head:0:7}..${2:0:7}
+  git push -u origin <new-branch>   then open a new PR
+MSG
+  return 1
+}
+
+while read -r _local_ref local_sha remote_ref _remote_sha; do
   case "$remote_ref" in
     refs/heads/main|refs/heads/master)
       if [ "${APPBOX_BOOTSTRAP:-0}" != "1" ]; then
         echo "pre-push: direct push to ${remote_ref#refs/heads/} is blocked. Open a PR from a branch." >&2
         exit 1
       fi ;;
+    refs/heads/*)
+      # An all-zero local sha is a branch DELETE; nothing can strand.
+      case "$local_sha" in *[!0]*) stranded_check "${remote_ref#refs/heads/}" "$local_sha" || exit 1 ;; esac ;;
   esac
 done
 

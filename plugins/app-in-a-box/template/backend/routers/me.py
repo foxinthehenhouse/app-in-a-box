@@ -24,13 +24,28 @@ class Wire(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
+class WireIn(Wire):
+    """Base for REQUEST bodies: an unknown field is a 422, never a silent drop.
+
+    Two reasons. A body-supplied owner (`{"userId": ...}`) is refused outright rather
+    than ignored, so there is nothing to probe. And a client build that sends a field
+    this API no longer has (a rename that forgot mobile/lib/api.ts) fails loudly instead
+    of returning 200 having stored nothing. tests/test_wire_contract.py pairs every
+    request model with its `*Wire` TS type and requires this base.
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+
+
 class Profile(Wire):
     id: str
     display_name: str | None = None
     onboarded: bool = False
 
 
-class ProfileUpdate(Wire):
+class ProfileUpdate(WireIn):
+    """PATCH body. Mirrored by `ProfilePatchWire` in mobile/lib/api.ts."""
+
     display_name: str | None = Field(default=None, max_length=80)
     onboarded: bool | None = None
 
@@ -61,11 +76,10 @@ def update_me(
     return Profile(**saved[0]) if saved else Profile(id=user.id, **patch)
 
 
-class AccountDeletion(Wire):
+class AccountDeletion(WireIn):
     """The client must send `{"confirm": "DELETE"}`: a stray or replayed DELETE with no
-    body can't erase an account. Extra fields (e.g. someone else's id) are rejected."""
-
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="forbid")
+    body can't erase an account. Extra fields (e.g. someone else's id) are rejected
+    (WireIn). Mirrored by `AccountDeletionWire` in mobile/lib/api.ts."""
 
     confirm: Literal["DELETE"]
 

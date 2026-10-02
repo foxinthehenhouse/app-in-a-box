@@ -1,6 +1,6 @@
 ---
 description: FE↔BE wire shape is a contract that old app builds hold you to
-globs: backend/routers/**, backend/models/**, mobile/lib/api.ts
+globs: backend/routers/**, mobile/lib/api.ts
 ---
 The Pydantic response models and the `*Wire` interfaces in `mobile/lib/api.ts` are
 mirrored **by hand**. Mobile ships on a release train, so someone is always running a

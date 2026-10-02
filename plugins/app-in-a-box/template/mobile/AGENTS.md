@@ -31,7 +31,8 @@ template says src/app; this kit doesn't use it).
   (error + copyable support reference + retry) · `OfflineBanner` · `UpdateBanner`.
 - `lib/tokens.ts`: **generated** from `../design/tokens.json` (both palettes, type
   roles, motion, elevation, opacity). Never hand-edit it. Change the JSON, run
-  `python3 <kit>/scripts/check_contrast.py design/tokens.json`, then re-render.
+  `python3 scripts/check_contrast.py design/tokens.json` (repo root; `npm run gates`
+  runs it too), then re-render.
 - `lib/theme.ts`: `useTheme()` (colours for the current mode, `type`, `space`,
   `radius`, `elevation`…), `makeStyles((t) => ({...}))` for themed StyleSheets,
   `useThemePreference()` for the System/Light/Dark setting.
@@ -42,13 +43,21 @@ template says src/app; this kit doesn't use it).
   `X-Request-ID`; an `ApiError` carries `requestId` / `errorId`, and
   `errorReference(e)` is the 8-character code `<ErrorNotice reference>` shows.
 - `lib/query.ts`: **offline-first data** (TanStack Query + AsyncStorage persister,
-  `onlineManager` ← NetInfo). Reads are query hooks (`useMe()`); writes are
-  `useMutation`s with a `mutationKey`, optimistic `onMutate`, rollback in `onError`,
-  success + failure analytics, and a `setMutationDefaults` entry so a paused offline
-  edit replays after a restart. `useUpdateMe` is the worked example.
+  `onlineManager` ← NetInfo). Reads are query hooks (`useMe()`); each write is ONE
+  exported option set (`mutationKey`, `scope`, optimistic `onMutate`, rollback in
+  `onError`, success + failure analytics) registered with `setMutationDefaults` AND
+  spread into its hook, so a paused offline edit replays after a restart with its
+  rollback and events intact. `updateMeOptions` / `useUpdateMe` is the worked example.
 - `lib/use-load.ts`: `useLoaded(query)` bridges a query to honest `loading` / `error` /
   `errorRef` / `refreshing` (plus the older uncached `useLoad(fn)`).
 - `lib/session.ts`: `signOut()` / `endSession()`: unregister push, clear the cache, sign out.
+- `lib/supabase.ts` + `lib/secure-store.ts`: the Supabase session is stored in the device
+  keychain / keystore via `expo-secure-store`, chunked under its 2048-byte value limit;
+  web (no SecureStore) falls back to supabase-js's localStorage. ⚖️ Kyle 2026-10-02:
+  expo-secure-store for the session (over AsyncStorage).
+- `lib/config.ts`: `configured` / `MISSING_CONFIG`: a build missing its `EXPO_PUBLIC_*`
+  server settings says so (`errors.misconfigured` on sign-in and on every call, one
+  monitoring report at boot) instead of pretending to be offline.
 - `lib/push.ts`: push client (`enablePush()` from a user action, never on launch;
   no-op on web/simulator/Expo Go; taps route through `lib/links.ts`).
 - `lib/links.ts`: `resolveDeepLink()`, the ONE mapper from URL/push payload to route
@@ -60,7 +69,9 @@ template says src/app; this kit doesn't use it).
 - `lib/i18n.ts` + `locales/en.ts`: every user-facing string (see Conventions).
 - `lib/demo.ts`: demo mode (`EXPO_PUBLIC_DEMO=1`, dev only). Add a handler to `ROUTES`
   for every new endpoint, or demo mode 404s it.
-- `lib/analytics.ts`: the only place events are defined.
+- `lib/analytics.ts`: the only place events are defined (`lib/analytics-optin.ts` holds
+  the Settings opt-in switch, which reads the SDK's flag and orders its capture so it is
+  never dropped).
 - `lib/monitoring.ts`: Sentry (no-op in dev / without DSN).
 
 ## Design system rules
@@ -72,7 +83,10 @@ template says src/app; this kit doesn't use it).
   `fontSize` in screens.
 - **Motion through `lib/motion.ts`.** No raw `withTiming(v, { duration: 300 })`.
   Every preset honours reduce motion; decorative loops/entrances render static.
-  Use Reanimated's `.get()`/`.set()` on shared values (React Compiler-safe).
+  Use Reanimated's `.get()`/`.set()` on shared values (React Compiler-safe). **The React
+  Compiler is ON** (`experiments.reactCompiler` in app.json, `babel-plugin-react-compiler`
+  installed by the kit; ⚖️ Kyle 2026-10-02): keep components pure, no mutation of values
+  during render, and let the compiler memoise instead of hand-written `useMemo`.
 - **Every tap goes through `PressableScale`** (or a component built on it): press
   scale + tint + a haptic on press-in. Haptic by commitment: `selection` (chips,
   toggles) → `light` (rows, secondary) → `medium` (primary action) → `success`
@@ -99,15 +113,23 @@ template says src/app; this kit doesn't use it).
 ## Conventions
 
 - **Tokens only.** No hex literals (eslint enforces it), no raw font sizes outside tokens.
-- **Ink ramp for text:** `ink` → `inkDim` → `inkFaint`. All three clear 4.5:1 on every
-  surface (the contrast check enforces it). `border` is not a text colour.
+- **Ink ramp for text:** `ink` → `inkDim` → `inkFaint`, plus `accent` (ghost buttons,
+  links) and `danger` (errors). Every token painted as text clears 4.5:1 on EVERY surface
+  (`bg`, `surface`, `surfaceRaised`, `control`); `scripts/check_contrast.py` reads the
+  text set from `<Text>`'s tones and `Button`'s inks, so adding a tone makes it checked.
+  `success` and `warning` are NOT text: icons, dots, borders (3:1). A success message is
+  ink with a glyph, never green text. `border` is not a text colour.
 - **testID:** `{screen}-{component}-{qualifier}`, e.g. `settings-save-button`.
 - **Accessibility:** every interactive element has `accessibilityRole` + a purpose
   label ("Save profile", not "Save button"); 48px targets; announce errors with
   `accessibilityRole="alert"`.
-- **Analytics:** every screen under `app/(app)/` calls `analytics.screenViewed(...)`
-  on mount. Mutations fire success + failure with `success`, `error_code`,
-  `duration_ms` (time it with `startTimer()`, not an inline `Date.now()`). Identify by user id only. Never unmask replay.
+- **Analytics:** every route under `app/` (layouts and `+*` files excepted) fires an
+  `analytics.*` call. Tab screens under `app/(app)/` fire `screenViewed` in
+  `useFocusEffect`, never `useEffect`: native tabs mount every tab at launch, so a
+  mount-time event logs the other tab on every cold start and never logs a switch (the
+  coverage guard fails on it). Sheets and stack routes may use `useEffect`. Mutations
+  fire success + failure with `success`, `error_code`, `duration_ms` (time it with
+  `startTimer()`, not an inline `Date.now()`). Identify by user id only. Never unmask replay.
 - **Honest states.** Loading, empty and error states show the truth. Never render
   placeholder numbers as if they were the user's data.
 - **Mutations can't double-fire.** Keep the control disabled until the refetch that
@@ -119,7 +141,10 @@ template says src/app; this kit doesn't use it).
   (a release build ignores it), the env guard fails if it appears in `eas.json`
   preview/production, and it must never be `eas env:create`d.
 - **Env vars:** any new `process.env.EXPO_PUBLIC_*` must be wired for shipping builds
-  (`eas env:create` + `scripts/check-eas-shipping-env.js`). `.env` is dev-only.
+  (`eas env:create` + `scripts/check-eas-shipping-env.js`). `.env` is dev-only. The
+  guard's `EAS_MANAGED` list is a claim until you feed it the store:
+  `npx eas-cli env:list --environment preview --format json > /tmp/eas-preview.json`
+  then `node scripts/check-eas-shipping-env.js --eas-env /tmp/eas-preview.json`.
 - **Copy goes through `t()`.** `const t = useT(); t("settings.title")` in components,
   `i18n.t(...)` only in non-React lib code. Add the key to `locales/en.ts` first (keys are
   typed: a typo fails tsc). Brand names and user data aren't copy. A literal in JSX text,
@@ -132,15 +157,25 @@ template says src/app; this kit doesn't use it).
   Keep limits in sync with the backend's Pydantic `max_length`.
 - **Offline:** screens read through query hooks, never a bare `apiFetch` in a component.
   Mutations queue offline (`networkMode: "online"` pauses them), so say "saved on this
-  device, will sync" instead of spinning.
+  device, will sync" instead of spinning. A queued mutation can replay after a restart,
+  possibly twice (the request went out, the app died before the response). The profile
+  PATCH is idempotent by nature. **A POST that creates something is not**: give it a
+  client-generated id (`expo-crypto` `randomUUID()`) in the body, have the backend upsert
+  on it, and put `scope: { id: "<resource>" }` on the option set so queued writes to
+  one resource run in order. Register its option set with `setMutationDefaults` like
+  `updateMeOptions`, or the replay has no rollback and no event.
 
 ## Gates
 
 `npm run gates` = `tsc --noEmit` + `eslint` + `check-analytics-coverage` +
 `check-eas-shipping-env` + `check-maestro-coverage` + `check-replay-unmask` +
-`check-hardcoded-strings` + `check-test-presence` + `jest --coverage` (a floor over all
-of app/, components/ and lib/: raise it as tests land, never lower it to push).
-Run it before every push. `jest.setup.ts` holds the shared native-module mocks.
+`check-hardcoded-strings` + `check-test-presence` + the guard self-tests
+(`node --test scripts/__tests__/*.test.js`: each guard passes on the template and fails
+on a planted violation, so a guard that stops firing fails the gate) +
+`check_contrast.py` on `design/tokens.json` + `jest --coverage` (a floor over all of
+app/, components/ and lib/: raise it as tests land, never lower it to push).
+Run it before every push. `jest.setup.ts` holds the shared native-module mocks
+(AsyncStorage, NetInfo, SecureStore).
 
 ## E2E (Maestro)
 

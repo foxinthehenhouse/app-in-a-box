@@ -93,9 +93,9 @@ PYEOF
 }
 
 _proto_js_parses() {
-  # node is required: a check that passes where it can't run guards nothing. Set
-  # APPBOX_SELFTEST_NO_NODE=1 to skip it knowingly on a machine without node.
-  command -v node >/dev/null 2>&1 || { [ "${APPBOX_SELFTEST_NO_NODE:-}" = 1 ] && return 0; echo "node missing"; return 1; }
+  # node is required: a check that passes where it can't run guards nothing. Without
+  # node the caller records a visible SKIP (see below), never a PASS.
+  command -v node >/dev/null 2>&1 || { echo "node missing"; return 1; }
   python3 -c "import re,sys; p=open(sys.argv[1]).read(); open(sys.argv[2],'w').write(re.findall(r'<script>(.*?)</script>', p, re.S)[-1])" \
     "$PROTO_OUT/prototype.html" "$T/proto-inline.js" && node --check "$T/proto-inline.js"
 }
@@ -113,7 +113,11 @@ check "prototype: phone honours prefers-reduced-motion (CSS stops animation, JS 
    && grep -q 'matchMedia(\"(prefers-reduced-motion: reduce)\")' '$PROTO_OUT/prototype.html'"
 check "prototype: no external script/src other than Google Fonts" "_proto_self_contained"
 check "prototype: embedded spec + config JSON are valid (spec round-trips)" "_proto_json_valid"
-check "prototype: inline JS parses (node --check)" "_proto_js_parses"
+if command -v node >/dev/null 2>&1; then
+  check "prototype: inline JS parses (node --check)" "_proto_js_parses"
+else
+  skip "prototype: inline JS parses (node --check)" "node"
+fi
 _proto_palettes() {  # one CSS palette block per direction x mode, carrying that palette's bg
   python3 - "$PROTO_OUT/prototype.html" "$PROTO_FIX" <<'PYEOF'
 import json, sys

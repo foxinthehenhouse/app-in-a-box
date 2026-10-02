@@ -4,7 +4,8 @@ A rule reaches an agent two ways: Claude Code's `inject-path-rules.py` hook inje
 on the first edit of a matching file, and Codex reads it because AGENTS.md's path-rule
 table names it. Either link can break silently:
   - no `globs:` (or an empty body): the hook skips the rule without a word
-  - a rule missing from AGENTS.md's table: Codex never learns it exists
+  - a rule missing from AGENTS.md's table, or a glob missing from its row: Codex never
+    learns the rule exists, or never learns it applies to that path
   - a glob that matches nothing the rule is about: it never fires
 Rules are parsed with the hook's OWN parser, so this test and the hook can't disagree
 about what a valid rule is. Each check has a negative control.
@@ -52,6 +53,24 @@ def lint_rule(path: Path) -> list[str]:
     return problems
 
 
+def rows_naming(agents_md: str, rule_name: str) -> list[str]:
+    """AGENTS.md path-rule table rows whose 'Read first' cell names this rule."""
+    return [
+        ln
+        for ln in agents_md.splitlines()
+        if ln.startswith("|") and f".agents/rules/{rule_name}" in ln
+    ]
+
+
+def globs_missing_from_rows(rows: list[str], globs: list[str]) -> list[str]:
+    """Globs the rule declares that no row naming it lists in its 'Editing' cell."""
+    listed: set[str] = set()
+    for row in rows:
+        cells = row.strip().strip("|").split("|")
+        listed |= set(re.findall(r"`([^`]+)`", cells[0]))
+    return [g for g in globs if g not in listed]
+
+
 def example_path(glob: str) -> str:
     """A concrete path a glob must match (`backend/**` -> `backend/x/y.py`)."""
     p = glob.replace("**/", "x/").replace("**", "x/y.py").replace("*", "f")
@@ -85,10 +104,19 @@ def test_rule_is_well_formed(rule: Path) -> None:
 
 @pytest.mark.parametrize("rule", TOP_RULES, ids=lambda p: p.name)
 def test_rule_is_listed_for_codex(rule: Path) -> None:
+    """Every glob the rule declares appears in a table row that names the rule. Codex has
+    no hook: the row IS its trigger, so a glob missing from the row is a path the rule
+    silently does not cover for Codex."""
     agents_md = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    assert (
-        f".agents/rules/{rule.name}" in agents_md
-    ), f"{rule.name} is not in AGENTS.md's path-rule table, so Codex never reads it"
+    rows = rows_naming(agents_md, rule.name)
+    assert rows, f"{rule.name} is not in AGENTS.md's path-rule table, so Codex never reads it"
+    parsed = hook.parse_rule(str(rule))
+    assert parsed is not None
+    missing = globs_missing_from_rows(rows, parsed["globs"])
+    assert not missing, (
+        f"{rule.name} declares globs {missing} that its AGENTS.md row does not list; "
+        "add them to the row (or drop them from the rule)"
+    )
 
 
 @pytest.mark.parametrize("rule", TOP_RULES, ids=lambda p: p.name)
@@ -129,6 +157,16 @@ def test_each_rule_can_fail(text: str, needle: str, tmp_path: Path) -> None:
     p = tmp_path / "r.md"
     p.write_text(text)
     assert any(needle in x for x in lint_rule(p)), lint_rule(p)
+
+
+def test_table_row_rule_can_fail() -> None:
+    md = "| `a/**`, `b.ts` | `.agents/rules/r.md` |\n| `c/**` | `.agents/rules/other.md` |\n"
+    rows = rows_naming(md, "r.md")
+    assert len(rows) == 1
+    assert globs_missing_from_rows(rows, ["a/**", "b.ts"]) == []
+    assert globs_missing_from_rows(rows, ["a/**", "b.ts", "c/**"]) == ["c/**"]
+    assert rows_naming(md, "missing.md") == []
+    assert globs_missing_from_rows([], ["a/**"]) == ["a/**"]
 
 
 def test_glob_matching_semantics() -> None:

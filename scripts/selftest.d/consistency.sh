@@ -49,15 +49,24 @@ _env_guard_cases() {
 }
 check "bash-safety .env guard: 17 allow/block cases" "_env_guard_cases"
 
-# env_set.py: the .env ends 0600, an upsert replaces rather than duplicates, and no
-# value is printed. (The create-with-0600 fix for the brief write-then-chmod window is
-# not observable from here; this pins the end state and the no-print contract.)
+# env_set.py: the .env ends 0600, an upsert replaces rather than duplicates (also an
+# `export KEY=` line, keeping its prefix), no value is printed, and the write is atomic:
+# a 0600 temp file renamed over the target, so no temp file is left behind and an
+# unrelated line survives byte-for-byte.
 _env_set_safe() {
   local d; d="$(mktemp -d)"
   (umask 022; printf 'A_KEY=sekrit1\nB_KEY=x\n' | python3 "$KIT/scripts/env_set.py" "$d/.env") > "$d/out" || return 1
   printf 'A_KEY=sekrit2\n' | python3 "$KIT/scripts/env_set.py" "$d/.env" >> "$d/out" || return 1
   [ "$(stat -c %a "$d/.env" 2>/dev/null || stat -f %Lp "$d/.env")" = 600 ] || return 1
   [ "$(grep -c '^A_KEY=' "$d/.env")" = 1 ] && grep -qx 'A_KEY=sekrit2' "$d/.env" || return 1
-  ! grep -q sekrit "$d/out"
+  ! grep -q sekrit "$d/out" || return 1
+  # export-prefixed lines are the same key: replaced in place, prefix kept, not duplicated.
+  printf '# comment\nexport C_KEY=old\nD_KEY=keep\n' > "$d/.env"
+  printf 'C_KEY=new\n' | python3 "$KIT/scripts/env_set.py" "$d/.env" >> "$d/out" || return 1
+  [ "$(grep -c 'C_KEY=' "$d/.env")" = 1 ] && grep -qx 'export C_KEY=new' "$d/.env" || return 1
+  grep -qx '# comment' "$d/.env" && grep -qx 'D_KEY=keep' "$d/.env" || return 1
+  [ "$(stat -c %a "$d/.env" 2>/dev/null || stat -f %Lp "$d/.env")" = 600 ] || return 1
+  # atomic write: nothing but .env and our own capture file in the directory afterwards
+  [ "$(ls -A "$d" | sort | tr '\n' ' ')" = ".env out " ]
 }
-check "env_set.py leaves .env 0600, upserts in place, never prints a value" "_env_set_safe"
+check "env_set.py leaves .env 0600, upserts in place (incl. export KEY=), never prints a value, writes atomically" "_env_set_safe"

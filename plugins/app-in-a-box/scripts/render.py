@@ -21,6 +21,7 @@ Then it generates the per-agent adapters from the shared, agent-neutral sources:
     .mcp.json                       synced to the services appbox.yaml's stack chose
     .codex/hooks.json               <- .claude/settings.json hooks (same scripts)
     mobile/lib/tokens.ts            <- design/tokens.json
+    docs/design/TASTE.md            <- KIT/docs/TASTE.md (the taste rubric; never overwritten)
 
 Existing files are skipped unless --force (PROTECTED files are never overwritten);
 the summary lists every skip. Standard library only.
@@ -58,7 +59,13 @@ TEXT_SUFFIXES = {
     "",
 }
 # User decisions: written by the interview/design phases, never clobbered by --force.
-PROTECTED = {"design/tokens.json", "appbox.yaml", "docs/product/BRIEF.md", "docs/product/VALIDATION.md"}
+PROTECTED = {
+    "design/tokens.json",
+    "appbox.yaml",
+    "docs/product/BRIEF.md",
+    "docs/product/VALIDATION.md",
+    "docs/design/TASTE.md",
+}
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")
 BUNDLE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*){2,}$")
 
@@ -251,6 +258,10 @@ def theme_app_json(app: dict, tokens: dict) -> dict:
     return app
 
 
+class ContrastGateError(Exception):
+    """design/tokens.json failed the WCAG/schema gate; the render finishes, then exits 2."""
+
+
 def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str = "") -> list[str]:
     """tokens.ts + themed app.json + brand icons (icons only when the tokens changed)."""
     import hashlib
@@ -266,11 +277,13 @@ def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str 
 
     problems = check(tokens)
     if problems:
-        # The contrast gate is the place that fails; the renderer only refuses to
-        # build brand assets from a palette it can't trust.
-        print("WARNING: design/tokens.json fails the contrast/schema check; skipped app.json theming + icons:")
+        # A palette the gate rejects is a failed render, not a warning: the renderer still
+        # writes everything else so the founder can see the output, refuses to build brand
+        # assets from a palette it can't trust, and exits non-zero at the end (a WARNING
+        # here used to read as a successful scaffold with sub-AA text in it).
+        print("ERROR: design/tokens.json fails the contrast/schema check; skipped app.json theming + icons:")
         print(*(f"  - {p}" for p in problems[:8]), sep="\n")
-        return made
+        raise ContrastGateError(problems)
     app_json = target / "mobile" / "app.json"
     if app_json.is_file():
         app_json.write_text(
@@ -548,9 +561,29 @@ def render(a: argparse.Namespace) -> int:
             shutil.copyfile(src, dst)
         shutil.copymode(src, dst)
 
+    # The taste rubric the prototype was judged by travels with the app, so the
+    # generated repo's designers and reviewers read the same page the kit's team did.
+    # It lives in the kit's docs/, not the template, so it is copied here; and it is
+    # PROTECTED: a repo that edited its own copy keeps it, --force or not.
+    taste_src, taste_rel = KIT / "docs" / "TASTE.md", "docs/design/TASTE.md"
+    taste_dst = target / taste_rel
+    if taste_src.is_file():
+        if taste_dst.exists():
+            skipped.append(taste_rel)
+        else:
+            written.append(taste_rel)
+            if not a.dry_run:
+                taste_dst.parent.mkdir(parents=True, exist_ok=True)
+                taste_dst.write_text(taste_src.read_text())
+
     tokens_file = target / "design" / "tokens.json"
+    contrast_failed = False
     if tokens_file.exists():
-        written += theme_outputs(target, tokens_file, a.dry_run, a.name)
+        try:
+            written += theme_outputs(target, tokens_file, a.dry_run, a.name)
+        except ContrastGateError:
+            contrast_failed = True
+            written.append("mobile/lib/tokens.ts (from design/tokens.json)")
 
     if not a.dry_run:
         written += adapters(target)
@@ -564,6 +597,9 @@ def render(a: argparse.Namespace) -> int:
     if leftover:
         print("ERROR: unreplaced placeholders in:", *leftover, sep="\n  - ")
         return 1
+    if contrast_failed:
+        print("ERROR: fix design/tokens.json (python3 scripts/check_contrast.py design/tokens.json) and re-run.")
+        return 2
     return 0
 
 

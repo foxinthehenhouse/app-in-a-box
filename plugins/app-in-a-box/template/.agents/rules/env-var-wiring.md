@@ -1,6 +1,6 @@
 ---
 description: A new env-gated feature must be wired into shipping config, not just read in code
-globs: mobile/lib/**, mobile/app.config.ts, mobile/eas.json, backend/config.py, backend/main.py
+globs: mobile/lib/**, mobile/app.json, mobile/eas.json, backend/config.py, backend/main.py
 ---
 Installed-but-unwired features fail **silently** (a `null` client, an empty
 `client_id`, a no-op button). Close the loop:

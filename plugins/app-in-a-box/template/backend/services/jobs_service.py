@@ -9,11 +9,13 @@ Rules every job follows:
 - **Cross-user, but every per-user query is still scoped.** A job iterates users, then
   does per-user work through the same user-scoped helpers the API uses.
 - **Bounded.** Page through users; don't load the table.
-- **A crash releases the claim.** If a run dies mid-way (a DB error, a deploy), the
-  claim is deleted so the scheduler's retry can run it again, instead of the period
-  silently reporting `skipped`. Delivery is therefore at-least-once: users already
-  handled before the crash may get the push twice. One user's failure never aborts
-  the run; it's counted in `failed`.
+- **A crash releases the claim.** If a run dies with a Python exception (a DB error),
+  the claim is deleted so the scheduler's retry can run it again, instead of the
+  period silently reporting `skipped`. A worker killed outright (a deploy, an OOM,
+  SIGKILL) can't run that code, so `claim_run()` also takes over a claim whose
+  `started_at` is older than `STALE_RUN_HOURS` with `finished_at` still null. Delivery
+  is therefore at-least-once: users already handled before the crash may get the push
+  twice. One user's failure never aborts the run; it's counted in `failed`.
 """
 
 from __future__ import annotations
@@ -27,6 +29,9 @@ from backend.services import push_service
 logger = logging.getLogger(__name__)
 
 PAGE_SIZE = 500
+# An unfinished claim older than this belongs to a worker that is no longer running.
+# Longer than any job can honestly take, shorter than the shortest job period (a day).
+STALE_RUN_HOURS = 6
 
 
 def iso_week(now: datetime) -> str:
@@ -34,8 +39,7 @@ def iso_week(now: datetime) -> str:
     return f"{year}-W{week:02d}"
 
 
-def claim_run(db: Any, job: str, run_key: str) -> bool:
-    """True if this call owns (job, run_key); False if it already ran or is running."""
+def _insert_claim(db: Any, job: str, run_key: str) -> bool:
     try:
         db.table("job_runs").insert({"job": job, "run_key": run_key}).execute()
     except Exception as exc:
@@ -43,6 +47,33 @@ def claim_run(db: Any, job: str, run_key: str) -> bool:
             return False
         raise
     return True
+
+
+def claim_run(db: Any, job: str, run_key: str, *, now: datetime | None = None) -> bool:
+    """True if this call owns (job, run_key); False if it already ran or is running.
+
+    A claim with `finished_at` null and `started_at` older than STALE_RUN_HOURS was left
+    by a worker that died without reaching release_run(); it is deleted and re-taken.
+    The delete is filtered on exactly those columns, so a run that finishes in between
+    keeps its row, and two reclaimers race on the insert's primary key as usual.
+    """
+    if _insert_claim(db, job, run_key):
+        return True
+    cutoff = ((now or datetime.now(UTC)) - timedelta(hours=STALE_RUN_HOURS)).isoformat()
+    stale = (
+        db.table("job_runs")
+        .delete()
+        .eq("job", job)
+        .eq("run_key", run_key)
+        .is_("finished_at", "null")
+        .lt("started_at", cutoff)
+        .execute()
+        .data
+    )
+    if not stale:
+        return False
+    logger.warning("reclaimed stale job claim %s/%s", job, run_key)
+    return _insert_claim(db, job, run_key)
 
 
 def release_run(db: Any, job: str, run_key: str) -> None:
@@ -71,7 +102,7 @@ def weekly_digest(
     per-user summary (computed with queries scoped by that user's id)."""
     now = now or datetime.now(UTC)
     run_key = iso_week(now)
-    if not claim_run(db, "weekly_digest", run_key):
+    if not claim_run(db, "weekly_digest", run_key, now=now):
         return {"job": "weekly_digest", "run_key": run_key, "skipped": True}
     try:
         stats = {"users": 0, "sent": 0, "failed": 0}

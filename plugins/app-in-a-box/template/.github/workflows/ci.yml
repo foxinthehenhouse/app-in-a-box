@@ -9,14 +9,22 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Nightly: dependency drift is TIME-based. requirements*.txt float inside ranges, so
+  # an untouched main can break because upstream published; only a clock catches that.
+  schedule:
+    - cron: "14 14 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # PR runs share a per-PR group (a newer push cancels the stale run). Every other run
+  # (push to main, schedule, manual) gets its OWN group: under a shared `github.ref`
+  # key GitHub keeps one PENDING run per group and silently cancels older ones, so a
+  # burst of merges left main's middle commits unchecked in the app this kit came from.
+  group: ci-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   python:
@@ -33,6 +41,10 @@ jobs:
           cache-dependency-path: requirements*.txt
       - name: Install
         run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Design tokens clear WCAG AA (design/tokens.json)
+        # The same gate the kit ran at scaffold time, re-run on every change: a palette
+        # edit after scaffold is how sub-AA text ships with green CI.
+        run: python3 scripts/check_contrast.py design/tokens.json
       - name: Ruff
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)
@@ -52,11 +64,17 @@ jobs:
           persist-credentials: false
       - name: Skip until the mobile app is scaffolded
         id: app
+        # `mobile` is a REQUIRED check, so it must not be green by skipping once the app
+        # exists. Before the scaffold phase there is nothing to gate; after it (appbox.yaml
+        # says progress.scaffold: done) a missing package.json is a broken repo, not a
+        # pre-scaffold one, and the job fails.
         run: |
-          if [ -f package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
-            echo "::notice::mobile/package.json not found (scaffold phase not run yet); skipping gates"
-            echo "present=false" >> "$GITHUB_OUTPUT"
+          if [ -f package.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if grep -Eq '^[[:space:]]+scaffold:[[:space:]]*done' ../appbox.yaml 2>/dev/null; then
+            echo "::error::appbox.yaml says the scaffold is done but mobile/package.json is missing"; exit 1
           fi
+          echo "::notice::mobile/package.json not found (scaffold phase not run yet); skipping gates"
+          echo "present=false" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: steps.app.outputs.present == 'true'
         with:
@@ -69,3 +87,59 @@ jobs:
       - name: Gates (tsc + eslint + guard scripts + jest)
         if: steps.app.outputs.present == 'true'
         run: npm run gates
+
+  # A PR is graded against main as it was when its run started; main then moves. So a
+  # red push/nightly/manual run on main's CURRENT head opens ONE issue labelled
+  # `main-red` assigned to the repo owner; later red runs comment on it; the first green
+  # run on main's head closes it. Runs for an older SHA, and runs whose gate jobs were
+  # cancelled or skipped, leave the issue alone. (Ported from the app this kit came from.)
+  main-red-alert:
+    needs: [python, mobile]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    concurrency:
+      group: ci-main-red-alert
+      cancel-in-progress: false
+    steps:
+      - name: Open, update or close the main-red issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          red=$(jq -r '[.[].result] | any(. == "failure")' <<<"$NEEDS")
+          green=$(jq -r '[.[].result] | all(. == "success")' <<<"$NEEDS")
+          failed=$(jq -r 'to_entries | map(select(.value.result == "failure") | .key) | join(", ")' <<<"$NEEDS")
+          if [ "$red" != "true" ] && [ "$green" != "true" ]; then
+            echo "Gate jobs were cancelled/skipped, not red or green; leaving main-red alone."; exit 0
+          fi
+          head=$(gh api "repos/$GH_REPO/commits/main" --jq .sha)
+          if [ "$head" != "$SHA" ]; then echo "main moved on ($SHA -> $head); that commit's own run decides."; exit 0; fi
+          short="${SHA:0:7}"
+          open=$(gh issue list --label main-red --state open --limit 1 --json number --jq '.[0].number // empty')
+          if [ "$red" = "true" ]; then
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "Still red at \`$short\` ($EVENT run). Failing: $failed. $RUN_URL"; exit 0
+            fi
+            gh label create main-red --color B60205 --description "CI is failing on main" --force
+            printf '%s\n' "@$OWNER CI is **red on \`main\`** at \`$short\` ($EVENT run)." "" \
+              "Failing job(s): **$failed**" "" "Run: $RUN_URL" "" \
+              "Every branch cut from main inherits this until it is fixed. Reproduce: \`scripts/dev-venv.sh python -m pytest -q\` and \`cd mobile && npm run gates\`." "" \
+              "Managed by the \`main-red-alert\` job in \`.github/workflows/ci.yml\`: later red runs comment here; the first green run on main's head closes it." \
+              > "$RUNNER_TEMP/main-red.md"
+            gh issue create --title "main is red: $failed" --label main-red --assignee "$OWNER" --body-file "$RUNNER_TEMP/main-red.md"
+          elif [ -n "$open" ]; then
+            gh issue comment "$open" --body "Green again at \`$short\` ($EVENT run): $RUN_URL. Closing."
+            gh issue close "$open" --reason completed
+          else
+            echo "main is green and no main-red issue is open."
+          fi

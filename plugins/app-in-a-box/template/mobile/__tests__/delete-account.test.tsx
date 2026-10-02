@@ -6,6 +6,8 @@
 import { router } from "expo-router";
 import { act, fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
+import { pressWhenEnabled } from "./support/press";
+
 import { analytics } from "../lib/analytics";
 import { en } from "../locales/en";
 
@@ -18,9 +20,9 @@ const session = require("../lib/session") as typeof import("../lib/session");
 async function signIn() {
   await renderRouter("./app", { initialUrl: "/" });
   await fireEvent.changeText(await screen.findByTestId("signin-email-input"), "sam@example.com");
-  await fireEvent.press(screen.getByTestId("signin-send-button"));
+  await pressWhenEnabled("signin-send-button");
   await fireEvent.changeText(await screen.findByTestId("signin-code-input"), "123456");
-  await fireEvent.press(screen.getByTestId("signin-verify-button"));
+  await pressWhenEnabled("signin-verify-button");
   expect(await screen.findByTestId("home-screen")).toBeTruthy();
 }
 
@@ -40,7 +42,7 @@ it("deletes the account only after DELETE is typed, then signs out with a toast"
   await waitFor(() =>
     expect(screen.getByTestId("delete-account-submit-button").props.accessibilityState?.disabled).toBe(false),
   );
-  await fireEvent.press(screen.getByTestId("delete-account-submit-button"));
+  await pressWhenEnabled("delete-account-submit-button");
 
   expect(await screen.findByTestId("signin-screen")).toBeTruthy();
   expect(await screen.findByText(en.deleteAccount.deleted)).toBeTruthy();
@@ -59,7 +61,7 @@ it("a failed deletion keeps the account, shows why with a reference, and records
     expect(screen.getByTestId("delete-account-submit-button").props.accessibilityState?.disabled).toBe(false),
   );
   fetchSpy.mockResolvedValueOnce({ status: 500, body: { error_id: "abcd1234-ffff-4fff-8fff-ffffffffffff" } });
-  await fireEvent.press(screen.getByTestId("delete-account-submit-button"));
+  await pressWhenEnabled("delete-account-submit-button");
 
   expect(await screen.findByTestId("delete-account-error")).toBeTruthy();
   expect(screen.getByTestId("delete-account-error-reference")).toBeTruthy();
@@ -81,7 +83,7 @@ it("once the server deleted the account, a failing local sign-out still signs ou
   await waitFor(() =>
     expect(screen.getByTestId("delete-account-submit-button").props.accessibilityState?.disabled).toBe(false),
   );
-  await fireEvent.press(screen.getByTestId("delete-account-submit-button"));
+  await pressWhenEnabled("delete-account-submit-button");
 
   // The account IS gone: the user is signed out anyway and told so, never "Nothing was removed".
   expect(await screen.findByTestId("signin-screen")).toBeTruthy();

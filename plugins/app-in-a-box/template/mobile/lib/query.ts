@@ -16,16 +16,17 @@
  *   user A's cache.
  *
  * Every read is a hook here over a lib/api.ts adapter (so the cache holds UI
- * types). Every write is a `useMutation` with a `mutationKey`, an optimistic
- * update in `onMutate`, a rollback in `onError`, and an invalidate in
- * `onSettled`. `useUpdateMe` is the worked example.
+ * types). Every write is ONE exported option set (mutationKey, scope, optimistic
+ * `onMutate`, rollback in `onError`, success + failure analytics, invalidate in
+ * `onSettled`) registered with `setMutationDefaults` AND spread into its hook.
+ * `updateMeOptions` / `useUpdateMe` is the worked example.
  */
 import { useSyncExternalStore } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { QueryClient, focusManager, onlineManager, useMutation, useQuery } from "@tanstack/react-query";
+import { QueryClient, focusManager, onlineManager, useMutation, useQuery, type MutationOptions } from "@tanstack/react-query";
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import Constants from "expo-constants";
 
@@ -51,6 +52,57 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
   return failureCount < 2;
 }
 
+// ---- Writes: option sets ---------------------------------------------------
+// Declared BEFORE makeQueryClient: `queryClient` is built at import time, and a const
+// declared later would reach setMutationDefaults as undefined (no error, no defaults;
+// lib/__tests__/query-resume.test.tsx asserts the module-level client has them).
+
+/**
+ * What onMutate hands the other callbacks. It is persisted with a paused mutation and
+ * JSON round-trips through AsyncStorage, so `previous` (plain data) survives a restart
+ * and `elapsed` (a function) does not: read it defensively.
+ */
+interface UpdateMeContext {
+  previous: Profile | undefined;
+  elapsed?: () => number;
+}
+
+function elapsedMs(context: UpdateMeContext | undefined): number {
+  return typeof context?.elapsed === "function" ? context.elapsed() : 0;
+}
+
+/**
+ * The profile edit, as ONE option set shared by the hook and `setMutationDefaults`:
+ * optimistic update, rollback, success + failure analytics, refetch. `scope` serialises
+ * edits to the same profile (a queued offline edit and a later online one run in order,
+ * never racing). Every write in this file follows this shape; see mobile/AGENTS.md
+ * "Offline" for what a POST that creates something must add (a client-generated id).
+ */
+export const updateMeOptions: MutationOptions<Profile, unknown, ProfilePatch, UpdateMeContext> = {
+  mutationKey: mutationKeys.updateMe,
+  scope: { id: "me" },
+  mutationFn: (patch) => updateMe(patch),
+  onMutate: async (patch, ctx) => {
+    await ctx.client.cancelQueries({ queryKey: queryKeys.me });
+    const previous = ctx.client.getQueryData<Profile>(queryKeys.me);
+    if (previous) ctx.client.setQueryData<Profile>(queryKeys.me, { ...previous, ...patch });
+    return { previous, elapsed: startTimer() };
+  },
+  onError: (error, _patch, context, ctx) => {
+    if (context?.previous) ctx.client.setQueryData(queryKeys.me, context.previous);
+    analytics.profileUpdated({
+      success: false,
+      error_code: error instanceof ApiError ? `http_${error.status}` : "save_failed",
+      duration_ms: elapsedMs(context),
+    });
+  },
+  onSuccess: (saved, _patch, context, ctx) => {
+    ctx.client.setQueryData(queryKeys.me, saved);
+    analytics.profileUpdated({ success: true, error_code: null, duration_ms: elapsedMs(context) });
+  },
+  onSettled: (_d, _e, _v, _c, ctx) => ctx.client.invalidateQueries({ queryKey: queryKeys.me }),
+};
+
 export function makeQueryClient(): QueryClient {
   // Under jest, no GC timers (24h for queries, 5 min for mutations): they'd keep
   // the test process alive after the last test.
@@ -70,9 +122,11 @@ export function makeQueryClient(): QueryClient {
       mutations: { networkMode: "online", retry: 0, ...(testing ? { gcTime: Infinity } : null) },
     },
   });
-  // A mutation paused offline is persisted WITHOUT its function; this default is
-  // what lets it run again after a restart.
-  client.setMutationDefaults(mutationKeys.updateMe, { mutationFn: (patch: ProfilePatch) => updateMe(patch) });
+  // A mutation paused offline is persisted WITHOUT its functions: not just mutationFn,
+  // also onError/onSuccess/onSettled. The default below is the WHOLE option set, so an
+  // edit replayed after a restart still rolls back on failure and fires its analytics.
+  // (A default of only `mutationFn` replays silently: no rollback, no event.)
+  client.setMutationDefaults(mutationKeys.updateMe, updateMeOptions);
   return client;
 }
 
@@ -184,12 +238,7 @@ export function useMe() {
   return useQuery({ queryKey: queryKeys.me, queryFn: getMe });
 }
 
-// ---- Writes ------------------------------------------------------------------
-
-interface UpdateMeContext {
-  previous: Profile | undefined;
-  elapsed: () => number;
-}
+// ---- Writes: hooks -------------------------------------------------------------
 
 /**
  * Optimistic profile edit: the new name shows everywhere immediately, rolls back
@@ -197,27 +246,5 @@ interface UpdateMeContext {
  * replays on reconnect (even after a restart). Fires success AND failure analytics.
  */
 export function useUpdateMe() {
-  return useMutation<Profile, unknown, ProfilePatch, UpdateMeContext>({
-    mutationKey: mutationKeys.updateMe,
-    mutationFn: (patch) => updateMe(patch),
-    onMutate: async (patch, ctx) => {
-      await ctx.client.cancelQueries({ queryKey: queryKeys.me });
-      const previous = ctx.client.getQueryData<Profile>(queryKeys.me);
-      if (previous) ctx.client.setQueryData<Profile>(queryKeys.me, { ...previous, ...patch });
-      return { previous, elapsed: startTimer() };
-    },
-    onError: (error, _patch, context, ctx) => {
-      if (context?.previous) ctx.client.setQueryData(queryKeys.me, context.previous);
-      analytics.profileUpdated({
-        success: false,
-        error_code: error instanceof ApiError ? `http_${error.status}` : "save_failed",
-        duration_ms: context?.elapsed() ?? 0,
-      });
-    },
-    onSuccess: (saved, _patch, context, ctx) => {
-      ctx.client.setQueryData(queryKeys.me, saved);
-      analytics.profileUpdated({ success: true, error_code: null, duration_ms: context?.elapsed() ?? 0 });
-    },
-    onSettled: (_d, _e, _v, _c, ctx) => ctx.client.invalidateQueries({ queryKey: queryKeys.me }),
-  });
+  return useMutation<Profile, unknown, ProfilePatch, UpdateMeContext>({ ...updateMeOptions });
 }

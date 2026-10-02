@@ -96,7 +96,8 @@ export function useT() {
 /** Translate a key that is only known at runtime (e.g. a zod message); unknown keys pass through. */
 export function translate(key: string, options?: Record<string, unknown>): string {
   if (!i18n.exists(key)) return key;
-  return (i18n.t as unknown as (k: string, o?: Record<string, unknown>) => string)(key, options);
+  // i18next accepts an untyped key when a defaultValue is given: no cast needed.
+  return i18n.t(key, { ...options, defaultValue: key });
 }
 
 export { i18n };

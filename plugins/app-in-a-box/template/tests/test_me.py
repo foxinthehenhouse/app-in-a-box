@@ -72,9 +72,18 @@ def test_me_returns_only_the_callers_row() -> None:
     assert body == {"id": "b", "displayName": "Bob", "onboarded": False}
 
 
+def test_patch_writes_the_callers_row_only() -> None:
+    rows = [{"id": "a", "display_name": "Ann", "onboarded": True}]
+    resp = _client("b", rows).patch("/api/v1/me", json={"displayName": "Bea"})
+    assert resp.status_code == 200
+    assert resp.json() == {"id": "b", "displayName": "Bea", "onboarded": False}
+    assert rows[0]["display_name"] == "Ann"
+
+
 def test_patch_cannot_write_someone_elses_row() -> None:
+    """A body-supplied id is REJECTED (422), not silently dropped: a client that sends
+    one is either an attacker or a drifted build, and both should hear about it."""
     rows = [{"id": "a", "display_name": "Ann", "onboarded": True}]
     resp = _client("b", rows).patch("/api/v1/me", json={"id": "a", "displayName": "pwned"})
-    assert resp.status_code == 200
-    assert rows[0]["display_name"] == "Ann"
-    assert resp.json()["id"] == "b"
+    assert resp.status_code == 422
+    assert rows == [{"id": "a", "display_name": "Ann", "onboarded": True}]

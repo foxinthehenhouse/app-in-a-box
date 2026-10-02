@@ -6,6 +6,8 @@ a TOML file the renderer generates. Three silent failures, each negative-control
     skips the role, and the pr-review loop spawns a reviewer that does not exist
   - `tools:` naming a tool that does not exist: the role runs without it, quietly
   - the .md edited without regenerating the TOML: Codex runs yesterday's instructions
+  - a frontmatter key Claude Code does not know (`modle:`), or a `model`/`effort` value it
+    does not accept: ignored without a word, and the role runs on the default model
 """
 
 from __future__ import annotations
@@ -23,6 +25,19 @@ KNOWN_TOOLS = {
 }  # fmt: skip
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 CODEX_AGENTS = ROOT / ".codex" / "agents"
+# Every key a role may carry. Claude Code reads the first six; `codex_model` is the
+# renderer's pin for the Codex TOML. Anything else is a typo it would swallow.
+ALLOWED_KEYS = {
+    "name",
+    "description",
+    "tools",
+    "model",
+    "effort",
+    "codex_model",
+    "disable-model-invocation",
+}
+EFFORTS = {"low", "medium", "high", "max"}
+MODELS = {"fable", "opus", "sonnet", "haiku"}
 
 
 def lint_role(text: str, stem: str) -> list[str]:
@@ -31,6 +46,9 @@ def lint_role(text: str, stem: str) -> list[str]:
     except FrontmatterError as exc:
         return [str(exc)]
     problems: list[str] = []
+    unknown = sorted(str(k) for k in meta if k not in ALLOWED_KEYS)
+    if unknown:
+        problems.append(f"unknown frontmatter key(s) {unknown}: Claude Code ignores them silently")
     name = meta.get("name")
     if not isinstance(name, str) or not NAME_RE.match(name):
         problems.append("`name` missing or not lowercase-hyphenated")
@@ -50,6 +68,14 @@ def lint_role(text: str, stem: str) -> list[str]:
     model = meta.get("model")
     if model is not None and not (isinstance(model, str) and model.strip()):
         problems.append("`model:` is present but empty")
+    elif isinstance(model, str) and model not in MODELS and not model.startswith("claude-"):
+        problems.append(f"`model: {model}` is not one of {sorted(MODELS)} or a `claude-...` id")
+    effort = meta.get("effort")
+    if effort is not None and effort not in EFFORTS:
+        problems.append(f"`effort: {effort}` is not one of {sorted(EFFORTS)}")
+    codex_model = meta.get("codex_model")
+    if codex_model is not None and not (isinstance(codex_model, str) and codex_model.strip()):
+        problems.append("`codex_model:` is present but empty")
     if not body.strip():
         problems.append("no instructions body (Codex gets empty developer_instructions)")
     return problems
@@ -102,10 +128,15 @@ def test_no_orphan_codex_roles() -> None:
 # ---- negative controls --------------------------------------------------------
 
 GOOD = "---\nname: rev\ndescription: Reviews things.\ntools: Read, Grep\n---\nDo the review.\n"
+FULL = GOOD.replace(
+    "tools: Read, Grep\n", "tools: Read, Grep\nmodel: sonnet\neffort: high\ncodex_model: gpt-5\n"
+)
 
 
 def test_good_role_passes() -> None:
     assert lint_role(GOOD, "rev") == []
+    assert lint_role(FULL, "rev") == []
+    assert lint_role(FULL.replace("model: sonnet", "model: claude-opus-4-1"), "rev") == []
 
 
 @pytest.mark.parametrize(
@@ -117,8 +148,15 @@ def test_good_role_passes() -> None:
         (GOOD.replace("Do the review.\n", ""), "no instructions body"),
         (GOOD.replace("Reviews things.", "Reviews: things"), "not valid YAML"),
         (GOOD.replace("tools: Read, Grep", "model: ''"), "`model:` is present but empty"),
+        (GOOD.replace("tools: Read, Grep", "modle: sonnet"), "unknown frontmatter key"),
+        (GOOD.replace("tools: Read, Grep", "model: gpt-5"), "`model: gpt-5` is not one of"),
+        (GOOD.replace("tools: Read, Grep", "effort: ultra"), "`effort: ultra` is not one of"),
+        (GOOD.replace("tools: Read, Grep", "codex_model: ''"), "`codex_model:` is present but empty"),
     ],
-    ids=["no-description", "name-mismatch", "unknown-tool", "empty-body", "yaml", "empty-model"],
+    ids=[
+        "no-description", "name-mismatch", "unknown-tool", "empty-body", "yaml", "empty-model",
+        "unknown-key", "bad-model", "bad-effort", "empty-codex-model",
+    ],  # fmt: skip
 )
 def test_each_rule_can_fail(text: str, needle: str) -> None:
     assert any(needle in p for p in lint_role(text, "rev")), lint_role(text, "rev")

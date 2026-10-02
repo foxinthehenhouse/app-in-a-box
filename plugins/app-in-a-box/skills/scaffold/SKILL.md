@@ -157,8 +157,8 @@ once that re-running the prototype phase would let them click it first.
 5. **Domain rules.** For each `sensitive_data` entry, copy
    `.agents/rules/optional/<domain>.md` up to `.agents/rules/` and add a row to the
    path-rules table in `AGENTS.md`.
-6. **Draft AGENTS.md from the interview.** It's the file every future agent reads
-   first, so write it from the brief, not from memory:
+6. **Draft AGENTS.md from the brief.** It's the file every future agent reads
+   first, so write it from `BRIEF.md`, `SCREENS.md` and `VALIDATION.md`, not from memory:
    - `appbox:product`: who it's for, their problem in their words, the core loop,
      the positioning line (BRIEF → Positioning), the north-star metric and the top
      riskiest assumption (VALIDATION.md). At most 10 lines.
@@ -178,6 +178,28 @@ once that re-running the prototype phase would let them click it first.
    only module that calls the model API, register `ANTHROPIC_API_KEY` (or the
    provider's key) in `FEATURE_CONFIG`, and state the fence in AGENTS.md rule 8.
 
+### Match check (the prototype is the spec; prove the app matches it)
+
+The founder approved a prototype, not a description of one. Before the bootstrap
+commit, check the built app against `docs/product/SCREENS.md` screen by screen:
+
+1. Run `cd mobile && npm run demo` and open every screen SCREENS.md lists (tabs,
+   pushed routes, sheets).
+2. For each screen, confirm: the same blocks in the same order as its chosen layout;
+   the chosen tone's copy, word for word, from `locales/en.ts`; exactly one primary
+   action; the empty state SCREENS.md gives it; icons by the `sf` / `md` names in its
+   Icons table; features marked out of v1 absent.
+3. Hand `design-critic` (`$KIT/agents/design-critic.md`; in Codex do its job inline)
+   the screenshots or the rendered component tree of each screen together with
+   SCREENS.md, once. It returns PASS or FAIL with at most 7 fixes.
+4. Fix every item before the bootstrap commit. Don't commit a FAIL and "fix it in
+   phase 8": the scaffold is the one moment the whole app is in view at once.
+5. List the screens you checked in the bootstrap commit body (`Match check: home,
+   add-item (sheet), history, settings`), so the record says what was verified.
+
+No `npm run demo` (web target broken on this machine)? Say so, check against the
+component tree and the test renders instead, and name that in the commit body.
+
 ## 5. Verify locally
 
 ```
@@ -196,17 +218,23 @@ fails the gates if you do.
 
 ## 6. Bootstrap commit
 
-```
-git add -A && APPBOX_BOOTSTRAP=1 git commit -m "chore: scaffold <name> with App in a Box"
-```
+Turn the hooks on **first**, so the pre-commit's `.env` and secret-key checks see the
+biggest commit this repo will ever get. `APPBOX_BOOTSTRAP=1` only lifts the
+"no commits on `main`" rule for this one commit; the other checks still run.
 
 ```
 git config core.hooksPath .githooks
 ```
 
-From here on the git hooks refuse commits on `main`, staged `.env` files and
-key-shaped strings, and run the gates before every push, whichever agent is
-driving. Everything until the first PR is committed on a setup branch:
+```
+git add -A && APPBOX_BOOTSTRAP=1 git commit -m "chore: scaffold <name> with App in a Box"
+```
+
+If the hook refuses the commit, it found a staged `.env` or a key-shaped string: fix
+that (unstage, move the value to `.env`), never bypass the hook. From here
+on the git hooks refuse commits on `main`, staged `.env` files and key-shaped
+strings, and run the gates before every push, whichever agent is driving. Everything
+until the first PR is committed on a setup branch:
 
 ```
 git switch -c chore/appbox-setup

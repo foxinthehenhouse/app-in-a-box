@@ -14,15 +14,13 @@
     "default_tracker": {
       "type": "string",
       "title": "Default backlog tool",
-      "description": "Pre-selected (as Recommended) in the interview's backlog question. You can still pick the other one per app.",
-      "options": ["linear", "github"],
+      "description": "linear or github. Pre-selected (as Recommended) when the interview asks about the backlog; you can still pick the other one per app.",
       "default": "linear"
     },
     "default_hosting": {
       "type": "string",
       "title": "Default backend hosting",
-      "description": "Pre-selected (as Recommended) in the interview's hosting question.",
-      "options": ["railway", "fly", "render"],
+      "description": "railway, fly or render. Pre-selected (as Recommended) when the interview asks about hosting.",
       "default": "railway"
     }
   }

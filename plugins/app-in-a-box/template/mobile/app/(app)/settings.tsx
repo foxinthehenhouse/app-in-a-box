@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { router } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
 import Constants from "expo-constants";
 
 import { Button, Card, ListRow, Meta, Screen, Section, SegmentedControl, Skeleton, Title, Toggle, useToast } from "../../components/ui";
-import { analytics, setAnalyticsOptIn } from "../../lib/analytics";
+import { analytics } from "../../lib/analytics";
+import { changeAnalyticsOptIn, readAnalyticsOptIn } from "../../lib/analytics-optin";
 import { APP } from "../../lib/app";
 import { downloadMyData } from "../../lib/export";
 import { useT } from "../../lib/i18n";
@@ -19,7 +20,8 @@ export default function Settings() {
   const me = useLoaded(useMe());
   const push = usePushSetting();
   const { preference, setPreference } = useThemePreference();
-  const [optIn, setOptIn] = useState(true);
+  // null until the SDK's persisted choice has been read; the toggle is disabled until then.
+  const [optIn, setOptIn] = useState<boolean | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const appearance: readonly { value: ThemePreference; label: string }[] = [
@@ -28,14 +30,24 @@ export default function Settings() {
     { value: "dark", label: t("settings.dark") },
   ];
 
+  // On focus, not on mount: native tabs mount every tab at launch (see index.tsx).
+  useFocusEffect(
+    useCallback(() => {
+      analytics.screenViewed("settings");
+    }, []),
+  );
+
   useEffect(() => {
-    analytics.screenViewed("settings");
+    let alive = true;
+    readAnalyticsOptIn().then((v) => alive && setOptIn(v));
+    return () => {
+      alive = false;
+    };
   }, []);
 
   async function toggleAnalytics(next: boolean) {
-    analytics.analyticsOptChanged(next);
     setOptIn(next);
-    await setAnalyticsOptIn(next);
+    await changeAnalyticsOptIn(next); // orders the capture around the SDK flag so it isn't dropped
     toast.info(next ? t("settings.analyticsOn") : t("settings.analyticsOff"));
   }
 
@@ -131,8 +143,9 @@ export default function Settings() {
             subtitle={t("settings.analyticsSubtitle")}
             trailing={
               <Toggle
-                value={optIn}
+                value={optIn ?? true}
                 onValueChange={toggleAnalytics}
+                disabled={optIn === null}
                 accessibilityLabel={t("settings.analytics")}
                 testID="settings-analytics-switch"
               />

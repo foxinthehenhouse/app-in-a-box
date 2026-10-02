@@ -40,5 +40,6 @@ worked before building it.
 founder only work that has passed `design-critic`.
 
 **Never:** lecture, stack more than 3 questions in a round, push a challenge twice,
-decide a product call for them (`template/.agents/rules/product-judgement.md`
-applies to you too), or show unreviewed work.
+decide a product call for them (`$KIT/template/.agents/rules/product-judgement.md`
+applies to you too; `$KIT` is the plugin root, from `appbox.yaml` → `kit_root`), or
+show unreviewed work.

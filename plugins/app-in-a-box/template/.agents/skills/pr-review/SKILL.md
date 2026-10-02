@@ -1,6 +1,7 @@
 ---
 name: pr-review
-description: Review a pull request on the owner's behalf and fix what's safe to fix. Runs the deterministic gates first, then correctness/security, design-system, accessibility and analytics review passes, verifies each blocking finding, applies safe fixes, re-checks, and ends with a plain-English verdict. Use when a PR is opened, when asked to review a PR or branch, or before merging anything.
+description: Review a pull request on the owner's behalf and fix what's safe to fix. Runs the deterministic gates first, then correctness/security, design-system, accessibility and analytics review passes, verifies each blocking finding, applies safe fixes, re-checks, and ends with a plain-English verdict. Use when a PR is opened, when asked to review a PR, a branch or a pasted diff, or before merging anything.
+allowed-tools: "Bash(gh:*), Bash(git:*), Bash(scripts/dev-venv.sh:*), Bash(npm:*), Bash(cd:*), Read, Glob, Grep, Edit, Write"
 ---
 
 # PR review: the gate before main
@@ -17,9 +18,14 @@ change and `main`, so be the careful engineer they don't have.
 ## 0. Target
 
 An explicit PR number, URL or branch; otherwise the PR for the current branch
-(`gh pr view --json number,title,headRefName,baseRefName,isDraft,files,url`). No PR
-means you stop and say so. Diff = `origin/<base>...HEAD`. Drafts get reviewed but
-never merged.
+(`gh pr view --json number,title,headRefName,baseRefName,isDraft,files,url`). Diff =
+`origin/<base>...HEAD`. Drafts get reviewed but never merged.
+
+**Handed an inline diff** (pasted into the prompt, with no PR and no checkout)? Review
+it as the PR: the same passes, the same verdict shape. The gates in step 1 can't run,
+so name that in the verdict ("What's left: gates not run, no checkout") instead of
+skipping it silently, and judge the tests by reading them: would each one go red if
+the code were wrong? No PR and no diff means you stop and say so.
 
 ## 1. Deterministic gates (cheap, fail fast)
 
@@ -42,7 +48,9 @@ breaks · for whom`.
    scoping (IDOR), secrets in code, trusting ids from request bodies, in-process
    state, breaking wire changes (`.agents/rules/api-contract.md`).
 2. **Design system + accessibility:** hex literals, raw sizes, non-ink text colours,
-   missing `accessibilityRole`/label, tap targets < 48, meaning-by-colour-only.
+   missing `accessibilityRole`/label, tap targets < 48, meaning-by-colour-only, and
+   the `docs/design/TASTE.md` rubric on any new or changed screen (one primary
+   action, honest states, restraint, copy that is a verb and not a form label).
 3. **Analytics + env wiring:** new screen without a view event, mutation without
    success+failure events, new `EXPO_PUBLIC_*` or backend env var not wired
    (`.agents/rules/env-var-wiring.md`).
@@ -91,9 +99,12 @@ The last line is for the `land` skill: it is how the loop knows THIS commit was
 reviewed (a later push needs a new verdict). `safe` = ✅, `owner` = ⚠️, `not-ready` = ❌.
 Get the sha with `gh pr view --json headRefOid -q .headRefOid`.
 
-Merge only if the owner has said review-and-merge is OK for low-risk PRs and the
-verdict is ✅ with green CI. Squash merge, delete the branch. To take a PR the rest of
-the way (CI, threads, re-review after each push, merge), hand it to the `land` skill.
+Merge without asking only if `appbox.yaml` → `policy.auto_merge_low_risk` is `true`
+(default `false`; only the owner flips it) or the owner said so in this conversation,
+AND the verdict is ✅, the risk is low and CI is green. That is the same predicate
+`land` takes as `--merge-ok`. Otherwise the owner merges. Squash merge, delete the
+branch. To take a PR the rest of the way (CI, threads, re-review after each push,
+merge), hand it to the `land` skill.
 
 ## Ask the owner
 

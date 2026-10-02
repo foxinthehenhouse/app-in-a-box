@@ -163,8 +163,9 @@ check "no owner/Forge references in the template harness" template_clean
 
 # The repo is public: no private ticket IDs, no links into the private source app, and
 # the source app is "a real app", never named. Plain-word matches ("forged") are fine.
+# No `\b`: it is a GNU extension, and BSD git grep (macOS) silently matches nothing with it.
 _private_refs() {
-  (cd "$KIT/../.." && git grep -nIE '\bPUL-[0-9]+|\bForge\b|foxinthehenhouse/forge' -- . ':!scripts/selftest.d/driving.sh')
+  (cd "$KIT/../.." && git grep -nIE '(^|[^A-Za-z0-9_])PUL-[0-9]+|(^|[^A-Za-z0-9_])Forge([^A-Za-z0-9_]|$)|foxinthehenhouse/forge' -- . ':!scripts/selftest.d/driving.sh')
 }
 private_clean() { ! _private_refs; }
 _private_plant() {

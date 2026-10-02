@@ -1,5 +1,6 @@
 ---
 name: interview
+user-invocable: false
 description: The App in a Box question bank and output spec: the questions about platforms, accounts, data, AI, money, retention, sensitive data, services, hosting and name that the shape phase draws from for whatever is still unknown, and the exact appbox.yaml and docs/product/BRIEF.md formats. Use when someone wants to be walked through setup step by step, or when the brief needs re-doing.
 ---
 
@@ -12,7 +13,7 @@ exactly as defined here. Run this skill on its own only when someone asks to be
 walked through step by step.
 
 Goal: learn enough in about 10 minutes to generate a correct data model, a sensible
-screen map, the right integrations, and a CLAUDE.md that tells future agents what
+screen map, the right integrations, and an AGENTS.md that tells future agents what
 matters. You are a senior PM running a crisp kickoff, not a form.
 
 ## Rules
@@ -31,12 +32,12 @@ matters. You are a senior PM running a crisp kickoff, not a form.
   with the question, in the structured question's description where the tool has
   one or as a short line under it in chat. People answer better, and skip less, when
   they can see what the answer changes.
-- Tell them at the start: about 12 questions in 4 short rounds, roughly 10 minutes.
+- Tell them at the start: about 14 questions in 4 short rounds, roughly 10 minutes.
 
 ## Round 1: the idea (open, in chat)
 
-**Skip this round if phase 1a (`validate-idea`) already asked it:** `appbox.yaml` →
-`product.problem` and `product.core_loop` are filled. Reflect the one-liner back in a
+**Skip this round if shape (1a) or the idea check (1b) already asked it:** `appbox.yaml`
+→ `product.problem` and `product.core_loop` are filled. Reflect the one-liner back in a
 sentence and go straight to Round 2. Read `docs/product/VALIDATION.md` first if it
 exists; its alternatives, complaints and riskiest assumptions sharpen every
 recommendation below.
@@ -66,8 +67,8 @@ recommendation below.
    core loop is conversational or generative) · Yes, a chat/assistant feature ·
    Yes, generation/summarisation behind the scenes · Not sure yet. *Why:* an AI
    feature needs an API key, a cost ceiling and a rule fencing where it's allowed.
-   *If yes, record where the LLM is allowed. The generated CLAUDE.md fences the LLM
-   into those modules, the same way the app this kit came from fenced its AI into one feature.*
+   *If yes, record where the LLM is allowed. The generated AGENTS.md fences the LLM
+   into those modules and nowhere else.*
 
 ## Round 3: business and motivation (ask, structured)
 
@@ -157,16 +158,18 @@ stack:
   errors: sentry              # sentry|none (same)
 design:
   direction: null             # filled in by phase 2
+policy:
+  auto_merge_low_risk: false  # true lets pr-review / land squash-merge a ✅ low-risk PR with green CI without asking; the owner flips it
 resources: {}                 # filled in by phase 5: IDs/URLs only, never secrets
-validation: {}               # written by phase 1a (verdict, depth, decision, report)
+validation: {}               # written by phase 1b (verdict, depth, decision, report)
 progress:
   preflight: done
-  validate: done              # set by phase 1a (done|parked); leave as it is
+  validate: done              # set by phase 1b (done|parked); leave as it is
   interview: done
 ```
 
-`appbox.yaml` may already exist from phase 1a. **Merge into it**: keep `validation`,
-`product.*` and `progress.validate` exactly as 1a wrote them.
+`appbox.yaml` may already exist from shape (1a) or the idea check (1b). **Merge into
+it**: keep `validation`, `product.*` and `progress.validate` exactly as they wrote them.
 
 ## Output 2: `docs/product/BRIEF.md`
 

@@ -5,6 +5,8 @@
  */
 import { fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 
+import { pressWhenEnabled } from "./support/press";
+
 // Set before the routes (and lib/demo.ts) are required by renderRouter.
 process.env.EXPO_PUBLIC_DEMO = "1";
 // Required (not imported) so they load AFTER the line above: imports are hoisted.
@@ -20,9 +22,9 @@ it("replays a signed-out cold-start link after sign-in", async () => {
   await app;
   expect(await screen.findByTestId("signin-screen")).toBeTruthy();
   await fireEvent.changeText(screen.getByTestId("signin-email-input"), "sam@example.com");
-  await fireEvent.press(screen.getByTestId("signin-send-button"));
+  await pressWhenEnabled("signin-send-button");
   await fireEvent.changeText(await screen.findByTestId("signin-code-input"), "123456");
-  await fireEvent.press(screen.getByTestId("signin-verify-button"));
+  await pressWhenEnabled("signin-verify-button");
 
   // Both tabs are mounted (native tabs), so assert WHERE we are, not what exists.
   expect(await screen.findByTestId("home-screen")).toBeTruthy();

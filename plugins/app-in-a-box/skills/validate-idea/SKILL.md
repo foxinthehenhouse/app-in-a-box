@@ -198,8 +198,8 @@ offer to re-run. Continue the flow if they choose to.
 
 ## How the rest of setup uses this
 
-- **Interview (1b)** skips Round 1 when it's already answered, and recommends the
-  north-star metric and the 5 analytics events so that at least one of them measures
+- **Shape (1a)**, drawing on the interview question bank, skips the idea questions when
+  they're already answered, and recommends the north-star metric and the 5 analytics events so that at least one of them measures
   the top riskiest assumption.
 - **BRIEF.md** gets a "Positioning" section (the angle against the named
   alternatives) and a "Riskiest assumptions" section copied from VALIDATION.md.

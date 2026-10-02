@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Database gate: apply every migration to a THROWAWAY Postgres and prove RLS holds.
-# Run by .github/workflows/db.yml on every PR that touches supabase/; runs locally too.
+# Run by .github/workflows/db.yml on every PR and push to main (a required check has no
+# paths filter); runs locally too.
 #
 #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres scripts/db-test.sh
 #
@@ -97,8 +98,9 @@ fi
 say "6. negative control (planted RLS holes must be caught)"
 neg_adv="$(run_sql "$TMPD/plant.sql" supabase/ci/advisors.sql "$TMPD/rollback.sql")"
 if grep -q '^ERROR|rls_disabled_in_public|public.negctl_unprotected' <<<"$neg_adv" \
-   && grep -q '^ERROR|function_search_path_mutable|public.negctl_definer' <<<"$neg_adv"; then
-  echo "advisors caught the planted table without RLS and the mutable-search_path function"
+   && grep -q '^ERROR|function_search_path_mutable|public.negctl_definer' <<<"$neg_adv" \
+   && grep -q '^ERROR|security_definer_callable_by_api|public.negctl_definer()' <<<"$neg_adv"; then
+  echo "advisors caught the planted table without RLS, the mutable-search_path function, and the API-callable definer"
 else
   printf '%s\n' "$neg_adv"
   echo "::error::advisors did NOT catch the planted issues; the advisor gate is blind"; fail=1

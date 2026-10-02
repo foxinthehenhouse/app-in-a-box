@@ -10,6 +10,8 @@ mistakes before that job even starts, each with a negative control:
   - a `security definer` function without `set search_path` (search-path hijack;
     Supabase's advisor flags it as function_search_path_mutable)
   - a migration with no rollback note in its header
+  - a rollback note that drops the tables but leaves a trigger (and its function)
+    pointing at them: after that rollback every sign-up fails inside the trigger
 """
 
 from __future__ import annotations
@@ -67,6 +69,37 @@ def definer_without_search_path(sql: str) -> list[str]:
     return bad
 
 
+def _comment_text(sql: str) -> str:
+    return "\n".join(m.group(1) for m in re.finditer(r"--([^\n]*)", sql))
+
+
+def rollback_omissions(sql: str) -> list[str]:
+    """Triggers and functions a migration creates that its rollback note never drops,
+    plus any trigger its note drops AFTER the function it executes (`drop function`
+    fails on a dependent trigger; and the order is what a reader will paste)."""
+    body = _strip_comments(sql).lower()
+    created = set(
+        re.findall(r"create\s+(?:or\s+replace\s+)?(?:function|trigger)\s+(?:public\.)?\"?(\w+)", body)
+    )
+    note = _comment_text(sql).lower()
+    i = note.find("rollback")
+    note = note[i:] if i >= 0 else ""
+
+    def dropped_at(name: str) -> int:
+        m = re.search(rf"drop\s+(?:function|trigger)\s+(?:if\s+exists\s+)?(?:public\.)?\"?{name}\b", note)
+        return m.start() if m else -1
+
+    problems = sorted(n for n in created if dropped_at(n) < 0)
+    for trig, fn in re.findall(
+        r"create\s+(?:or\s+replace\s+)?trigger\s+\"?(\w+)\"?.*?execute\s+(?:function|procedure)\s+(?:public\.)?\"?(\w+)",
+        body,
+        re.S,
+    ):
+        if dropped_at(trig) >= 0 and dropped_at(fn) >= 0 and dropped_at(trig) > dropped_at(fn):
+            problems.append(f"{trig} must be dropped before {fn}")
+    return problems
+
+
 def test_there_are_migrations() -> None:
     assert MIGRATIONS, "supabase/migrations/ is empty"
 
@@ -95,7 +128,41 @@ def test_migration_notes_its_rollback(path: Path) -> None:
     assert "rollback" in head, f"{path.name}: put the rollback SQL in the header comment"
 
 
+@pytest.mark.parametrize("path", MIGRATIONS, ids=lambda p: p.name)
+def test_rollback_note_drops_every_trigger_and_function(path: Path) -> None:
+    assert rollback_omissions(path.read_text()) == [], (
+        f"{path.name}: the rollback note must drop these too (trigger first, then its "
+        "function). A trigger left pointing at a dropped table breaks every sign-up."
+    )
+
+
 # ---- negative controls ----------------------------------------------------------
+
+_PLANT = """-- Rollback: {note}
+create table public.things (id int);
+create or replace function public.do_thing() returns trigger language plpgsql as $$ begin return new; end $$;
+create trigger on_thing after insert on public.things for each row execute function public.do_thing();
+"""
+
+
+@pytest.mark.parametrize(
+    "note, expect",
+    [
+        ("drop table public.things;", ["do_thing", "on_thing"]),
+        ("drop trigger on_thing on public.things; drop table public.things;", ["do_thing"]),
+        ("drop function public.do_thing(); drop trigger on_thing on public.things;", ["on_thing must be dropped before do_thing"]),
+        ("drop trigger if exists on_thing on public.things;\n--   drop function if exists public.do_thing();", []),
+    ],
+    ids=["tables-only", "function-forgotten", "wrong-order", "complete"],
+)
+def test_rollback_omissions_can_fail(note: str, expect: list[str]) -> None:
+    assert rollback_omissions(_PLANT.format(note=note)) == expect
+
+
+def test_rollback_omissions_ignores_commented_out_sql() -> None:
+    """The note itself mentions the names; only real `create` statements count."""
+    assert rollback_omissions("-- Rollback: drop function public.x();\n-- create function public.x() ...\n") == []
+
 
 
 @pytest.mark.parametrize(

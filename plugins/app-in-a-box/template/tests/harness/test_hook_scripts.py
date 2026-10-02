@@ -166,21 +166,96 @@ def test_pre_commit_refuses_key_shaped_strings(secret: str, repo: Path) -> None:
     assert _git(repo, "commit", "-qm", "x").returncode != 0
 
 
-def _pre_push(repo: Path, remote_ref: str, **env: str) -> int:
-    line = f"refs/heads/feat/test {'0' * 40} {remote_ref} {'0' * 40}\n"
+def fake_gh(tmp_path: Path, stdout: str = "[]", rc: int = 0) -> Path:
+    """A `gh` first on PATH that answers `pr list` with canned JSON (or fails), and
+    leaves a marker so a test can prove whether it was consulted at all."""
+    d = tmp_path / "bin"
+    d.mkdir(exist_ok=True)
+    gh = d / "gh"
+    gh.write_text(f"#!/bin/sh\n: > '{tmp_path}/gh-called'\nprintf '%s' '{stdout}'\nexit {rc}\n")
+    gh.chmod(0o755)
+    return d
+
+
+def _pre_push(
+    repo: Path, remote_ref: str, local_sha: str = "0" * 40, gh_dir: Path | None = None, **env: str
+) -> subprocess.CompletedProcess:
+    line = f"refs/heads/feat/test {local_sha} {remote_ref} {'0' * 40}\n"
+    path = os.environ.get("PATH", "")
+    if gh_dir is not None:
+        path = f"{gh_dir}:{path}"
     return subprocess.run(
         ["bash", str(GITHOOKS / "pre-push"), "origin", "x"],
         input=line,
         cwd=repo,
         capture_output=True,
         text=True,
-        env={**os.environ, **env},
-    ).returncode
+        env={**os.environ, "PATH": path, **env},
+    )
 
 
-def test_pre_push_refuses_push_to_main(repo: Path) -> None:
-    assert _pre_push(repo, f"refs/heads/{MAIN}", SKIP_GATES="1") != 0
+def test_pre_push_refuses_push_to_main(repo: Path, tmp_path: Path) -> None:
+    assert (
+        _pre_push(repo, f"refs/heads/{MAIN}", gh_dir=fake_gh(tmp_path), SKIP_GATES="1").returncode
+        != 0
+    )
 
 
-def test_pre_push_allows_a_branch(repo: Path) -> None:
-    assert _pre_push(repo, "refs/heads/feat/test", SKIP_GATES="1") == 0
+def test_pre_push_allows_a_branch(repo: Path, tmp_path: Path) -> None:
+    assert (
+        _pre_push(repo, "refs/heads/feat/test", gh_dir=fake_gh(tmp_path), SKIP_GATES="1").returncode
+        == 0
+    )
+
+
+# ---- the merged-branch guard ("a merged branch is dead") --------------------------
+
+MERGED_HEAD = "a" * 40
+PUSHED = "b" * 40
+MERGED_JSON = json.dumps([{"number": 17, "headRefOid": MERGED_HEAD}])
+
+
+def test_pre_push_refuses_a_push_to_a_merged_branch(repo: Path, tmp_path: Path) -> None:
+    out = _pre_push(
+        repo, "refs/heads/feat/test", PUSHED, fake_gh(tmp_path, MERGED_JSON), SKIP_GATES="1"
+    )
+    assert out.returncode != 0
+    assert "#17" in out.stderr and "MERGED" in out.stderr and "new branch" in out.stderr.lower()
+
+
+def test_pre_push_allows_repushing_exactly_the_merged_head(repo: Path, tmp_path: Path) -> None:
+    out = _pre_push(
+        repo, "refs/heads/feat/test", MERGED_HEAD, fake_gh(tmp_path, MERGED_JSON), SKIP_GATES="1"
+    )
+    assert out.returncode == 0
+
+
+def test_pre_push_allows_when_no_pr_merged(repo: Path, tmp_path: Path) -> None:
+    out = _pre_push(repo, "refs/heads/feat/test", PUSHED, fake_gh(tmp_path, "[]"), SKIP_GATES="1")
+    assert out.returncode == 0 and (tmp_path / "gh-called").exists()
+
+
+def test_pre_push_fails_open_when_gh_fails(repo: Path, tmp_path: Path) -> None:
+    """Logged out, offline, no remote: one line of notice, and the push goes through."""
+    out = _pre_push(
+        repo, "refs/heads/feat/test", PUSHED, fake_gh(tmp_path, "", rc=1), SKIP_GATES="1"
+    )
+    assert out.returncode == 0 and "skipped" in out.stderr
+
+
+def test_pre_push_fails_open_when_gh_is_absent(repo: Path, tmp_path: Path) -> None:
+    empty = tmp_path / "emptybin"
+    empty.mkdir()
+    out = _pre_push(
+        repo, "refs/heads/feat/test", PUSHED, SKIP_GATES="1", PATH=f"{empty}:/usr/bin:/bin"
+    )
+    assert out.returncode == 0 and "gh not on PATH" in out.stderr
+
+
+def test_pre_push_skips_the_check_for_a_branch_delete(repo: Path, tmp_path: Path) -> None:
+    """An all-zero local sha deletes the remote branch; nothing can strand, so gh is
+    never asked (a merged PR would otherwise refuse the cleanup)."""
+    out = _pre_push(
+        repo, "refs/heads/feat/test", "0" * 40, fake_gh(tmp_path, MERGED_JSON), SKIP_GATES="1"
+    )
+    assert out.returncode == 0 and not (tmp_path / "gh-called").exists()

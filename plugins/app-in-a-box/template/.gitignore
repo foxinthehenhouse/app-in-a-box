@@ -26,7 +26,6 @@ mobile/android/
 # claude local state
 .claude/settings.local.json
 .claude/worktrees/
-.claude/memory/_journal/
 
 # os
 .DS_Store

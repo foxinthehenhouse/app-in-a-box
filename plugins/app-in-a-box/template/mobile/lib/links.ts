@@ -30,7 +30,7 @@
  */
 import { useEffect, useRef } from "react";
 import Constants from "expo-constants";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 
 export const SCHEME = "__SCHEME__";
 
@@ -180,6 +180,6 @@ export function usePendingLinkReplay(isSignedIn: boolean, loading: boolean): voi
     if (!isSignedIn) return;
     const route = takePendingLink();
     if (first || !route) return;
-    router.push(route as never);
+    router.push(route as Href); // only ever a LINKABLE_ROUTES match (resolveDeepLink)
   }, [isSignedIn, loading]);
 }

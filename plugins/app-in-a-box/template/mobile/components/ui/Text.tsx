@@ -9,14 +9,20 @@ import { Text as RNText, type TextProps as RNTextProps } from "react-native";
 
 import { useTheme, type Palette, type TypeRole } from "../../lib/theme";
 
-export type Tone = "default" | "dim" | "faint" | "accent" | "danger" | "success" | "onAccent";
+/**
+ * Text tones. Every key here is a palette token painted as TEXT, so
+ * scripts/check_contrast.py (repo root) holds it to 4.5:1 on every surface. `success`
+ * and `warning` are deliberately absent: they clear 3:1 as icons and dots but not 4.5:1
+ * as text on every surface, and a success message is ink with a glyph, never green text.
+ * Add a tone here and the gate starts checking that token as text.
+ */
+export type Tone = "default" | "dim" | "faint" | "accent" | "danger" | "onAccent";
 
 const TONE: Record<Exclude<Tone, "default">, keyof Palette> = {
   dim: "inkDim",
   faint: "inkFaint",
   accent: "accent",
   danger: "danger",
-  success: "success",
   onAccent: "onAccent",
 };
 

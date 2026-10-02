@@ -9,8 +9,10 @@ description: Phase 8 of App in a Box. Turns the product brief into a seeded back
 
 From `docs/product/BRIEF.md`, file 5–10 tickets with the project's `backlog` skill:
 - 1 ticket per v1 screen or core-loop step not already built by the scaffold
-- 1 for "north-star dashboard in PostHog" (funnel of the 5 key events)
-- 1 for Apple/Google sign-in (if chosen in the interview but deferred)
+- 1 for "north-star dashboard in PostHog" (funnel of the 5 key events); skip it if
+  `appbox.yaml` → `stack.analytics: none`
+- 1 for Apple/Google sign-in (if `stack.auth` in `appbox.yaml` lists `apple` or
+  `google` and the scaffold deferred them to `recipe-social-auth`)
 - 1 for "TestFlight / internal testing build" (`eas build --profile preview`)
 Label priorities. The core loop is `p0`.
 

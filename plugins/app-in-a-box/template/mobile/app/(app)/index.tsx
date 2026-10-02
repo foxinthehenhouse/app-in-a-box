@@ -1,6 +1,6 @@
 /**
  * Home. The scaffold replaces the empty state with the core-loop screen from
- * docs/product/BRIEF.md. Keep the pattern: analytics on mount, data through a
+ * docs/product/BRIEF.md. Keep the pattern: analytics on focus, data through a
  * query hook in lib/query.ts (cached, works offline) over a lib/api.ts adapter,
  * a skeleton while loading, an honest empty/error state (never fake data), pull
  * to refresh, and every string through t().
@@ -8,8 +8,8 @@
  * Keep the `home-screen` and `home-skeleton` testIDs when you replace this screen:
  * __tests__/demo-flow and i18n-pseudo wait on them ("home has loaded"), not on copy.
  */
-import { useEffect } from "react";
-import { router } from "expo-router";
+import { useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
 import { View } from "react-native";
 
 import { Avatar, Button, Card, EmptyState, ErrorNotice, Meta, Screen, SkeletonCard, Title } from "../../components/ui";
@@ -26,9 +26,13 @@ export default function Home() {
   const t = useT();
   const me = useLoaded(useMe());
 
-  useEffect(() => {
-    analytics.screenViewed("home");
-  }, []);
+  // On focus, not on mount: native tabs mount every tab at launch, so a mount-time
+  // event would log Settings as "viewed" on every cold start and never log a tab switch.
+  useFocusEffect(
+    useCallback(() => {
+      analytics.screenViewed("home");
+    }, []),
+  );
 
   const name = me.data?.displayName ?? "";
   return (

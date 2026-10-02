@@ -293,15 +293,75 @@ def _module_level_mutables(source: str) -> list[str]:
     return found
 
 
+_CACHE_DECORATORS = {"lru_cache", "cache"}
+# A memoized function IS a module-level dict with a nicer syntax. One named like
+# cross-request state is state, full stop; anything else cached must be listed here
+# with the reason it is a per-process singleton and not data about a request.
+_STATE_NAME = re.compile(r"state|cache|store|pending|session|nonce|token", re.I)
+CACHED_SINGLETONS: dict[str, str] = {
+    "backend/auth.py:_jwks_client": (
+        "one PyJWKClient per worker: it holds Supabase's PUBLIC signing keys, identical for "
+        "every user and every worker; a cold worker just fetches them again"
+    ),
+    "backend/db.py:_client": (
+        "one Supabase client per worker: a connection object carrying the service key and "
+        "nothing about any request or user"
+    ),
+}
+
+
+def _cached_functions(source: str) -> list[str]:
+    """Names of functions decorated with @cache / @lru_cache (bare, called, or qualified)."""
+    found: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        for d in node.decorator_list:
+            target = d.func if isinstance(d, ast.Call) else d
+            name = target.id if isinstance(target, ast.Name) else getattr(target, "attr", None)
+            if name in _CACHE_DECORATORS:
+                found.append(node.name)
+    return found
+
+
+def _in_process_state(rel: str, source: str) -> list[str]:
+    hits = _module_level_mutables(source)
+    for fn in _cached_functions(source):
+        if _STATE_NAME.search(fn):
+            hits.append(f"cached {fn}: named like cross-request state; put it in Postgres")
+        elif f"{rel}:{fn}" not in CACHED_SINGLETONS:
+            hits.append(f"cached {fn}: allowlist in CACHED_SINGLETONS with a reason, or drop the cache")
+    return hits
+
+
 def test_backend_keeps_no_in_process_state() -> None:
     # railway.json runs several workers: a module-level dict is per-process state
     # that silently diverges. Constants are UPPER_CASE; state goes in Postgres.
     offenders = {
-        str(p.relative_to(ROOT)): hits
+        rel: hits
         for p in (ROOT / "backend").rglob("*.py")
-        if (hits := _module_level_mutables(p.read_text()))
+        if (hits := _in_process_state(rel := str(p.relative_to(ROOT)), p.read_text()))
     }
     assert offenders == {}
+
+
+def test_cached_singleton_allowlist_is_live_and_justified() -> None:
+    for key, reason in CACHED_SINGLETONS.items():
+        rel, fn = key.split(":")
+        assert fn in _cached_functions((ROOT / rel).read_text()), f"{key}: no longer cached; drop it"
+        assert len(reason) > 40, key
+
+
+def test_in_process_state_guard_catches_a_planted_memo() -> None:
+    assert _cached_functions("@lru_cache(maxsize=1)\ndef _pending_tokens():\n    pass\n") == ["_pending_tokens"]
+    assert _cached_functions("@cache\ndef x():\n    pass\n") == ["x"]
+    assert _cached_functions("@functools.lru_cache\nasync def y():\n    pass\n") == ["y"]
+    assert _cached_functions("@router.get('/x')\ndef z():\n    pass\n") == []
+    state = _in_process_state("backend/x.py", "@lru_cache\ndef _session_store():\n    pass\n")
+    assert state and "named like cross-request state" in state[0]
+    unlisted = _in_process_state("backend/x.py", "@lru_cache\ndef _settings():\n    pass\n")
+    assert unlisted and "allowlist" in unlisted[0]
+    assert _in_process_state("backend/db.py", "@lru_cache(maxsize=1)\ndef _client():\n    pass\n") == []
 
 
 def test_in_process_state_guard_catches_a_planted_cache() -> None:

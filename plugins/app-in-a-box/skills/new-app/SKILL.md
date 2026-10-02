@@ -70,6 +70,12 @@ question to at most 3 options plus "you pick" so it fits both tools.
    feature ~30 min). The target is one afternoon; say if a step is running long. The user should never have to ask "where are we?".
 9. **When something fails,** check `KIT/docs/TROUBLESHOOTING.md` for the symptom
    before improvising. Every entry there came from a real run.
+10. **Never**, in any phase: pipe `curl` or `wget` into a shell; pass `--no-verify`;
+    force-push; `rm -rf` anything outside the project folder; create an account or
+    solve a CAPTCHA for the user; print, echo or paste a secret value; commit on `main`
+    after the bootstrap commit. Phases 0–3 run before the generated repo's hooks
+    exist, so nothing enforces this list yet: until phase 4 installs the hooks, you
+    are the hook.
 
 ## Resume logic
 
@@ -90,8 +96,8 @@ resuming. If every phase is done, don't restart: go to "Keep going" below.
 | 3 | Accounts | `KIT/skills/accounts/SKILL.md` | Every required CLI reports logged in |
 | 4 | Scaffold | `KIT/skills/scaffold/SKILL.md` | App boots locally; backend tests green; first commit on `main` |
 | 5 | Provision | `KIT/skills/provision/SKILL.md` | Every resource in `appbox.yaml.resources` exists; secrets wired; migrations applied; `/health` 200 |
-| 6 | Harness | `KIT/skills/harness/SKILL.md` | Git hooks on; GitHub protection + AI review; Claude + Codex adapters trusted; every guard smoke-tested |
-| 7 | Verify | `KIT/skills/doctor/SKILL.md` (mode: full) | All gates green; first PR open; first analytics event seen (if analytics is in the stack) |
+| 6 | Harness | `KIT/skills/harness/SKILL.md` | Git hooks on; labels + AI review wired; the branch-protection command ready (it runs in phase 7, once GitHub has seen the checks); Claude + Codex adapters trusted; every guard smoke-tested |
+| 7 | Verify | `KIT/skills/doctor/SKILL.md` (mode: full) | All gates green; first PR open; branch protection applied and verified (or recorded as unavailable); first analytics event seen (if analytics is in the stack) |
 | 8 | First feature | `KIT/skills/first-feature/SKILL.md` | Backlog seeded; feature #1 PR open |
 
 If the user passed an idea as an argument (`$ARGUMENTS`), use it as the seed for
@@ -144,7 +150,7 @@ Give the user, in this order:
    project, backend URL + `/health`.
 3. "What I need from you", a short list of anything that truly needs a human
    (Apple enrolment, merging the first PR, adding a teammate).
-4. The final progress checklist (all 10 steps ticked).
+4. The final progress checklist (every step ticked).
 
 ## Keep going (after phase 8, and whenever setup is already complete)
 

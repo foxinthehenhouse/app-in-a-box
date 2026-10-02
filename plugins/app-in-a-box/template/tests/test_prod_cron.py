@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -149,6 +149,47 @@ def test_one_users_unexpected_error_is_counted_not_fatal(monkeypatch: pytest.Mon
     db = FakeDB({"profiles": [{"id": "u1", "onboarded": True}, {"id": "u2", "onboarded": True}]})
     out = jobs_service.weekly_digest(db, now=datetime(2026, 9, 30, tzinfo=UTC), client=_expo_ok())
     assert out["failed"] == 2 and out["skipped"] is False
+
+
+NOW = datetime(2026, 9, 30, 12, tzinfo=UTC)
+
+
+def _claim(started_hours_ago: float, finished: bool) -> dict[str, object]:
+    return {
+        "job": "j",
+        "run_key": "k",
+        "started_at": (NOW - timedelta(hours=started_hours_ago)).isoformat(),
+        "finished_at": NOW.isoformat() if finished else None,
+    }
+
+
+def test_a_stale_unfinished_claim_is_reclaimed() -> None:
+    """release_run() only runs for a Python exception. A worker killed mid-run (deploy,
+    OOM, SIGKILL) leaves its claim behind, and without this the period would report
+    `skipped` forever. After STALE_RUN_HOURS an unfinished claim is taken over."""
+    db = FakeDB({"job_runs": [_claim(jobs_service.STALE_RUN_HOURS + 1, finished=False)]})
+    assert jobs_service.claim_run(db, "j", "k", now=NOW) is True
+    assert db.tables["job_runs"] == [{"job": "j", "run_key": "k"}], "a fresh claim replaces it"
+
+
+def test_a_recent_unfinished_claim_is_still_running_not_stale() -> None:
+    db = FakeDB({"job_runs": [_claim(0.2, finished=False)]})
+    assert jobs_service.claim_run(db, "j", "k", now=NOW) is False
+    assert db.tables["job_runs"] == [_claim(0.2, finished=False)]
+
+
+def test_a_finished_run_is_never_reclaimed_however_old() -> None:
+    db = FakeDB({"job_runs": [_claim(400, finished=True)]})
+    assert jobs_service.claim_run(db, "j", "k", now=NOW) is False
+    assert db.tables["job_runs"] == [_claim(400, finished=True)]
+
+
+def test_weekly_digest_reruns_after_a_killed_worker() -> None:
+    stale = {**_claim(jobs_service.STALE_RUN_HOURS + 1, finished=False), "job": "weekly_digest",
+             "run_key": jobs_service.iso_week(NOW)}
+    db = FakeDB({"job_runs": [stale], "profiles": [{"id": "u1", "onboarded": True}]})
+    out = jobs_service.weekly_digest(db, now=NOW, client=_expo_ok())
+    assert out["skipped"] is False and out["users"] == 1
 
 
 def test_claim_run_propagates_unexpected_errors() -> None:
