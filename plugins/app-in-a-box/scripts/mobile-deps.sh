@@ -54,5 +54,15 @@ npm pkg set main=expo-router/entry \
   jest.preset=jest-expo jest.resolver=react-native-worklets/jest/resolver.js \
   "jest.setupFiles[0]=./jest.setup.ts" \
   scripts.check-strings="node scripts/check-hardcoded-strings.js" \
-  scripts.gates="tsc --noEmit && eslint . && node scripts/check-analytics-coverage.js && node scripts/check-eas-shipping-env.js && node scripts/check-replay-unmask.js && node scripts/check-hardcoded-strings.js && jest --ci --passWithNoTests"
+  scripts.gates="tsc --noEmit && eslint . && node scripts/check-analytics-coverage.js && node scripts/check-eas-shipping-env.js && node scripts/check-replay-unmask.js && node scripts/check-hardcoded-strings.js && node scripts/check-test-presence.js && jest --ci --coverage --coverageReporters=text-summary --passWithNoTests"
 npm pkg set jest.testTimeout=30000 --json  # a number, not the string "30000"
+# Coverage floor (part of the gates): measured over ALL of app/, components/ and lib/,
+# not just the files some test happens to load, so an untested new screen pulls the
+# number down. Set ~2 points under the template's measured coverage (75.9 / 68.8 /
+# 70.5 / 77.9): a ratchet, not a target. Raise it as tests land; never lower it to
+# get a push through.
+npm pkg set "jest.collectCoverageFrom[0]=app/**/*.{ts,tsx}" "jest.collectCoverageFrom[1]=components/**/*.{ts,tsx}" \
+  "jest.collectCoverageFrom[2]=lib/**/*.{ts,tsx}" "jest.collectCoverageFrom[3]=!**/__tests__/**" \
+  "jest.collectCoverageFrom[4]=!**/*.web.{ts,tsx}"
+npm pkg set jest.coverageThreshold.global.statements=74 jest.coverageThreshold.global.branches=66 \
+  jest.coverageThreshold.global.functions=68 jest.coverageThreshold.global.lines=76 --json
