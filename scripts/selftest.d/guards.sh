@@ -13,12 +13,16 @@ _G="git -c user.email=t@example.com -c user.name=selftest"
 _precommit_case() {  # <expect: refuse|allow> <name> <content...>
   local expect="$1" name="$2"; shift 2
   printf '%s\n' "$@" > "$APP/_plant.txt"; git add -f "$APP/_plant.txt"
-  if $_G commit -qm plant >/dev/null 2>&1; then
+  local err
+  if err="$($_G commit -qm plant 2>&1 >/dev/null)"; then
     git reset -q --soft HEAD~1; git restore --staged "$APP/_plant.txt"; rm -f "$APP/_plant.txt"
     [ "$expect" = allow ] && ok "pre-commit allows: $name" || bad "pre-commit LET THROUGH: $name"
   else
     git restore --staged "$APP/_plant.txt"; rm -f "$APP/_plant.txt"
-    [ "$expect" = refuse ] && ok "pre-commit refuses: $name" || bad "pre-commit blocked a benign commit: $name"
+    # Refused for the right reason: the hook's own message, not a crash in the hook.
+    if [ "$expect" = refuse ]; then
+      grep -q '^pre-commit:' <<<"$err" && ok "pre-commit refuses: $name" || bad "pre-commit failed, but not with its own message: $name"
+    else bad "pre-commit blocked a benign commit: $name"; fi
   fi
 }
 # Each planted value is assembled from two halves at run time. A literal that looks like a
@@ -49,22 +53,33 @@ _precommit_case allow "prose that mentions the service_role key" \
 # pre-push: the main-branch block fires with gates skipped; a branch passes.
 _prepush() {  # <remote ref>
   printf 'refs/heads/feat/selftest %s %s %s\n' "$(printf 0%.0s {1..40})" "$1" "$(printf 0%.0s {1..40})" \
-    | SKIP_GATES=1 bash "$APP/.githooks/pre-push" origin x >/dev/null 2>&1
+    | SKIP_GATES=1 bash "$APP/.githooks/pre-push" origin x 2>&1
 }
 MAINREF="refs/heads/ma""in"
-refuses "pre-push refuses a push to $MAINREF (gates skipped, block still fires)" "_prepush $MAINREF"
+refuses "pre-push refuses a push to $MAINREF (gates skipped, block still fires)" "_prepush $MAINREF" "pre-push:"
 check "pre-push allows a branch" "_prepush refs/heads/feat/selftest"
 
 # ticket guard: run the workflow's real script. Lookalikes that used to pass must fail.
 _ticket() {  # <TITLE> <BODY> <BRANCH>
   local script; script=$(python3 -c "import yaml,sys;print(yaml.safe_load(open(sys.argv[1]))['jobs']['ticket']['steps'][0]['run'])" "$APP/.github/workflows/ticket.yml") || return 2
-  TITLE="$1" BODY="$2" BRANCH="$3" AUTHOR=dev GITHUB_EVENT_NAME=pull_request bash -c "$script" >/dev/null 2>&1
+  TITLE="$1" BODY="$2" BRANCH="$3" AUTHOR=dev GITHUB_EVENT_NAME=pull_request bash -c "$script" 2>&1
 }
 check "ticket guard: Linear id in title, GitHub #id in body, id in branch all pass" \
   "_ticket 'feat: streaks (APP-12)' '' x && _ticket 'feat: streaks' 'Closes #42' x && _ticket 'fix: y' '' fix/APP-17-otp && _ticket 'feat: x' '' feat/42-streak"
 refuses "ticket guard: SHA-256 / ISO-8601 / UTF-8 in the title are not tickets" \
-  "_ticket 'docs: hash with SHA-256, dates as ISO-8601, text as UTF-8' '' feat/hashing"
+  "_ticket 'docs: hash with SHA-256, dates as ISO-8601, text as UTF-8' '' feat/hashing" "No ticket id"
 refuses "ticket guard: a date in the branch is not a ticket (chore/2026-09-30-cleanup)" \
-  "_ticket 'chore: cleanup' '' chore/2026-09-30-cleanup"
+  "_ticket 'chore: cleanup' '' chore/2026-09-30-cleanup" "No ticket id"
 refuses "ticket guard: a version in the branch is not a ticket (release/1-0)" \
-  "_ticket 'release 1.0' '' release/1-0"
+  "_ticket 'release 1.0' '' release/1-0" "No ticket id"
+
+# No build artefacts in the kit's own tree: a tracked .pyc embeds the contributor's absolute
+# path and ships to every founder who installs the plugin (four did, once; no guard saw it).
+_tracked_artefacts() { (cd "$KIT/../.." && git ls-files | grep -E '(^|/)(__pycache__/|node_modules/|\.pytest_cache/|\.ruff_cache/)|\.pyc$'); }
+check "kit: no tracked build artefacts (__pycache__, .pyc, node_modules, tool caches)" "! _tracked_artefacts"
+_artefact_plant() {
+  local f="$KIT/scripts/zz_plant.pyc"; : > "$f"; (cd "$KIT/../.." && git add -N "$f")
+  _tracked_artefacts >/dev/null; local rc=$?
+  (cd "$KIT/../.." && git rm -q --cached "$f"); rm -f "$f"; [ "$rc" = 0 ]
+}
+check "kit: the artefact check catches a planted tracked .pyc" _artefact_plant

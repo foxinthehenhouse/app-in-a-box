@@ -136,7 +136,10 @@ jobs:
               "Every branch cut from main inherits this until it is fixed. Reproduce: \`scripts/dev-venv.sh python -m pytest -q\` and \`cd mobile && npm run gates\`." "" \
               "Managed by the \`main-red-alert\` job in \`.github/workflows/ci.yml\`: later red runs comment here; the first green run on main's head closes it." \
               > "$RUNNER_TEMP/main-red.md"
-            gh issue create --title "main is red: $failed" --label main-red --assignee "$OWNER" --body-file "$RUNNER_TEMP/main-red.md"
+            # Assign the owner only when the repo belongs to a user: on an org-owned repo the
+            # org name is not assignable and the alert job itself would go red.
+            assign=(); [ "$(gh api "users/$OWNER" --jq .type 2>/dev/null)" = "User" ] && assign=(--assignee "$OWNER")
+            gh issue create --title "main is red: $failed" --label main-red "${assign[@]}" --body-file "$RUNNER_TEMP/main-red.md"
           elif [ -n "$open" ]; then
             gh issue comment "$open" --body "Green again at \`$short\` ($EVENT run): $RUN_URL. Closing."
             gh issue close "$open" --reason completed

@@ -43,7 +43,7 @@ jobs:
           # and RFC-7519 used to pass. A branch carries the id before a slug
           # (feat/42-streak, fix/APP-17-otp), so a date (chore/2026-09-30-cleanup) or a
           # version (release/1-0) does not count.
-          not_ids='^(SHA|ISO|UTF|RFC|COVID|CVE|PEP|AES|RSA|MD|TLS|HTTP|HTML|CSS|UTC|GMT|ECMA|IPV|RS|ES|HS|PS|X)-[0-9]+$'
+          not_ids='^(SHA|ISO|UTF|RFC|COVID|CVE|PEP|AES|RSA|MD|TLS|HTTP|HTML|CSS|UTC|GMT|ECMA|IPV)-[0-9]+$'
           found=0
           for tok in $(printf '%s\n%s\n' "$TITLE" "$BODY" | grep -oE '\b[A-Z]{2,6}-[0-9]+\b' || true); do
             printf '%s' "$tok" | grep -qE "$not_ids" || found=1
