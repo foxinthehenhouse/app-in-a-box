@@ -138,7 +138,8 @@ template says src/app; this kit doesn't use it).
 
 `npm run gates` = `tsc --noEmit` + `eslint` + `check-analytics-coverage` +
 `check-eas-shipping-env` + `check-maestro-coverage` + `check-replay-unmask` +
-`check-hardcoded-strings` + `jest`.
+`check-hardcoded-strings` + `check-test-presence` + `jest --coverage` (a floor over all
+of app/, components/ and lib/: raise it as tests land, never lower it to push).
 Run it before every push. `jest.setup.ts` holds the shared native-module mocks.
 
 ## E2E (Maestro)
