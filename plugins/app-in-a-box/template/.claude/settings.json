@@ -10,7 +10,9 @@
       "Bash(ls:*)", "Bash(grep:*)", "Bash(rg:*)", "Bash(wc:*)", "Bash(head:*)", "Bash(tail:*)",
       "Bash(python3:*)", "Bash(scripts/dev-venv.sh:*)", "Bash(./run.sh:*)",
       "Bash(npm run:*)", "Bash(npm test:*)", "Bash(npx tsc:*)", "Bash(npx jest:*)",
-      "Bash(npx expo:*)", "Bash(node:*)", "Bash(maestro test:*)",
+      "Bash(npx expo:*)", "Bash(node:*)", "Bash(maestro test:*)", "Bash(maestro check-syntax:*)",
+      "mcp__maestro__list_devices", "mcp__maestro__inspect_screen", "mcp__maestro__take_screenshot",
+      "mcp__maestro__cheat_sheet", "mcp__maestro__run",
       "Bash(supabase status:*)", "Bash(supabase projects list:*)", "Bash(eas whoami:*)",
       "Bash(eas env:list:*)", "Bash(railway status:*)", "Bash(curl -fsS:*)"
     ],

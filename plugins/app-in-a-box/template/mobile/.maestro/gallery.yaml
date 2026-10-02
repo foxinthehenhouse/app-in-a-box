@@ -1,0 +1,20 @@
+# Component gallery (dev builds only): opens from Settings and closes again.
+appId: __BUNDLE_ID__
+tags:
+  - demo
+---
+- runFlow: common/signin-demo.yaml
+- tapOn:
+    id: "tab-settings"
+- scrollUntilVisible:
+    element:
+      id: "settings-gallery-row"
+- tapOn:
+    id: "settings-gallery-row"
+- assertVisible:
+    id: "gallery-screen"
+- takeScreenshot: gallery
+- tapOn:
+    id: "gallery-close-button"
+- assertVisible:
+    id: "settings-screen"

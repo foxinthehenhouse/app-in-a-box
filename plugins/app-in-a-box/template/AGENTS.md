@@ -23,7 +23,7 @@ scripts/dev-venv.sh python -m pytest -q     # backend tests (py3.12 venv, shared
 ./run.sh                                     # API on :8000 with reload
 cd mobile && npm run gates                   # tsc + eslint + guard scripts + jest (pre-push gate)
 cd mobile && npx expo start                  # app in Expo Go / dev client
-maestro test mobile/.maestro/                # E2E flows (per-directory)
+maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 ```
 
 ## Critical rules (non-negotiable)

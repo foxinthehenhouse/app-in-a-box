@@ -30,7 +30,11 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
 5. **Mobile:** `*Wire` type + adapter in `lib/api.ts` → screen from `components/ui`
    primitives + theme tokens → analytics helpers (view event, success+failure) → honest
    loading/empty/error states → testIDs. `cd mobile && npm run gates`.
-6. **E2E:** add or extend a Maestro flow under `mobile/.maestro/` for the happy path.
+6. **E2E:** give the new screen a root `<screen>-screen` (or `-sheet`) testID and add
+   a flow under `mobile/.maestro/` for its happy path (`check-maestro-coverage` in the
+   gates fails without one). Run it through the Maestro MCP (`list_devices` → `run`;
+   `inspect_screen` when a selector misses) and say in the PR whether it ran on a
+   device or only passed `maestro check-syntax`. See `docs/qa/MAESTRO.md`.
 7. **Self-review:** re-read your diff as a hostile reviewer. What would break for a
    user on last month's app build? What if the request comes from a different user?
    What if the user taps twice on a slow network? For each important test, **break

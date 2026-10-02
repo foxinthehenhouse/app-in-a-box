@@ -1,0 +1,21 @@
+# Sign in through demo mode (EXPO_PUBLIC_DEMO=1, dev builds only): any email, any
+# 6 digits. Ends on the home screen.
+appId: __BUNDLE_ID__
+---
+- runFlow: launch.yaml
+- assertVisible:
+    id: "signin-demo-badge"
+- tapOn:
+    id: "signin-email-input"
+- inputText: "e2e@example.com"
+- tapOn:
+    id: "signin-send-button"
+- tapOn:
+    id: "signin-code-input"
+- inputText: "123456"
+- tapOn:
+    id: "signin-verify-button"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000

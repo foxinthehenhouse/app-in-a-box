@@ -137,5 +137,17 @@ template says src/app; this kit doesn't use it).
 ## Gates
 
 `npm run gates` = `tsc --noEmit` + `eslint` + `check-analytics-coverage` +
-`check-eas-shipping-env` + `check-replay-unmask` + `check-hardcoded-strings` + `jest`.
+`check-eas-shipping-env` + `check-maestro-coverage` + `check-replay-unmask` +
+`check-hardcoded-strings` + `check-test-presence` + `jest --coverage` (a floor over all
+of app/, components/ and lib/: raise it as tests land, never lower it to push).
 Run it before every push. `jest.setup.ts` holds the shared native-module mocks.
+
+## E2E (Maestro)
+
+Every route has a root testID ending in `-screen` or `-sheet`, and a flow in
+`.maestro/` that targets it (`check-maestro-coverage` fails otherwise, and also
+fails on a flow `id:` nothing renders). Flows tagged `smoke` run on any build,
+including EAS's; `demo` flows sign in through demo mode, so they need a dev build
+with `EXPO_PUBLIC_DEMO=1`. Agents drive them through the Maestro MCP
+(`list_devices` → `run`, `inspect_screen` when a selector misses). See
+`docs/qa/MAESTRO.md`.
