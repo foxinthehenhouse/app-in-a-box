@@ -6,7 +6,7 @@
 **A product-advisor team shapes it with you, and you click through a prototype before anything is built.**
 **Works in Claude Code and Codex.**
 
-[Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Status](#status--roadmap) · [FAQ](#faq)
+[Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Status](#status) · [FAQ](#faq)
 
 ![status](https://img.shields.io/badge/status-alpha%20v0.6.0-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
 
