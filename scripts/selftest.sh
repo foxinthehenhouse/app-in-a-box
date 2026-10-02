@@ -51,7 +51,11 @@ skip() {
 check() {
   local out
   if out="$(eval "$2" 2>&1)"; then ok "$1"; else
-    bad "$1"; printf '%s\n' "$out" | awk 'NR<=12 || NR>n-28 {print} {a[NR]=$0} END{}' n="$(printf '%s\n' "$out" | wc -l)" | sed 's/^/        | /'
+    bad "$1"
+    # Head, tail, and every failure marker in between (jest/pytest/TAP/eslint): the names
+    # of what failed are usually in the middle of a long run, which head+tail alone drop.
+    printf '%s\n' "$out" | awk 'NR<=12 || NR>n-28 {print}' n="$(printf '%s\n' "$out" | wc -l)" | sed 's/^/        | /'
+    printf '%s\n' "$out" | grep -E '^\s*(FAIL |ERROR|✕|● |not ok|E   |FAILED |error[: ])' | awk '!seen[$0]++' | head -40 | sed 's/^/        ! /'
   fi
 }
 # refuses NAME CMD [NEEDLE]: CMD must fail. With NEEDLE, its output must also name the
