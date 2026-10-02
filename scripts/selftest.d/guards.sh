@@ -33,6 +33,12 @@ _precommit_case refuse "OpenAI project key" "OPENAI_API_KEY=$(_j sk-proj- abcdef
 _precommit_case refuse "Stripe live key" "STRIPE_SECRET_KEY=$(_j sk_live_ abcdefghijklmnopqrstuv)"
 _precommit_case refuse "Slack bot token" "SLACK_TOKEN=$(_j xoxb- 123456789012-abcdefghijklmnopqrstuvwx)"
 _precommit_case refuse "GitHub app installation token" "GH_TOKEN=$(_j ghs_ abcdefghijklmnopqrstuvwxyz0123456789)"
+_precommit_case refuse "a service_role JWT under a renamed variable (payload says service_role)" \
+  "BACKEND_SUPABASE_KEY=$(_j eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9. eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFiY2RlZmdoaWprbG1ub3BxcnN0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MX0)"
+_precommit_case allow "the anon JWT under any variable name (payload says anon)" \
+  "SUPABASE_ANON_KEY=$(_j eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9. eyJpc3MiOiJzdXBhYmFzZSIsInJvbGUiOiJhbm9uIn0)"
+_precommit_case refuse "a legacy encrypted PEM (Proc-Type line before the body)" \
+  "$(_j '-----BEGIN RSA ' 'PRIVATE KEY-----')" 'Proc-Type: 4,ENCRYPTED' 'DEK-Info: AES-256-CBC,ABCDEF0123456789ABCDEF0123456789' 'MIIEpAIBAAKCAQEA7x9kZ2b8ZxQ2v1kJ8nYq3F0pL5sT2rW9cH4dG6eA1bC3dE5f'
 _precommit_case refuse "a PEM private key (header + body)" \
   "$(_j '-----BEGIN RSA ' 'PRIVATE KEY-----')" 'MIIEpAIBAAKCAQEA7x9kZ2b8ZxQ2v1kJ8nYq3F0pL5sT2rW9cH4dG6eA1bC3dE5f'
 _precommit_case allow "a PEM header alone (a secret scanner's own test fixture)" \
