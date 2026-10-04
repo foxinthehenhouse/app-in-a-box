@@ -49,6 +49,11 @@ jobs:
         # Overused fonts, pure-grey neutrals, the stock AI violet, overshooting curves:
         # docs/design/TASTE.md. The kit ran the same check on every prototype direction.
         run: python3 scripts/check_design.py design/tokens.json
+      - name: DESIGN.md matches design/tokens.json
+        # DESIGN.md is what agents read before UI work. Its generated blocks are a
+        # projection of tokens.json: a hand edit there, or a token change nobody
+        # regenerated, would tell every later session the wrong design.
+        run: python3 scripts/design_md.py --check
       - name: Ruff
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)

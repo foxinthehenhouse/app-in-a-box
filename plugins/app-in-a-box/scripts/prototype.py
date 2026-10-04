@@ -32,6 +32,9 @@ freeze   takes the JSON the prototype's "Copy my choices" button emits,
            docs/product/SCREENS.md  per screen: chosen variant -> components/ui, nav
                                     graph, states, features in/out of v1
            design/choices.json      every selection, resolved (no gaps)
+           DESIGN.md                the design system for agents, generated from
+                                    tokens.json (design_md.py); prose outside the
+                                    generated markers in an existing one is kept
 
 A direction's `tokens` is a tokens v2 object. Its `color` must be complete (light AND
 dark); any other top-level key it leaves out (type, space, elevation...) is taken from
@@ -61,6 +64,7 @@ TEMPLATE_TOKENS = KIT / "template" / "design" / "tokens.json"
 sys.path.insert(0, str(HERE))
 import check_contrast as cc  # noqa: E402  (sibling module; shared contrast gate)
 import check_design as dc  # noqa: E402  (sibling module; shared design-tells gate)
+import design_md as dm  # noqa: E402  (sibling module; DESIGN.md from tokens.json)
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 FONT_RE = re.compile(r"^[A-Za-z0-9 ]{1,40}$")
@@ -1626,6 +1630,15 @@ def freeze(spec: dict, choices: dict, target: Path) -> int:
         target / "docs" / "product" / "SCREENS.md": screens_md(spec, ch),
         target / "design" / "choices.json": json.dumps(ch, indent=2) + "\n",
     }
+    # DESIGN.md is refreshed, not replaced: a re-freeze keeps the founder's own words
+    # and the Decisions log, and rewrites only the parts tokens.json owns.
+    design_md = target / "DESIGN.md"
+    try:
+        old = design_md.read_text(encoding="utf-8") if design_md.is_file() else None
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"freeze: cannot read {design_md}: {e}")
+        return 1
+    files[design_md] = dm.update(old, tokens)
     # Stage every file first, then rename them into place, so a failure (a target that
     # is a file, a read-only dir) leaves the previous freeze intact, never half of one.
     staged = []
@@ -1658,7 +1671,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("out")
     c = sub.add_parser("check", help="lint the spec; one line per problem")
     c.add_argument("spec")
-    f = sub.add_parser("freeze", help="write tokens.json, SCREENS.md, choices.json")
+    f = sub.add_parser("freeze", help="write tokens.json, SCREENS.md, choices.json, DESIGN.md")
     f.add_argument("spec")
     f.add_argument("choices")
     f.add_argument("--target", required=True, help="repo root to write into")

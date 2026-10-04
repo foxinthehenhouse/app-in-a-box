@@ -76,6 +76,12 @@ template says src/app; this kit doesn't use it).
 
 ## Design system rules
 
+- **Read `../DESIGN.md` before any UI work.** It is the design system in one page
+  (palette in both modes, type roles, spacing, radius, motion, component recipes, the
+  do's and don'ts), generated from `../design/tokens.json`. Change tokens through the
+  design flow, never by hand in DESIGN.md or `lib/tokens.ts`: edit the JSON with the
+  owner's yes, run `python3 scripts/design_md.py` (repo root), re-render. CI and
+  pre-commit run `python3 scripts/design_md.py --check`.
 - **Theme through hooks.** Read colours from `useTheme()` / `makeStyles`, never from a
   module-level `StyleSheet` with a fixed palette: that silently ignores dark mode.
 - **Type through `<Text variant>`.** It applies the font, size, weight, line height and

@@ -21,6 +21,7 @@ Then it generates the per-agent adapters from the shared, agent-neutral sources:
     .mcp.json                       synced to the services appbox.yaml's stack chose
     .codex/hooks.json               <- .claude/settings.json hooks (same scripts)
     mobile/lib/tokens.ts            <- design/tokens.json
+    DESIGN.md                       <- design/tokens.json (generated blocks only; prose kept)
     docs/design/TASTE.md            <- KIT/docs/TASTE.md (the taste rubric; never overwritten)
 
 Existing files are skipped unless --force (PROTECTED files are never overwritten);
@@ -315,6 +316,23 @@ def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str 
     return made
 
 
+def design_doc(target: Path, tokens_file: Path, dry_run: bool) -> list[str]:
+    """DESIGN.md at the repo root, from design/tokens.json. Created when absent; when it
+    exists only the frontmatter and the generated blocks are refreshed, so the founder's
+    prose and Decisions log are never overwritten (--force or not). The generated repo
+    checks it with the same code: `python3 scripts/design_md.py --check`."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from design_md import write
+
+    if dry_run:
+        return ["DESIGN.md (from design/tokens.json)"]
+    tokens = json.loads(tokens_file.read_text())
+    if not isinstance(tokens, dict):
+        return []
+    changed = write(target / "DESIGN.md", tokens)
+    return ["DESIGN.md (from design/tokens.json)"] if changed else []
+
+
 def _frontmatter(text: str) -> tuple[dict[str, str], str]:
     m = re.match(r"^---\n(.*?)\n---\n?(.*)$", text, re.S)
     if not m:
@@ -590,6 +608,7 @@ def render(a: argparse.Namespace) -> int:
         except ContrastGateError:
             contrast_failed = True
             written.append("mobile/lib/tokens.ts (from design/tokens.json)")
+        written += design_doc(target, tokens_file, a.dry_run)
 
     if not a.dry_run:
         written += adapters(target)

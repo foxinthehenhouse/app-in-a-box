@@ -122,8 +122,11 @@ python3 "$KIT/scripts/check_contrast.py" design/tokens.json
 
 That writes `design/tokens.json` (the chosen direction with density and temperature
 applied, plus `atmosphere`: the knobs, both light colours and their contrast-safe alpha), `docs/product/SCREENS.md` (each screen's chosen layout mapped to the kit's
-components, the navigation, the states and the v1 feature list) and
-`design/choices.json`. Update `BRIEF.md` → "Screens (v1)" and "Out of scope for v1"
+components, the navigation, the states and the v1 feature list),
+`design/choices.json` and `DESIGN.md` (the design system every later agent reads before
+UI work, generated from tokens.json; a re-freeze rewrites only its generated blocks, so
+write the feel in the founder's words and any design call in its Decisions log, outside
+the markers). Update `BRIEF.md` → "Screens (v1)" and "Out of scope for v1"
 from SCREENS.md. Set `progress.design: done`.
 
 ## `design/prototype.json` (schema)
