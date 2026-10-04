@@ -5,9 +5,10 @@
  * a 40pt headline doesn't break the layout at the largest accessibility size.
  */
 import type { ReactNode } from "react";
-import { Text as RNText, type TextProps as RNTextProps } from "react-native";
+import { Text as RNText, View, type TextProps as RNTextProps } from "react-native";
 
 import { useTheme, type Palette, type TypeRole } from "../../lib/theme";
+import { Icon } from "./Icon";
 
 /**
  * Text tones. Every key here is a palette token painted as TEXT, so
@@ -58,12 +59,19 @@ export function Body({ dim = false, ...p }: Omit<TextProps, "variant"> & { dim?:
   return <Text variant={dim ? "secondary" : "body"} {...p} />;
 }
 
-/** Announced error line. Carries a glyph so meaning is never colour alone. */
+/**
+ * Announced error line. Carries a drawn warning icon so meaning is never colour alone
+ * (a drawn symbol, not a text glyph: emoji-as-icon is a tell, check-design-tells.js).
+ */
 export function ErrorText({ children, testID }: { children: ReactNode; testID?: string }) {
   return (
-    <Text variant="secondary" tone="danger" accessibilityRole="alert" accessibilityLiveRegion="polite" testID={testID}>
-      {"⚠ "}
-      {children}
-    </Text>
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+      <View style={{ paddingTop: 2 }}>
+        <Icon sf="exclamationmark.triangle.fill" md="warning" size={16} color="danger" />
+      </View>
+      <Text variant="secondary" tone="danger" accessibilityRole="alert" accessibilityLiveRegion="polite" testID={testID} style={{ flex: 1 }}>
+        {children}
+      </Text>
+    </View>
   );
 }

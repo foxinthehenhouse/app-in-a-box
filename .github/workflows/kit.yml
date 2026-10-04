@@ -10,6 +10,10 @@
 #              CLI can't start)
 #   (selftest runs with APPBOX_SELFTEST_STRICT=1: a check that can't run fails)
 #   workflows  actionlint on this repo's workflows and the template's
+#   design     Impeccable's anti-pattern detector (pinned binary, checksum-verified)
+#              on the rendered prototype, source + real browser, plus a planted page
+#              it must fail (scripts/design-gate.sh). Kit CI only: generated apps
+#              never download it (THIRD_PARTY_NOTICES.md)
 #   mobile     nightly: a real create-expo-app + `npm run gates` + mobile guard plants
 # Skill evals live in evals.yml (manual dispatch with your own ANTHROPIC_API_KEY; skips without one).
 name: Kit
@@ -47,6 +51,9 @@ env:
   # `maestro check-syntax` on the generated flows (no device needed; Java is on the runner).
   MAESTRO_VERSION: "2.11.0"
   MAESTRO_SHA256: 5384593cb4e7a106489e75a821d157dd43f4e438df6bc308b72e82c685e1283a
+  # Impeccable's detector engine (Apache-2.0), run on the rendered prototype by the design job.
+  IMPECCABLE_ENGINE: "0.1.11"
+  IMPECCABLE_SHA256: 0221607e1f535af937ea267c347b1f90233b85dc2563cbd2eeefdf42e0e5c594
 
 jobs:
   selftest:
@@ -136,6 +143,28 @@ jobs:
           echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
           tar -xzf actionlint.tgz actionlint
           ./actionlint -color .github/workflows/*.yml plugins/app-in-a-box/template/.github/workflows/*.yml
+
+  design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DO_NOT_TRACK: "1"
+      IMPECCABLE_NO_TELEMETRY: "1"
+      IMPECCABLE_NO_UPDATE_CHECK: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Impeccable detector (pinned, checksum-verified)
+        run: |
+          curl -fsSL -o impeccable "https://github.com/pbakaus/impeccable/releases/download/engine-v${IMPECCABLE_ENGINE}/impeccable-linux-x64"
+          echo "${IMPECCABLE_SHA256}  impeccable" | sha256sum -c -
+          chmod +x impeccable
+      - name: Design gate (rendered prototype, source + browser, negative control)
+        run: IMPECCABLE="$PWD/impeccable" scripts/design-gate.sh
 
   mobile:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mobile)

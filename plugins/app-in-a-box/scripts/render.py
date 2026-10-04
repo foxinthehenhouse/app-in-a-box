@@ -284,6 +284,12 @@ def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str 
         print("ERROR: design/tokens.json fails the contrast/schema check; skipped app.json theming + icons:")
         print(*(f"  - {p}" for p in problems[:8]), sep="\n")
         raise ContrastGateError(problems)
+    from check_design import check as design_check
+
+    # Taste, not legibility, so the render still completes; but say it loudly, because
+    # the generated repo's `npm run gates` runs the same check and will fail on it.
+    for tell in design_check(tokens):
+        print(f"WARNING: design/tokens.json: {tell} (npm run gates will fail on this)")
     app_json = target / "mobile" / "app.json"
     if app_json.is_file():
         app_json.write_text(

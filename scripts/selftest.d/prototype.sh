@@ -181,7 +181,7 @@ check "prototype: freeze writes tokens.json, SCREENS.md, choices.json" \
    && [ -f '$FRZ/design/tokens.json' ] && [ -f '$FRZ/docs/product/SCREENS.md' ] && [ -f '$FRZ/design/choices.json' ]"
 check "prototype: frozen tokens pass check_contrast.py" "python3 '$KIT/scripts/check_contrast.py' '$FRZ/design/tokens.json'"
 check "prototype: frozen tokens apply density + temperature (compact space, lively motion)" \
-  "python3 -c \"import json;d=json.load(open('$FRZ/design/tokens.json'));assert d['name']=='athletic' and d['mode']=='dark' and d['space']['md']==12 and d['motion']['duration']['fast']==102 and d['motion']['pressScale']<0.96 and d['motion']['easing']['enter'][1]>1\""
+  "python3 -c \"import json;d=json.load(open('$FRZ/design/tokens.json'));assert d['name']=='athletic' and d['mode']=='dark' and d['space']['md']==12 and d['motion']['duration']['fast']==102 and d['motion']['pressScale']<0.96 and d['motion']['easing']['enter']==[0.16,1,0.3,1]\""
 check "prototype: SCREENS.md names each screen's chosen variant" \
   "grep -q 'Layout: \\*\\*Cards\\*\\* (\`cards\`)' '$FRZ/docs/product/SCREENS.md' \
    && [ \"\$(grep -c '^Layout: \\*\\*' '$FRZ/docs/product/SCREENS.md')\" -eq 4 ] && [ \"\$(grep -c '^## Screen: ' '$FRZ/docs/product/SCREENS.md')\" -eq 4 ]"
@@ -429,11 +429,11 @@ for d in spec["directions"]:
             peak[(temp, name)] = max(v for v, _ in stops)
     assert peak[("lively", "gentle")] > peak[("calm", "gentle")] + 0.05, "lively must overshoot more than calm"
 for cls in ("in-fade", "in-push", "in-pop"):
-    assert re.search(r"\.screen\.%s \{ animation: %s var\(--spring-gentle-dur\) var\(--spring-gentle\)" % (cls, cls), page), cls
-assert re.search(r"\.enter > \.blk, \.enter > \.stat-grid \{ animation: rise var\(--spring-gentle-dur\) var\(--spring-gentle\)", page)
+    assert re.search(r"\.screen\.%s \{ animation: %s calc\(var\(--settle-dur\) \* var\(--mmult\)\) var\(--settle\)" % (cls, cls), page), cls
+assert re.search(r"\.enter > \.blk, \.enter > \.stat-grid \{ animation: rise calc\(var\(--settle-dur\) \* var\(--mmult\)\) var\(--settle\)", page)
 PYEOF
 }
-check "prototype: springs become CSS linear() per temperature, and screens + blocks move on them" "_proto_springs"
+check "prototype: springs become CSS linear() per temperature, and screens + blocks move on the settle curve" "_proto_springs"
 _proto_spring_math() {  # the generated curve really is the spring: settles at 1, overshoot matches damping
   python3 - "$PROTO_PY" <<'PYEOF'
 import math, importlib.util, sys
@@ -481,7 +481,7 @@ css = "".join("/* latin */\n@font-face {\n  font-family: 'Figtree';\n  font-styl
 PYEOF
   APPBOX_FONT_CACHE="$c" python3 "$PROTO_PY" render "$PROTO_FIX" "$T/pf.html" >/dev/null || return 1
   grep -q '@font-face { font-family: "Figtree"; font-style: normal; font-weight: 400 700; font-display: block; src: url(data:font/woff2;base64,d09GMg' "$T/pf.html" \
-    && ! grep -q 'family=Figtree' "$T/pf.html" && grep -q 'family=Fraunces' "$T/pf.html" \
+    && ! grep -q 'family=Figtree' "$T/pf.html" && grep -q 'family=Newsreader' "$T/pf.html" \
     && [ "$(grep -o '@font-face' "$T/pf.html" | wc -l)" -eq 1 ]
 }
 check "prototype: fonts inline from the cache as one @font-face per file (latin only), others fall back to a <link>" "_proto_fonts_inline"
@@ -489,7 +489,7 @@ _proto_fonts_offline() {
   local out
   out=$(python3 "$PROTO_PY" render "$PROTO_FIX" "$T/pf2.html") || return 1
   printf '%s\n' "$out" | grep -q "note: font 'Figtree' is loaded from Google Fonts" \
-    && [ "$(grep -c 'fonts.googleapis.com/css2' "$T/pf2.html")" -eq 5 ] && ! grep -q '@font-face' "$T/pf2.html"
+    && [ "$(grep -c 'fonts.googleapis.com/css2' "$T/pf2.html")" -eq 4 ] && ! grep -q '@font-face' "$T/pf2.html"
 }
 check "prototype: offline with no cache, every font is a Google Fonts <link> and render says so" "_proto_fonts_offline"
 

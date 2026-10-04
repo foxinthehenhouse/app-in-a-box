@@ -29,12 +29,20 @@ setting); pick which one each mockup shows first by the archetype's home mode.
 
 | Archetype | Feel | Good for | Type pairing | Radius | Motion (tokens) |
 |---|---|---|---|---|---|
-| **Calm** | Airy, soft neutrals, one muted accent (home: light) | Wellbeing, journaling, finance | Humanist sans (Inter / Figtree) | 16–24 | Slow fades: `standard` 260ms, gentle springs, press scale 0.98 |
-| **Athletic dark** | Near-black field, warm off-white ink, one hot accent (home: dark) | Fitness, performance, pro tools | Grotesk + mono numerals (Inter Tight + JetBrains Mono) | 12 | Snappy: `fast` 120ms, stiff springs (damping 22, stiffness 320) |
-| **Playful** | Saturated brand colour, chunky shapes, confetti moments (home: light) | Gamified habits, savings, kids-adjacent | Rounded sans (Nunito / Baloo 2) | 20–28 | Bouncy: overshoot `enter` curve, springs damping ~9–12, press scale 0.95 |
-| **Editorial** | Serif headlines, generous whitespace, paper tones (home: light) | Content, reading, learning | Serif + sans (Fraunces + Inter) | 4–8 | Minimal: fades only, no springs |
+| **Calm** | Airy, soft neutrals, one muted accent (home: light) | Wellbeing, journaling, finance | Humanist sans (Figtree / Hanken Grotesk / Onest) | 16–24 | Slow fades: `standard` 260ms, gentle springs, press scale 0.98 |
+| **Athletic dark** | Near-black field, warm off-white ink, one hot accent (home: dark) | Fitness, performance, pro tools | Condensed grotesk + mono numerals (Archivo / Barlow Semi Condensed + JetBrains Mono / IBM Plex Mono) | 12 | Snappy: `fast` 120ms, stiff springs (damping 22, stiffness 320) |
+| **Playful** | Saturated brand colour, chunky shapes, confetti moments (home: light) | Gamified habits, savings, kids-adjacent | Rounded sans (Nunito / Baloo 2) | 20–28 | Springy where you touch: presses and chips on springs damping ~9–12, press scale 0.95, `Celebration` on the payoff. Content still arrives on a curve that doesn't overshoot |
+| **Editorial** | Serif headlines, generous whitespace, paper tones (home: light) | Content, reading, learning | Serif + sans (Newsreader / Source Serif 4 / Literata + the system sans) | 4–8 | Minimal: fades only, no springs |
 | **Clinical** | White/blue, dense information, high trust (home: light) | Health data, B2B, admin | System sans (SF / Roboto) | 8 | Almost none: `fast` fades |
-| **Neo-brutal** | Hard borders, flat blocks, loud type (home: either) | Creator tools, youth, novelty | Display grotesk (Space Grotesk) | 0 | Hard cuts: `instant` durations, no easing flourish |
+| **Neo-brutal** | Hard borders, flat blocks, loud type (home: either) | Creator tools, youth, novelty | Display grotesk (Bricolage Grotesque / Familjen Grotesk) | 0 | Hard cuts: `instant` durations, no easing flourish |
+
+The type pairings are starting points, not the answer: pick the face from the
+product's world. `prototype.py check` and the app's gates fail the families every
+generated app reaches for (Inter, Roboto as a loaded font, Open Sans, Lato, Montserrat,
+Fraunces, Geist, Space Grotesk, Instrument, Plus Jakarta, Mona Sans, Recoleta, Arial,
+Helvetica). The phone's own system font is always fine. They also fail pure-grey
+neutrals, an accent that is the stock AI violet, and an easing curve that overshoots
+(`scripts/check_design.py`).
 
 **Deriving the other mode** (don't just invert): keep the accent's hue, and shift
 lightness so it still reads (a light-mode accent usually needs to be *darker* to clear
@@ -96,7 +104,7 @@ change values; keep every key.
       "danger": "#FF6B6B", "shadow": "#000000"
     }
   },
-  "font": { "display": "Inter Tight", "body": "System", "mono": "Menlo" },
+  "font": { "display": "Archivo", "body": "System", "mono": "Menlo" },
   "type": {
     "display":   { "font": "display", "size": 40, "lineHeight": 46, "weight": "700", "letterSpacing": -0.8, "maxScale": 1.3 },
     "title":     { "font": "display", "size": 28, "lineHeight": 34, "weight": "700", "letterSpacing": -0.4, "maxScale": 1.4 },

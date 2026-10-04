@@ -25,6 +25,15 @@ If you add or change a guard, add a check to `scripts/selftest.d/<area>.sh` that
 passes. A guard nobody has seen fail reads as protection without giving any. Every
 area file shows the pattern (`check` for "passes", `refuses` for "fails on a plant").
 
+## Changing the prototype's look
+
+Kit CI also runs Impeccable's anti-pattern detector (pinned and checksum-verified)
+against the rendered prototype: `scripts/design-gate.sh`. To run it locally, download
+the binary named in `.github/workflows/kit.yml` (`IMPECCABLE_ENGINE`), check its
+SHA-256, then `IMPECCABLE=./impeccable scripts/design-gate.sh`. It needs Chrome or
+Chromium. Generated apps never get it: they carry our own checks (`check_design.py`,
+`check-design-tells.js`). See `THIRD_PARTY_NOTICES.md`.
+
 ## Changing a skill
 
 Skills are graded by evals (`plugins/app-in-a-box/evals/` for the kit,

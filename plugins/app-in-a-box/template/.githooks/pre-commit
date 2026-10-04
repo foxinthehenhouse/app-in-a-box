@@ -51,4 +51,8 @@ if grep -qx 'design/tokens.json' <<<"$staged" && [ -f scripts/check_contrast.py 
   python3 scripts/check_contrast.py design/tokens.json >&2 || {
     echo "pre-commit: design/tokens.json fails the contrast gate (see above)." >&2; exit 1; }
 fi
+if grep -qx 'design/tokens.json' <<<"$staged" && [ -f scripts/check_design.py ]; then
+  python3 scripts/check_design.py design/tokens.json >&2 || {
+    echo "pre-commit: design/tokens.json has a generic-design tell (see above, docs/design/TASTE.md)." >&2; exit 1; }
+fi
 exit 0
