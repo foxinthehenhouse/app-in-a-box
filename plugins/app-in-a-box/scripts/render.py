@@ -543,6 +543,7 @@ def render(a: argparse.Namespace) -> int:
             "tests",
             "railway.json",
             "requirements.txt",
+            "requirements.lock",
             "run.sh",
         }:
             continue

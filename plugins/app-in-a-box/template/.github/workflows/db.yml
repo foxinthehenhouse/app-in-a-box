@@ -55,7 +55,7 @@ jobs:
         with: { python-version: "3.12" }
       - name: Backend integration tests against the migrated database
         run: |
-          pip install -q -r requirements.txt -r requirements-dev.txt
+          pip install -q --require-hashes -r requirements-dev.lock
           python -m pytest -q -m integration
 
   # branch-rls:
