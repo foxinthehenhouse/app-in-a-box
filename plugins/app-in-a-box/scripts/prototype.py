@@ -60,6 +60,7 @@ PROTO = HERE / "proto"
 TEMPLATE_TOKENS = KIT / "template" / "design" / "tokens.json"
 sys.path.insert(0, str(HERE))
 import check_contrast as cc  # noqa: E402  (sibling module; shared contrast gate)
+import check_design as dc  # noqa: E402  (sibling module; shared design-tells gate)
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 FONT_RE = re.compile(r"^[A-Za-z0-9 ]{1,40}$")
@@ -90,8 +91,10 @@ TEMPERATURE = {
         "radius": 1.25,
         "press": 1.6,
         "saturation": 1.15,
-        "enter": [0.34, 1.56, 0.64, 1],
-        "damping": 0.75,  # springs overshoot a little, like the prototype's pop
+        # Quicker to arrive, never past the mark: content and screens don't bounce
+        # (TASTE.md, Motion). Overshoot lives only in the small-element springs below.
+        "enter": [0.16, 1, 0.3, 1],
+        "damping": 0.75,  # presses and selections overshoot a little
     },
 }
 # Atmosphere: the light the app sits in, and its surfaces. A direction may set its
@@ -151,7 +154,7 @@ STRING_FIELDS = {
 }
 # What each block becomes in the generated app (template/mobile/components/ui).
 COMPONENTS = {  # every name here is an export of the template's components/ui (selftest)
-    "header": "Meta + Title + Body",
+    "header": "Title + Body",
     "text": "Body",
     "list": "Card + ListRow",
     "card": "Card",
@@ -166,6 +169,11 @@ COMPONENTS = {  # every name here is an export of the template's components/ui (
     "divider": "Section",
     "toast": "useToast",
 }
+# Emoji used as UI (icons, bullets, headings) is a tell; the kit's icon set does that job.
+EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\uFE0F]")
+LABEL_KEYS = ("title", "label", "eyebrow")  # copy that names or heads something
+MAX_EYEBROWS = 1  # per block list: a label over every heading is a template tell
+MAX_CARD_RUN = 3  # consecutive cards: a fourth makes a wall of equal cards
 PLACEHOLDER_RE = re.compile(
     r"(?i:\blorem\b|\bipsum\b|dolor sit amet)|\bTODO\b|\bFIXME\b|\bTBD\b|(?i:\bx{3,}\b)"
 )
@@ -633,6 +641,31 @@ def _lints(spec: dict, p: list) -> None:
         if isinstance(d, dict) and isinstance(d.get("tokens"), dict):
             for line in cc.check(merged_tokens(d)):
                 p.append(f"directions[{d.get('id')}]: contrast: {line}")
+            for line in dc.check(merged_tokens(d)):
+                p.append(f"directions[{d.get('id')}]: design: {line}")
+
+    # Layout tells (TASTE.md, Anti-slop list): the spec can't write CSS, but it can
+    # still build the template look out of blocks.
+    for where, _owner, blocks in block_lists(spec):
+        blocks = [b for b in blocks if isinstance(b, dict)]
+        eyebrows = sum(1 for b in blocks if b.get("eyebrow"))
+        if eyebrows > MAX_EYEBROWS:
+            p.append(
+                f"{where}: {eyebrows} eyebrows (a small label over every heading is a template "
+                f"tell; keep at most {MAX_EYEBROWS} and let the headings speak)"
+            )
+        run = 0
+        for b in blocks:
+            run = run + 1 if b.get("type") == "card" else 0
+            if run == MAX_CARD_RUN + 1:
+                p.append(
+                    f"{where}: {run}+ cards in a row (a wall of equal cards; make it a list, "
+                    "or give one card the job and let the rest be rows)"
+                )
+    for path, text in _walk_copy({k: v for k, v in spec.items() if k != "directions"}, ""):
+        key = re.sub(r"\[\d+\]$", "", path).rsplit(".", 1)[-1]
+        if EMOJI_RE.search(text) and (key in LABEL_KEYS or key == "options" or EMOJI_RE.match(text.strip())):
+            p.append(f"{path}: emoji as UI {text!r} (use an icon from the set, or plain words)")
 
     used = {
         b.get("feature")
@@ -896,6 +929,14 @@ def _simplify(pts: list, eps: float) -> list:
     return _simplify(pts[: at + 1], eps)[:-1] + _simplify(pts[at:], eps)
 
 
+def settle_spring(sp: dict) -> dict:
+    """The spring every screen-scale move uses: the direction's gentle spring, damped
+    to at least critical so it arrives without passing the mark. Temperature changes
+    its speed (the CSS scales the duration by --mmult), never makes it bounce."""
+    crit = 2 * (float(sp["stiffness"]) * float(sp.get("mass", 1))) ** 0.5
+    return dict(sp, damping=max(float(sp["damping"]), crit))
+
+
 def spring_curve(sp: dict) -> tuple[str, int]:
     """A damped spring as a CSS linear() easing plus its settle time in ms, so the
     prototype moves on the same spring tokens Reanimated uses in the app."""
@@ -947,11 +988,15 @@ def direction_css(d: dict) -> str:
         v.append(f"--t-{role}-case: {'uppercase' if spec.get('uppercase') else 'none'};")
     v.append(f"--tap: {t.get('minTapTarget', 48)}px;")
     out = [f"{sel} {{ {' '.join(v)} }}"]
+    springs = t.get("motion", {}).get("spring") or {}
     for temp, cfg in TEMPERATURE.items():
         sv = []
-        for name, sp in (t.get("motion", {}).get("spring") or {}).items():
+        for name, sp in springs.items():
             curve, ms = spring_curve(dict(sp, damping=sp["damping"] * cfg["damping"]))
             sv.append(f"--spring-{name}: {curve}; --spring-{name}-dur: {ms}ms;")
+        if "gentle" in springs:
+            curve, ms = spring_curve(settle_spring(springs["gentle"]))
+            sv.append(f"--settle: {curve}; --settle-dur: {ms}ms;")
         if sv:
             out.append(f'{sel}[data-temperature="{temp}"] {{ {" ".join(sv)} }}')
     for mode in MODES:
@@ -1277,7 +1322,10 @@ def _jsx(b: dict) -> str:
     """The exact components/ui call a block becomes (props the prototype decided)."""
     t, ic = b["type"], _icon_prop(b.get("icon"))
     if t == "header":
-        return "<Meta> + <Title> + <Body dim>" if "subtitle" in b else "<Meta> + <Title>"
+        # The eyebrow is a plain dim line (a date, a context), never a tracked uppercase
+        # kicker over the title: that's a generated-UI tell (TASTE.md, Anti-slop list).
+        parts = (["<Body dim>"] if b.get("eyebrow") else []) + ["<Title>"]
+        return " + ".join(parts + (["<Body dim>"] if "subtitle" in b else []))
     if t == "text":
         return "<Body>"
     if t == "list":
@@ -1516,8 +1564,8 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
         f"| Toast in / out | `useToast()` (FadeInUp / fade out) | {dur.get('screen')}ms in |",
         "| Number counts up | `AnimatedNumber` / `StatCard` | static under reduce motion |",
         "| Payoff moment | `Celebration` + `haptic.success()` | the core loop's reward only |",
-        f"| Screen change (blur-rise, overlapping) | the Stack transition + `entrance(i)` | "
-        f"spring `gentle`, damping {m.get('spring', {}).get('gentle', {}).get('damping')} |",
+        "| Screen change (blur-rise, overlapping) | the Stack transition + `entrance(i)` | "
+        "spring `gentle`, critically damped: arrives without overshoot |",
         "",
         f"Atmosphere **{at['mode']}**, intensity {at['intensity']}, grain {'on' if at['grain'] else 'off'}, "
         f"{at['surface']} surfaces: design/tokens.json → `atmosphere` carries the two light colours "
@@ -1568,7 +1616,7 @@ def freeze(spec: dict, choices: dict, target: Path) -> int:
             print(e)
         return 1
     tokens = frozen_tokens(spec, ch)
-    bad = cc.check(tokens)
+    bad = cc.check(tokens) + [f"design: {e}" for e in dc.check(tokens)]
     if bad:
         for e in bad:
             print(f"tokens: contrast: {e}")

@@ -85,12 +85,12 @@ next_signals() {
   local out
   out=$(python3 "$APP/.agents/skills/next/signals.py") || return 1
   echo "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); assert {'setup_pending','branch','overdue_rituals','tracker'} <= d.keys(), d"
-  python3 "$APP/.agents/skills/next/signals.py" --line | grep -q '^- Next: '
+  python3 "$APP/.agents/skills/next/signals.py" --line | grep '^- Next: ' >/dev/null
 }
 
 next_sees_setup() {  # an unfinished appbox.yaml makes resuming setup the top line
   printf 'app:\n  name: "P"\nprogress:\n  preflight: done\n  interview: done\n' > "$APP/appbox.yaml"
-  python3 "$APP/.agents/skills/next/signals.py" --line | grep -q 'setup phase `design`'
+  python3 "$APP/.agents/skills/next/signals.py" --line | grep 'setup phase `design`' >/dev/null
   local rc=$?; rm -f "$APP/appbox.yaml"; return $rc
 }
 
@@ -108,7 +108,7 @@ progress_renders() {
     && echo "$out" | grep -q '\[>\] 3. Accounts' \
     && echo "$out" | grep -q '3/10 steps done' \
     && echo "$out" | grep -q '1b. Idea check.*not run' \
-    && python3 "$KIT/scripts/progress.py" "$T/nope.yaml" | grep -q 'Phase 0'
+    && python3 "$KIT/scripts/progress.py" "$T/nope.yaml" | grep 'Phase 0' >/dev/null
 }
 
 workflows_parse() {

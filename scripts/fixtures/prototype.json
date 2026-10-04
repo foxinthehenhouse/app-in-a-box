@@ -117,7 +117,7 @@
         },
         "font": {
           "display": "Inter Tight",
-          "body": "Inter",
+          "body": "System",
           "mono": "JetBrains Mono"
         },
         "type": {
@@ -201,8 +201,8 @@
           }
         },
         "font": {
-          "display": "Fraunces",
-          "body": "Inter",
+          "display": "Newsreader",
+          "body": "System",
           "mono": "Menlo"
         },
         "type": {
@@ -310,7 +310,6 @@
             {
               "type": "card",
               "icon": "bell",
-              "eyebrow": "Reminder",
               "title": "Daily check-in at 6pm",
               "body": {
                 "calm": "We'll nudge you once, quietly.",
@@ -325,7 +324,7 @@
               "items": [
                 {
                   "title": "Morning entry",
-                  "meta": "Today \u00b7 08:10",
+                  "meta": "Today · 08:10",
                   "trailing": "3 min",
                   "icon": "star",
                   "action": {
@@ -334,7 +333,7 @@
                 },
                 {
                   "title": "Lunch break entry",
-                  "meta": "Today \u00b7 12:45",
+                  "meta": "Today · 12:45",
                   "trailing": "5 min",
                   "icon": "heart",
                   "action": {
@@ -343,7 +342,7 @@
                 },
                 {
                   "title": "Evening entry",
-                  "meta": "Yesterday \u00b7 19:30",
+                  "meta": "Yesterday · 19:30",
                   "trailing": "2 min",
                   "icon": "calendar",
                   "action": {
@@ -402,7 +401,6 @@
             {
               "type": "card",
               "icon": "star",
-              "eyebrow": "08:10",
               "title": "Morning entry",
               "body": "Three minutes, logged before breakfast.",
               "action": {
@@ -412,7 +410,6 @@
             {
               "type": "card",
               "icon": "heart",
-              "eyebrow": "12:45",
               "title": "Lunch break entry",
               "body": "Five minutes between meetings.",
               "action": {
@@ -422,7 +419,6 @@
             {
               "type": "card",
               "icon": "bell",
-              "eyebrow": "Reminder",
               "title": "Daily check-in at 6pm",
               "body": {
                 "calm": "We'll nudge you once, quietly.",
@@ -532,7 +528,7 @@
           "blocks": [
             {
               "type": "header",
-              "eyebrow": "Today \u00b7 08:10",
+              "eyebrow": "Today · 08:10",
               "title": "Morning entry"
             },
             {

@@ -169,10 +169,14 @@ template says src/app; this kit doesn't use it).
 
 `npm run gates` = `tsc --noEmit` + `eslint` + `check-analytics-coverage` +
 `check-eas-shipping-env` + `check-maestro-coverage` + `check-replay-unmask` +
-`check-hardcoded-strings` + `check-test-presence` + the guard self-tests
+`check-hardcoded-strings` + `check-design-tells` (bounce curves, a Card in a Card,
+side-stripe borders, hard shadows, gradient text, emoji as icons: the generic-design
+tells in `docs/design/TASTE.md`; a deliberate exception ends its line with
+`// design-ignore: <why>`) + `check-test-presence` + the guard self-tests
 (`node --test scripts/__tests__/*.test.js`: each guard passes on the template and fails
 on a planted violation, so a guard that stops firing fails the gate) +
-`check_contrast.py` on `design/tokens.json` + `jest --coverage` (a floor over all of
+`check_contrast.py` and `check_design.py` (overused fonts, pure-grey neutrals, the
+stock AI violet, overshooting curves) on `design/tokens.json` + `jest --coverage` (a floor over all of
 app/, components/ and lib/: raise it as tests land, never lower it to push).
 Run it before every push. `jest.setup.ts` holds the shared native-module mocks
 (AsyncStorage, NetInfo, SecureStore).

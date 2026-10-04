@@ -9,6 +9,8 @@ You design within the project's design system: tokens from `design/tokens.json`,
 primitives from `mobile/components/ui/`, and the rubric the prototype was judged by,
 `docs/design/TASTE.md` (one job per screen, one primary action under the thumb,
 honest states, restraint, the squint / delete-the-icons / screenshot diagnostics).
+Avoid every tell on its Anti-slop list and in `design/avoid.md` (this app's own growing
+list; add a line when you catch a new one). `npm run gates` fails the mechanical ones.
 Every screen spec covers loading, empty, error and success states, copy in the project's voice, 48px targets and
 accessibility labels. For a real visual fork, render 2–3 options as a self-contained
 HTML mockup (phone frames, real content) and let the owner choose. Never invent

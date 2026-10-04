@@ -44,7 +44,8 @@ var Proto = (function () {
 
   R.header = function (b, ctx) {
     return el("div", { class: "b-header" }, [
-      b.eyebrow ? el("p", { class: "t-meta", text: ctx.t(b.eyebrow) }) : null,
+      // a plain dim line (date, context), never a tracked uppercase kicker
+      b.eyebrow ? el("p", { class: "t-secondary eyebrow", text: ctx.t(b.eyebrow) }) : null,
       el("h1", { class: "t-title", text: ctx.t(b.title) }),
       b.subtitle ? el("p", { class: "t-secondary", text: ctx.t(b.subtitle) }) : null
     ]);

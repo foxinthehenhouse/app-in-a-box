@@ -19,7 +19,7 @@ check "new-app runs shape (1a), idea check (1b), then prototype (2)" "_phase_ord
 _progress_steps() {
   local y="$T/vi.yaml" out
   printf 'progress:\n  preflight: done\n' > "$y"
-  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 1a, Shape' || return 1
+  python3 "$KIT/scripts/progress.py" "$y" | grep '^Next: phase 1a, Shape' >/dev/null || return 1
   printf 'progress:\n  preflight: done\n  interview: done\n  validate: running\n' > "$y"
   out=$(python3 "$KIT/scripts/progress.py" "$y")
   echo "$out" | grep -q '^Next: phase 2, Prototype' && echo "$out" | grep -q '1b. Idea check.*(running)' \
@@ -29,12 +29,12 @@ _progress_steps() {
   out=$(python3 "$KIT/scripts/progress.py" "$y")
   echo "$out" | grep -q '^Next: phase 1b, Idea check' && ! echo "$out" | grep -q 'predates' || return 1
   printf 'progress:\n  preflight: done\n  interview: done\n  validate: done\n' > "$y"
-  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 2, Prototype' || return 1
+  python3 "$KIT/scripts/progress.py" "$y" | grep '^Next: phase 2, Prototype' >/dev/null || return 1
   printf 'progress:\n  preflight: done\n  interview: done\n  validate: parked\n' > "$y"
   out=$(python3 "$KIT/scripts/progress.py" "$y")
   echo "$out" | grep -q '1b. Idea check.*(parked)' && echo "$out" | grep -q '^Parked at phase 1b' || return 1
   printf 'progress:\n  preflight: done\n  interview: done\n' > "$y"
-  python3 "$KIT/scripts/progress.py" "$y" | grep -q '^Next: phase 2, Prototype'
+  python3 "$KIT/scripts/progress.py" "$y" | grep '^Next: phase 2, Prototype' >/dev/null
 }
 check "progress: shape first, idea check can run in the background, parked shown, legacy not sent back" "_progress_steps"
 

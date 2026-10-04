@@ -64,6 +64,19 @@ Every helper gets `design/brief.json` + `docs/TASTE.md` as a stable prefix, noth
    ```
    python3 "$KIT/scripts/prototype.py" render design/prototype.json design/prototype.html
    ```
+7. **Look at it before the founder does.** Screenshot every screen and sheet, light and
+   dark, plus one with reduced motion:
+   ```
+   node "$KIT/scripts/proto_shots.mjs" design/prototype.html design/shots
+   ```
+   If it exits 3 (no Playwright), take the same shots with whatever browser tool you
+   have (Claude in Chrome, a DevTools or Playwright MCP, Codex's browser). If you have
+   none, say so in one line and let `design-critic` work from the spec. Then
+   `design-critic` reviews the PNGs, not the spec alone: the TASTE.md rubric, the three
+   diagnostics, the Anti-slop list. Fix the spec and re-render on FAIL (2 rounds max,
+   as in step 5). A tell it spots that isn't on the Anti-slop list yet goes into
+   `design/avoid.md` (one line each), which every later round and every future screen
+   reads alongside TASTE.md, so the list grows with the app.
 
 ## Step 3: show it
 

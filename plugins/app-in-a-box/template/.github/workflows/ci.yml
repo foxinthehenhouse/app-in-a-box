@@ -45,6 +45,10 @@ jobs:
         # The same gate the kit ran at scaffold time, re-run on every change: a palette
         # edit after scaffold is how sub-AA text ships with green CI.
         run: python3 scripts/check_contrast.py design/tokens.json
+      - name: Design tokens avoid the generic tells (design/tokens.json)
+        # Overused fonts, pure-grey neutrals, the stock AI violet, overshooting curves:
+        # docs/design/TASTE.md. The kit ran the same check on every prototype direction.
+        run: python3 scripts/check_design.py design/tokens.json
       - name: Ruff
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)
