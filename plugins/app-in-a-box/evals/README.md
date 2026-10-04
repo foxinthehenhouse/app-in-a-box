@@ -5,6 +5,7 @@ Checks that the kit's own skills behave:
 - `shape` writes `design/brief.json`, `appbox.yaml` and the brief.
 - `prototype` runs the check before rendering and fixes what it flags.
 - `scaffold` never overwrites a hand-edited brief.
+- `recipe-uploads` fires when the owner asks for photo uploads, and plans a private, per-user bucket.
 - None of it fires on an unrelated question.
 
 Each case folder holds `prompt.md`, `graders/*.md` and, when it needs a seeded repo, a `case.yaml` scaffold.

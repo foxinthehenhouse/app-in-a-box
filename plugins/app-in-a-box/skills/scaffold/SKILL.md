@@ -86,8 +86,8 @@ Reanimated 4) and `setupFiles` (`jest.setup.ts`: NetInfo + AsyncStorage mocks). 
   updates (`runtimeVersion` fingerprint policy, a channel per eas.json profile,
   `UpdateBanner`), react-hook-form + zod forms (`FormField`), and i18n (every string in
   `locales/en.ts`, `check-hardcoded-strings.js` in the gates, an `en-XA` pseudo-locale
-  test). Still recipes: social sign-in, payments, PowerSync, AI features, and the push
-  **credentials** (`recipe-push`).
+  test). Still recipes: social sign-in, payments, PowerSync, AI features, image uploads
+  (`recipe-uploads`), and the push **credentials** (`recipe-push`).
 
 ## 2. Repo
 
