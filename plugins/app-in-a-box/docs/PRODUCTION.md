@@ -25,6 +25,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Secrets never in git | Kit | `.githooks/pre-commit` scan; `.env` gitignored |
 | Secret rotation procedure | Kit | `docs/runbooks/secrets-rotation.md` |
 | Supabase security advisors clean | Owner | Supabase → Advisors → Security, before launch and monthly |
+| **Sign-in email through custom SMTP** (Supabase's built-in mailer allows a couple of emails an hour; real users can't sign in without this) | Kit + Owner (domain, key) | provision step 2.7 (`$KIT/scripts/supabase_smtp.py`, Resend recommended: free for 100/day); production `/health` names "email sign-in (custom SMTP)" until `AUTH_SMTP_HOST` is set (`PRODUCTION_FEATURE_CONFIG`, `tests/test_health.py`) |
 | Auth hardening: email confirmations, leaked-password protection, OTP expiry, CAPTCHA on sign-up if abused | Owner | Supabase → Authentication settings |
 
 ## Privacy and store compliance
@@ -47,7 +48,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Item | Status | Where |
 |---|---|---|
 | Health check with version and optional deep DB ping | Kit | `/health`, `/health?deep=1` |
-| Env-gated features visible, never silent | Kit | `FEATURE_CONFIG` / `OPTIONAL_FEATURE_CONFIG` → `/health` |
+| Env-gated features visible, never silent | Kit | `FEATURE_CONFIG` / `PRODUCTION_FEATURE_CONFIG` / `OPTIONAL_FEATURE_CONFIG` → `/health` |
 | Error monitoring with a user-visible `error_id` | Kit | global handler + Sentry tag |
 | Request ids across client, logs and Sentry; JSON logs | Kit | `X-Request-ID` on every call from `mobile/lib/api.ts`, echoed + logged + Sentry-tagged by the API; error UI shows a copyable 8-character reference (`<ErrorNotice>`); `LOG_FORMAT=json` |
 | Zero-downtime deploys + graceful shutdown | Kit | `railway.json` overlap/draining + uvicorn graceful timeout |
