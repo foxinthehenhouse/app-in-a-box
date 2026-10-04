@@ -177,6 +177,9 @@ once that re-running the prototype phase would let them click it first.
 7. **AI (only if `ai.enabled`).** Add `backend/services/<name>_service.py` as the
    only module that calls the model API, register `ANTHROPIC_API_KEY` (or the
    provider's key) in `FEATURE_CONFIG`, and state the fence in AGENTS.md rule 8.
+   Then let that one module through the import-linter fence: in `pyproject.toml`'s
+   forbidden contract set `ignore_imports = ["backend.services.<name>_service -> anthropic"]`
+   (`lint-imports` fails any other module that imports the SDK).
 
 ### Match check (the prototype is the spec; prove the app matches it)
 

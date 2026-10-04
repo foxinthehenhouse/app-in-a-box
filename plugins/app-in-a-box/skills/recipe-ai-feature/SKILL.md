@@ -15,7 +15,11 @@ privacy labels if so).
 
 ## Steps
 
-1. **Fence**: set `AGENTS.md` rule 8 to "Claude API only in `backend/services/ai_<feature>*`."
+1. **Fence**: set `AGENTS.md` rule 8 to "Claude API only in `backend/services/ai_<feature>*`.",
+   then let that module through the checked fence: in `pyproject.toml`, the "LLM SDKs are
+   fenced" contract gets `ignore_imports = ["backend.services.ai_<feature> -> anthropic"]`
+   (one line per module that imports the SDK). `lint-imports` (CI) fails an SDK import
+   anywhere else, and fails an entry that matches no import, so the fence stays exact.
 2. **Pin the SDK**: `anthropic>=X.Y,<X+1` in `requirements.txt` with a real upper bound
    (a real app shipped a broken production when a floating pin pulled a new major that
    removed a parameter). `test_every_requirement_has_an_upper_bound` enforces it.

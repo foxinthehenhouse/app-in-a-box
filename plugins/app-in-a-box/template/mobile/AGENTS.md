@@ -38,7 +38,7 @@ template says src/app; this kit doesn't use it).
   `useThemePreference()` for the System/Light/Dark setting.
 - `lib/motion.ts`: `animateTo`, `springTo`, `timing`, `spring`, `entrance`,
   `useReducedMotion`, and `haptic.*`.
-- `lib/api.ts`: the only backend client. `*Wire` types mirror Pydantic models; adapters
+- `lib/api.ts`: the only backend client, and the only file that calls `fetch`. `*Wire` types mirror Pydantic models; adapters
   map wire → UI types. A generic cast is not validation. Every call sends an
   `X-Request-ID`; an `ApiError` carries `requestId` / `errorId`, and
   `errorReference(e)` is the 8-character code `<ErrorNotice reference>` shows.
@@ -180,6 +180,13 @@ stock AI violet, overshooting curves) on `design/tokens.json` + `jest --coverage
 app/, components/ and lib/: raise it as tests land, never lower it to push).
 Run it before every push. `jest.setup.ts` holds the shared native-module mocks
 (AsyncStorage, NetInfo, SecureStore).
+
+**Architecture boundaries** are eslint errors, in `eslint.boundaries.js` (spread into
+`eslint.config.js`, core rules only): only `lib/api.ts` calls `fetch`; nothing under
+`app/` imports `lib/supabase.ts` or `@supabase/supabase-js` (the session is `lib/auth.tsx`,
+data is `lib/api.ts`); nothing under `components/ui/` imports `lib/api.ts` (components
+take data as props; the screen loads it). Fix the import rather than disabling the rule; moving
+a boundary is a decision-log entry.
 
 ## E2E (Maestro)
 
