@@ -5,6 +5,9 @@
 PROTO_PY="$KIT/scripts/prototype.py"
 PROTO_FIX="$KIT/../../scripts/fixtures/prototype.json"   # test-only spec, not an example
 PROTO_OUT="$T/proto-out"
+# Renders are offline and deterministic: fonts come only from this (empty) cache, so
+# each family falls back to a Google Fonts <link>. The inlining path has its own check.
+export APPBOX_OFFLINE=1 APPBOX_FONT_CACHE="$T/proto-fonts-empty"
 
 cat > "$T/proto_mutate.py" <<'PYEOF'
 import json, sys
@@ -51,6 +54,8 @@ elif name == "script-in-copy":
     blocks[0]["subtitle"] = "Ends </script><!-- here"
 elif name == "md-chars":
     home["title"] = "Home ## `x` | *y*"
+elif name == "bad-atmo":
+    s["directions"][0]["tokens"]["atmosphere"] = {"mode": "neon", "grain": "yes"}
 elif name == "schema":
     blocks[0]["type"] = "carousel"
 else:
@@ -108,9 +113,24 @@ check "prototype: html has phone, control panel, variant switcher, feature toggl
   "grep -q 'id=\"phone\"' '$PROTO_OUT/prototype.html' && grep -q 'id=\"panel\"' '$PROTO_OUT/prototype.html' \
    && grep -q 'api.setVariant' '$PROTO_OUT/prototype.html' && grep -q 'role: \"switch\"' '$PROTO_OUT/prototype.html' \
    && grep -q 'api.setFeature' '$PROTO_OUT/prototype.html' && grep -q 'text: \"Copy my choices\"' '$PROTO_OUT/prototype.html'"
-check "prototype: phone honours prefers-reduced-motion (CSS stops animation, JS skips waits)" \
-  "grep -A1 '@media (prefers-reduced-motion: reduce)' '$PROTO_OUT/prototype.html' | grep -q '^  \\.phone \\*, .*animation: none !important' \
-   && grep -q 'matchMedia(\"(prefers-reduced-motion: reduce)\")' '$PROTO_OUT/prototype.html'"
+_proto_reduced_motion() {  # every motion has a reduced path: CSS, JS waits, each effect, the field
+  python3 - "$PROTO_OUT/prototype.html" <<'PYEOF'
+import re, sys
+page = open(sys.argv[1]).read()
+assert re.search(r"\.phone\.rm \*, \.phone\.rm \*::before, \.phone\.rm \*::after \{ animation: none !important;", page), "no .rm kill rule"
+assert re.search(r"\.phone\.rm \.screen\.in-fade[^{]*\{ animation: rm-in", page), "screens don't crossfade under .rm"
+assert re.search(r"@media \(prefers-reduced-motion: reduce\) \{\s*\.atmo::before \{ animation: none", page), "atmosphere drifts under reduce"
+assert 'matchMedia("(prefers-reduced-motion: reduce)")' in page
+assert 'phone.classList.toggle("rm", !!isReduced())' in page, "the OS setting never reaches .rm"
+assert "function wait(ms) { return isReduced() ? 0 : ms; }" in page
+fx = page[page.index("Proto.fx = (function"):page.index("Proto.panel = (function")]
+for fn in ("function bloom(e)", "function commit(btn)", "function countUp(root)"):
+    body = fx[fx.index(fn):][:200]
+    assert "if (isReduced()" in body, f"{fn} ignores reduced motion"
+assert "var still = isReduced() || document.hidden;" in fx, "the field animates under reduced motion"
+PYEOF
+}
+check "prototype: every motion has a reduced-motion path (CSS crossfades, JS waits, each effect, the field)" "_proto_reduced_motion"
 check "prototype: no external script/src other than Google Fonts" "_proto_self_contained"
 check "prototype: embedded spec + config JSON are valid (spec round-trips)" "_proto_json_valid"
 if command -v node >/dev/null 2>&1; then
@@ -329,3 +349,157 @@ check "native UI wired: @expo/ui segmented control + expo-image installed, no ra
    && grep -q 'from \"expo-image\"' '$KIT/template/mobile/components/ui/Media.tsx' \
    && ! grep -rq 'accessibilityRole=\"radio' '$KIT/template/mobile/components' '$KIT/template/mobile/app'"
 
+
+# ---- High-end by default: atmosphere, springs, fonts, size (docs/specs/high-end-design) ----
+
+# The lit ground is a colour no token file holds, so it gets its own contrast check:
+# re-derive the field from the RENDERED page (the light geometry in .atmo::before, its
+# drift, and each direction x mode x intensity's light colours + alpha), composite it
+# over the palette, and require every ink at AA on the lit ground and on glass over it.
+cat > "$T/proto_atmo_guard.py" <<'PYEOF'
+import json, re, sys
+sys.path.insert(0, sys.argv[3])
+import check_contrast as cc
+page, spec = open(sys.argv[1]).read(), json.load(open(sys.argv[2]))
+geo = re.search(r"\.atmo::before \{ background: (.*?); \}", page).group(1)
+lights = [tuple(float(v) / 100 for v in m) for m in re.findall(r"radial-gradient\(([\d.-]+)% ([\d.-]+)% at ([\d.-]+)% ([\d.-]+)%", geo)]
+assert len(lights) == 2, lights
+drift = re.search(r"@keyframes atmo-drift \{ to \{ transform: translate\(([\d.-]+)%, ([\d.-]+)%\) scale\(([\d.]+)\)", page)
+dx, dy, sc = float(drift.group(1)) / 100, float(drift.group(2)) / 100, float(drift.group(3))
+fills = {m: float(v) / 100 for m, v in re.findall(r'\.phone\[data-mode="(\w+)"\] \{ --glass-fill: ([\d.]+)%; \}', page)}
+assert set(fills) == {"light", "dark"}, fills
+def rgb(h): return [int(h[i:i + 2], 16) for i in (1, 3, 5)]
+def over(f, b, a): return "#" + "".join("%02X" % round(fc * a + bc * (1 - a)) for fc, bc in zip(rgb(f), rgb(b)))
+spots = set()
+for tx, ty, k in ((0, 0, 1), (dx, dy, sc)):
+    for yi in range(43):
+        for xi in range(21):
+            x, y = (xi / 20 - 0.5 - tx) / k + 0.5, (yi / 42 - 0.5 - ty) / k + 0.5
+            spots.add(tuple(round(max(0.0, 1 - (((x - lx) / rx) ** 2 + ((y - ly) / ry) ** 2) ** 0.5), 3) for rx, ry, lx, ly in lights))
+bad, n = [], 0
+for d in spec["directions"]:
+    for mode in ("light", "dark"):
+        pal = d["tokens"]["color"][mode]
+        for inten in ("low", "medium", "high"):
+            m = re.search(r'\.phone\[data-direction="%s"\]\[data-mode="%s"\]\[data-intensity="%s"\] \{ --atmo-1: (#\w{6}); --atmo-2: (#\w{6}); --atmo-a: ([\d.]+); \}' % (d["id"], mode, inten), page)
+            assert m, (d["id"], mode, inten)
+            c1, c2, a = m.group(1), m.group(2), float(m.group(3))
+            worst = 99.0
+            for f1, f2 in spots:
+                g = over(c2, over(c1, pal["bg"], a * f1), a * f2)
+                for ground in (g, over(pal["surfaceRaised"], g, fills[mode])):
+                    worst = min(worst, min(cc.ratio(pal[i], ground) for i in cc.INKS))
+            n += 1
+            if worst < 4.5:
+                bad.append(f"{d['id']}/{mode}/{inten}: {worst:.2f}")
+assert n == len(spec["directions"]) * 6, n
+assert not bad, "inks below AA on the lit ground: " + ", ".join(bad)
+PYEOF
+_proto_atmo_contrast() {  # [page]: the rendered page's atmosphere keeps every ink at AA
+  python3 "$T/proto_atmo_guard.py" "${1:-$PROTO_OUT/prototype.html}" "$PROTO_FIX" "$KIT/scripts"
+}
+_proto_atmo_contrast_refuses() {  # a renderer that lights the raw accent at full strength must fail it
+  python3 - "$PROTO_PY" "$PROTO_FIX" "$T/pm-atmo.html" <<'PYEOF' || return 1
+import json, sys, importlib.util
+spec = importlib.util.spec_from_file_location("proto", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+m.atmo_lights = lambda pal, mode, inten: {"light1": pal["accent"], "light2": pal["accent"], "alpha": 0.85}
+m.render(json.load(open(sys.argv[2])), sys.argv[3])
+PYEOF
+  local out
+  out=$(_proto_atmo_contrast "$T/pm-atmo.html" 2>&1) && return 1
+  printf '%s' "$out" | grep -q 'inks below AA on the lit ground: calm/light/low'
+}
+check "prototype: atmosphere keeps every ink at AA on the lit ground and on glass (re-derived from the page)" "_proto_atmo_contrast"
+check "prototype: that guard fails a renderer that lights the raw accent (negative control)" "_proto_atmo_contrast_refuses"
+
+_proto_springs() {  # motion runs on the spring tokens: a valid linear() per spring x temperature
+  python3 - "$PROTO_OUT/prototype.html" "$PROTO_FIX" <<'PYEOF'
+import json, re, sys
+page, spec = open(sys.argv[1]).read(), json.load(open(sys.argv[2]))
+for d in spec["directions"]:
+    peak = {}
+    for temp in ("calm", "lively"):
+        rule = re.search(r'\.phone\[data-direction="%s"\]\[data-temperature="%s"\] \{ (.*?) \}' % (d["id"], temp), page).group(1)
+        for name in ("snappy", "gentle", "bouncy"):
+            curve = re.search(r"--spring-%s: linear\(0, (.*?), 1\);" % name, rule).group(1)
+            assert re.search(r"--spring-%s-dur: \d+ms;" % name, rule), (d["id"], temp, name)
+            stops = [(float(v), float(p.rstrip("%"))) for v, p in (x.split() for x in curve.split(", "))]
+            at = [p for _, p in stops]
+            assert all(0 < a < b < 100 for a, b in zip(at, at[1:])), f"{d['id']}/{temp}/{name}: stops not increasing"
+            peak[(temp, name)] = max(v for v, _ in stops)
+    assert peak[("lively", "gentle")] > peak[("calm", "gentle")] + 0.05, "lively must overshoot more than calm"
+for cls in ("in-fade", "in-push", "in-pop"):
+    assert re.search(r"\.screen\.%s \{ animation: %s var\(--spring-gentle-dur\) var\(--spring-gentle\)" % (cls, cls), page), cls
+assert re.search(r"\.enter > \.blk, \.enter > \.stat-grid \{ animation: rise var\(--spring-gentle-dur\) var\(--spring-gentle\)", page)
+PYEOF
+}
+check "prototype: springs become CSS linear() per temperature, and screens + blocks move on them" "_proto_springs"
+_proto_spring_math() {  # the generated curve really is the spring: settles at 1, overshoot matches damping
+  python3 - "$PROTO_PY" <<'PYEOF'
+import math, importlib.util, sys
+spec = importlib.util.spec_from_file_location("proto", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+for k, c in ((180, 23), (320, 16.5), (220, 12)):
+    curve, ms = m.spring_curve({"stiffness": k, "damping": c, "mass": 1})
+    vals = [float(x.split()[0]) for x in curve[len("linear(0, "):-len(", 1)")].split(", ")]
+    zeta = c / (2 * math.sqrt(k))
+    want = math.exp(-zeta * math.pi / math.sqrt(1 - zeta ** 2))
+    assert abs((max(vals) - 1) - want) < 0.01, (k, c, max(vals) - 1, want)
+    assert 150 < ms < 3000 and abs(vals[-1] - 1) < 0.02, (ms, vals[-1])
+PYEOF
+}
+check "prototype: a generated spring curve overshoots exactly as its damping ratio predicts" "_proto_spring_math"
+
+check "prototype check catches: a bad atmosphere on a direction" \
+  "_proto_catches bad-atmo \"atmosphere.mode: 'neon' is not one of none, glow, field\" && _proto_catches bad-atmo 'atmosphere.grain: must be true or false'"
+FRA="$T/proto-frozen-atmo"
+printf '%s' '{"direction": "athletic", "mode": "dark", "atmosphere": {"mode": "field", "intensity": "high", "surface": "glass", "grain": false}}' > "$T/proto-choices-atmo.json"
+rm -rf "$FRA"
+check "prototype: freeze writes the atmosphere knobs + capped light colours into tokens.json and SCREENS.md" \
+  "python3 '$PROTO_PY' freeze '$PROTO_FIX' '$T/proto-choices-atmo.json' --target '$FRA' >/dev/null \
+   && python3 -c \"import json;t=json.load(open('$FRA/design/tokens.json'))['atmosphere'];c=json.load(open('$FRA/design/choices.json'))['atmosphere'];assert c=={'mode':'field','intensity':'high','grain':False,'surface':'glass'},c;assert {k:t[k] for k in c}==c and len(t['lights'])==2;assert all(0<t['color'][m]['alpha']<=0.85 and t['color'][m]['light1'].startswith('#') for m in ('light','dark'))\" \
+   && grep -q '^Atmosphere \*\*field\*\*, intensity high, grain off, glass surfaces' '$FRA/docs/product/SCREENS.md' \
+   && python3 '$KIT/scripts/check_contrast.py' '$FRA/design/tokens.json' >/dev/null"
+check "prototype: freeze without atmosphere takes the direction's default (older choices still freeze)" \
+  "python3 -c \"import json;c=json.load(open('$FRZ/design/choices.json'))['atmosphere'];assert c=={'mode':'glow','intensity':'medium','grain':True,'surface':'solid'},c\""
+check "prototype: freeze refuses a bad atmosphere knob (writes nothing)" \
+  "_proto_freeze_refuses '{\"atmosphere\": {\"mode\": \"neon\"}}' \"choices.atmosphere.mode: 'neon' is not one of none, glow, field\" \
+   && _proto_freeze_refuses '{\"atmosphere\": {\"sparkle\": true}}' 'choices.atmosphere.sparkle: unknown key'"
+check "prototype: panel has the atmosphere knobs, the motion preview, and Copy my choices carries atmosphere" \
+  "grep -q 'id: \"ph-atmo\", text: \"Atmosphere\"' '$PROTO_OUT/prototype.html' && grep -q 'api.setAtmo(\"intensity\", v)' '$PROTO_OUT/prototype.html' \
+   && grep -q 'api.setAtmo(\"surface\", v)' '$PROTO_OUT/prototype.html' && grep -q 'api.setAtmo(\"grain\", on)' '$PROTO_OUT/prototype.html' \
+   && grep -q 'Preview reduced motion' '$PROTO_OUT/prototype.html' && grep -q 'variants: v, features: f, atmosphere: a' '$PROTO_OUT/prototype.html'"
+
+# Fonts: inlined from the cache (no network here), or a Google Fonts <link> when they can't be.
+_proto_fonts_inline() {
+  local c="$T/proto-fonts-fake"; rm -rf "$c"; mkdir -p "$c"
+  python3 - "$c" <<'PYEOF'
+import hashlib, sys, pathlib
+c = pathlib.Path(sys.argv[1]); url = "https://fonts.gstatic.com/s/figtree/v9/fake.woff2"
+css = "".join("/* latin */\n@font-face {\n  font-family: 'Figtree';\n  font-style: normal;\n  font-weight: %d;\n  src: url(%s) format('woff2');\n}\n" % (w, url) for w in (400, 500, 600, 700))
+(c / "figtree.google.css").write_text("/* latin-ext */\n@font-face { font-style: normal; font-weight: 400; src: url(https://fonts.gstatic.com/x.woff2); }\n" + css)
+(c / (hashlib.sha256(url.encode()).hexdigest()[:24] + ".woff2")).write_bytes(b"wOF2" + b"\0" * 60)
+PYEOF
+  APPBOX_FONT_CACHE="$c" python3 "$PROTO_PY" render "$PROTO_FIX" "$T/pf.html" >/dev/null || return 1
+  grep -q '@font-face { font-family: "Figtree"; font-style: normal; font-weight: 400 700; font-display: block; src: url(data:font/woff2;base64,d09GMg' "$T/pf.html" \
+    && ! grep -q 'family=Figtree' "$T/pf.html" && grep -q 'family=Fraunces' "$T/pf.html" \
+    && [ "$(grep -o '@font-face' "$T/pf.html" | wc -l)" -eq 1 ]
+}
+check "prototype: fonts inline from the cache as one @font-face per file (latin only), others fall back to a <link>" "_proto_fonts_inline"
+_proto_fonts_offline() {
+  local out
+  out=$(python3 "$PROTO_PY" render "$PROTO_FIX" "$T/pf2.html") || return 1
+  printf '%s\n' "$out" | grep -q "note: font 'Figtree' is loaded from Google Fonts" \
+    && [ "$(grep -c 'fonts.googleapis.com/css2' "$T/pf2.html")" -eq 5 ] && ! grep -q '@font-face' "$T/pf2.html"
+}
+check "prototype: offline with no cache, every font is a Google Fonts <link> and render says so" "_proto_fonts_offline"
+
+_proto_size_budget() {  # one file, and the page itself (fonts aside) stays small
+  python3 - "$PROTO_OUT/prototype.html" <<'PYEOF'
+import re, sys
+page = open(sys.argv[1]).read()
+code = re.sub(r"data:font/woff2;base64,[A-Za-z0-9+/=]+", "", page)
+kb = len(code.encode()) / 1024
+assert kb < 200, f"prototype is {kb:.0f} KB without fonts (budget 200 KB)"
+PYEOF
+}
+check "prototype: size budget (under 200 KB before inlined fonts)" "_proto_size_budget"

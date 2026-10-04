@@ -5,10 +5,12 @@
 Proto.panel = (function () {
   "use strict";
   var el = Proto.el, CFG = Proto.CFG;
-  var api, body, screenBox, mapList, radios = {}, switches = {}, annotSwitch, copied, textarea, lastScreen = null;
+  var api, body, screenBox, mapList, radios = {}, switches = {}, annotSwitch, grainSwitch, rmSwitch, copied, textarea, lastScreen = null;
   var LABELS = {
     light: "Light", dark: "Dark", compact: "Compact", regular: "Regular", airy: "Airy",
-    calm: "Calm", lively: "Lively", playful: "Playful", "default": "Default", empty: "Empty"
+    calm: "Calm", lively: "Lively", playful: "Playful", "default": "Default", empty: "Empty",
+    none: "Off", glow: "Glow", field: "Field", low: "Low", medium: "Medium", high: "High",
+    solid: "Solid", glass: "Glass"
   };
   function label(v) { return LABELS[v] || v; }
 
@@ -93,7 +95,22 @@ Proto.panel = (function () {
       el("h2", { id: "ph-feel", text: "Feel" }),
       seg("density", "Density", "Minimal to rich: spacing and row height.", CFG.density, function (v) { api.set("density", v); }),
       seg("temperature", "Temperature", "Motion, corner radius and accent saturation.", CFG.temperature, function (v) { api.set("temperature", v); }),
-      seg("tone", "Copy tone", null, ["calm", "playful"], function (v) { api.set("tone", v); })
+      seg("tone", "Copy tone", null, ["calm", "playful"], function (v) { api.set("tone", v); }),
+      rmSwitch = sw("Preview reduced motion", "What people who turn motion off will see: crossfades, a still atmosphere.",
+        function (on) { api.setPreviewRM(on); })
+    ]));
+    var A = CFG.atmosphere;
+    grainSwitch = sw("Grain", "A fine film grain over the light, so it reads as material, not a gradient.",
+      function (on) { api.setAtmo("grain", on); });
+    body.appendChild(el("section", { class: "p-section", "aria-labelledby": "ph-atmo" }, [
+      el("h2", { id: "ph-atmo", text: "Atmosphere" }),
+      seg("atmo", "Light", "Field is a live, slowly moving light; without WebGL it shows as Glow.", A.mode,
+        function (v) { api.setAtmo("mode", v); }),
+      seg("intensity", "Intensity", "Capped per palette, so text always keeps AA contrast.", A.intensity,
+        function (v) { api.setAtmo("intensity", v); }),
+      seg("surface", "Surfaces", "Glass lets the light through cards and sheets, frosted.", A.surface,
+        function (v) { api.setAtmo("surface", v); }),
+      grainSwitch
     ]));
 
     screenBox = el("section", { class: "p-section", "aria-labelledby": "ph-screen", "aria-live": "polite" });
@@ -184,6 +201,11 @@ Proto.panel = (function () {
     ["direction", "mode", "density", "temperature", "tone"].forEach(function (k) { setRadio(k, state[k]); });
     Object.keys(switches).forEach(function (fid) { switches[fid].setAttribute("aria-checked", String(!!state.features[fid])); });
     annotSwitch.setAttribute("aria-checked", String(!!state.annotations));
+    setRadio("atmo", state.atmosphere.mode);
+    setRadio("intensity", state.atmosphere.intensity);
+    setRadio("surface", state.atmosphere.surface);
+    grainSwitch.setAttribute("aria-checked", String(!!state.atmosphere.grain));
+    rmSwitch.setAttribute("aria-checked", String(!!state.rmPreview));
     paintDirections(state.mode);
     // Rebuild the per-screen box only when the screen changes, so arrow-keying
     // through layouts doesn't lose focus; otherwise just re-check its radios.

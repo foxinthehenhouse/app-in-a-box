@@ -129,6 +129,14 @@ change values; keep every key.
   the skeleton shimmer back and forth).
 - A named `font` family (not built in) gets each weight its type roles use registered in
   the app's `lib/fonts.ts` in the scaffold phase, or it silently falls back.
+- `motion.spring` drives the feel end to end: the prototype turns each spring into a
+  CSS `linear()` curve (screen changes, sheets, presses) and the app hands the same
+  numbers to Reanimated, so tune damping here, not per animation.
+- Optional `atmosphere` sets the direction's default light: `{"mode": "none" | "glow" |
+  "field", "intensity": "low" | "medium" | "high", "grain": true, "surface": "solid" |
+  "glass"}`. Leave it out for a soft glow with grain on solid surfaces. The founder can
+  change it in the prototype, and freeze writes the result (with the light colours and
+  their contrast-safe alpha) back into `atmosphere`.
 - The v1 shape (one flat `color` map) still works but locks the app to one mode.
 
 Rules, all enforced by the validator, **in each mode**:
