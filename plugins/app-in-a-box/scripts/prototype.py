@@ -253,6 +253,10 @@ def merged_tokens(direction: dict) -> dict:
     base = load_json(str(TEMPLATE_TOKENS))
     base.pop("color", None)
     base.pop("$schema", None)
+    # The template's atmosphere knobs are a default; its light colours belong to its
+    # own palette (a direction gets fresh ones from atmo_lights), so they stay behind.
+    if isinstance(base.get("atmosphere"), dict):
+        base["atmosphere"] = {k: v for k, v in base["atmosphere"].items() if k in ATMO_DEFAULT}
     return deep_merge(base, direction.get("tokens") or {})
 
 
@@ -1527,8 +1531,8 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
     frozen = frozen_tokens(spec, ch)
     m, at = frozen["motion"], frozen["atmosphere"]
     dur, ease = m["duration"], m.get("easing", {})
-    enter = ease.get("enter", [])
     bouncy = ch["temperature"] == "lively"
+    st = settle_spring(m.get("spring", {}).get("gentle") or {"damping": 20, "stiffness": 180})
     return [
         "",
         "## Platform (what the prototype imitates, built natively)",
@@ -1554,7 +1558,8 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
         "| Prototype motion | Build with (`lib/motion.ts`, `components/ui`) | Frozen value |",
         "|---|---|---|",
         f"| Content rises in, staggered | `entering={{entrance(i)}}` (`Card index={{i}}`) | "
-        f"{dur.get('deliberate')}ms, curve `enter` {enter}, 45ms step |",
+        f"spring `settle` (stiffness {st['stiffness']:g}, damping {st['damping']:.1f}: critically "
+        "damped, never past the mark), 45ms step |",
         f"| Press feedback | `PressableScale` / `Button` (scale + haptic) | "
         f"scale {m.get('pressScale')} |",
         f"| Selection moves (chips, thumb) | `springTo(x, \"snappy\")` | "
@@ -1564,16 +1569,20 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
         f"| Toast in / out | `useToast()` (FadeInUp / fade out) | {dur.get('screen')}ms in |",
         "| Number counts up | `AnimatedNumber` / `StatCard` | static under reduce motion |",
         "| Payoff moment | `Celebration` + `haptic.success()` | the core loop's reward only |",
-        "| Screen change (blur-rise, overlapping) | the Stack transition + `entrance(i)` | "
-        "spring `gentle`, critically damped: arrives without overshoot |",
+        "| Screen change (blur-rise, overlapping) | the Stack transition + `Screen` "
+        "(content fades in on `screenEntrance`) + `entrance(i)` | "
+        "spring `settle`: `gentle`, critically damped, arrives without overshoot |",
         "",
         f"Atmosphere **{at['mode']}**, intensity {at['intensity']}, grain {'on' if at['grain'] else 'off'}, "
         f"{at['surface']} surfaces: design/tokens.json → `atmosphere` carries the two light colours "
         f"and the contrast-capped alpha per mode (light {at['color']['light']['alpha']}, "
-        f"dark {at['color']['dark']['alpha']}). Paint it behind every screen, never over text.",
+        f"dark {at['color']['dark']['alpha']}). `ScreenAtmosphere` (mounted by `Screen`) paints it "
+        "behind every screen, never over text. Glass surfaces mean Liquid Glass chrome only "
+        "(the tab bar, `SheetHeader`) on iOS 26 with Reduce Transparency off, solid `surface` "
+        "everywhere else; cards stay solid.",
         "",
-        "Haptics follow the commitment ladder in `lib/motion.ts`: selection for chips and "
-        "segments, medium for the primary action, success for the payoff.",
+        "Haptics follow the commitment ladder in `lib/motion.ts` (`hapticFor`): selection for "
+        "chips and segments, medium for the primary action, success for the payoff.",
     ]
 
 

@@ -21,11 +21,8 @@ const GUARDED = ["components/ui", "lib"];
 const NO_TEST_NEEDED = {
   "components/ui/index": "barrel file: re-exports only",
   "components/ui/Icon": "thin wrapper over expo-symbols; rendered by every component test",
-  "components/ui/Text": "typography tokens only; rendered by every component test",
-  "components/ui/Screen": "layout shell; rendered by every screen test (sign-in, delete-account, demo-flow)",
   "components/ui/PressableScale": "exercised through Button/Chip/ListRow in components.test.tsx (haptics, disabled)",
   "components/ui/FormField": "react-hook-form binding over Field; covered by lib/__tests__/forms.test.tsx",
-  "components/ui/Sheet": "native formSheet chrome; covered by the delete-account and edit-name screen tests",
   "lib/monitoring": "Sentry no-op wrapper when no DSN; its wiring is checked by check-eas-shipping-env",
   "lib/updates": "expo-updates calls only reachable in a release build; UpdateBanner is tested",
   "lib/use-load": "covered through the screen tests that render loading, error and retry states",
