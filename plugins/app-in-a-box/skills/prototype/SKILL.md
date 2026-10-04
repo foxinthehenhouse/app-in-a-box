@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: Phase 2 of App in a Box. Before any code or cloud setup, the team builds a clickable HTML prototype of every v1 screen with toggles for design direction, light/dark, layout variants per screen, density, motion temperature, atmosphere (light, grain, glass), copy tone and optional features; the founder clicks through and refines it in a few quick rounds, then the approved prototype is frozen into design tokens, a screen map and v1 scope that the scaffold builds from. Use after shape, or whenever someone wants to see or change what the app looks like.
+description: Phase 2 of App in a Box. Before any code or cloud setup, the team builds a clickable HTML prototype of every v1 screen with toggles for design direction, type pairing, light/dark, layout variants per screen, density, motion temperature, atmosphere (light, grain, glass), copy tone and optional features; the founder clicks through and refines it in a few quick rounds, then the approved prototype is frozen into design tokens, a screen map and v1 scope that the scaffold builds from. Use after shape, or whenever someone wants to see or change what the app looks like.
 ---
 
 # Phase 2: Prototype (click it before we build it)
@@ -85,7 +85,7 @@ otherwise give the path; `open design/prototype.html` on macOS). Tell them what 
 in 4 lines max:
 
 > Tap through it like it's real. On the side panel you can switch the **look** (three
-> directions, light/dark), each screen's **layout**, how **minimal or rich** it feels,
+> directions, their **type**, light/dark), each screen's **layout**, how **minimal or rich** it feels,
 > **calm or playful** motion and wording, the **atmosphere** (light, grain, glass), and
 > turn **optional features** on and off.
 > When you like it, press **"Copy my choices"** and paste it here, or just tell me.
@@ -94,7 +94,7 @@ in 4 lines max:
 
 If they pasted choices, apply them. Then ask what's still open (structured, 2–3 per
 round, recommended option first, *why* on each):
-- **Direction** (A/B/C or "mix: describe").
+- **Direction** (A/B/C or "mix: describe"), and its **type** if they tried the Type knob.
 - **Layout of the core-loop screen**, and of any other screen with variants.
 - **Density and temperature** ("Minimal and calm", "Rich and lively"…) and **tone**.
 - **Features in v1**: each toggle with Omar's one-line build note ("Streaks: easy, no
@@ -112,8 +112,10 @@ features. Changing it later is still possible, just slower."). Write their choic
 `design/choices.in.json`: the JSON they pasted from "Copy my choices", verbatim, or
 built from what they told you (`direction`, `mode`, `density`, `temperature`, `tone`,
 `variants: {screen: variant}`, `features: {id: bool}`, `atmosphere: {mode: none|glow|field,
-intensity: low|medium|high, grain: bool, surface: solid|glass}`; anything left out takes
-the spec's default, so `{}` means "the defaults"). Then:
+intensity: low|medium|high, grain: bool, surface: solid|glass}`, and from the Type knob
+`font: {display, body}`, one of the pairings it offered that direction; anything left
+out takes the spec's default, so `{}` means "the defaults" and no `font` means the
+direction's own faces). Then:
 
 ```
 python3 "$KIT/scripts/prototype.py" freeze design/prototype.json design/choices.in.json --target .
@@ -121,7 +123,8 @@ python3 "$KIT/scripts/check_contrast.py" design/tokens.json
 ```
 
 That writes `design/tokens.json` (the chosen direction with density and temperature
-applied, plus `atmosphere`: the knobs, both light colours and their contrast-safe alpha), `docs/product/SCREENS.md` (each screen's chosen layout mapped to the kit's
+applied, the chosen pairing in `font` with each type role on a weight that family has,
+plus `atmosphere`: the knobs, both light colours and their contrast-safe alpha), `docs/product/SCREENS.md` (each screen's chosen layout mapped to the kit's
 components, the navigation, the states and the v1 feature list) and
 `design/choices.json`. Update `BRIEF.md` → "Screens (v1)" and "Out of scope for v1"
 from SCREENS.md. Set `progress.design: done`.
@@ -154,6 +157,19 @@ derives them from the accent and keeps every ink at AA on the lit ground (`check
 a bad value). The renderer also does the motion (overlapping blur-rise screen changes
 on the direction's spring tokens, staggered content, touch bloom, a receding sheet,
 numbers that count up) and its reduced-motion version. None of it goes in the spec.
+
+**The Type knob** comes free with the kit's type library, `$KIT/scripts/proto/fonts.json`
+(about 45 OFL families with personalities and pairings; `skills/design-directions` has
+the overview). When a direction's display face (else its body face) is in the library,
+the panel offers "Direction default" plus up to three other pairings with the same
+personality, each previewed in its own face, and swaps the phone's fonts live. A
+direction on the system font, or on a face outside the library, offers nothing to swap.
+So pick each direction's faces from the library when you can. The offered fonts are
+inlined like the direction's own while they fit a budget; past it they load from Google
+Fonts, so previewing those few needs a connection. The pick freezes into
+`design/tokens.json` → `font`, and the scaffold registers every weight it uses in
+`mobile/lib/fonts.ts` (its test fails until it does), exactly as for a direction's own
+faces.
 
 Strings are plain or `{"calm": "…", "playful": "…"}` (the copy-tone toggle), one line
 each. Tabs come only from `tabs`; every other screen is reached by a `go` action. Actions:
