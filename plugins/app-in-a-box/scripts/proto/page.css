@@ -22,8 +22,18 @@ body { background: var(--ui-page); color: var(--ui-ink); font: 14px/1.45 var(--u
 .noscript { padding: 24px; text-align: center; }
 
 .page { display: grid; grid-template-columns: minmax(0, 1fr) 380px; min-height: 100vh; }
-.stage { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; gap: 14px; min-width: 0; }
-.phone-slot { position: relative; width: calc(390px * var(--phone-scale, 1)); height: calc(844px * var(--phone-scale, 1)); }
+/* The stage follows the phone: a dark phone sits in a dark room, lit by its own accent. */
+.stage { position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; gap: 14px; min-width: 0;
+  background: var(--stage-bg, var(--ui-page)); transition: background-color .6s cubic-bezier(.2,0,0,1); }
+.stage::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(34% 46% at 50% 50%, color-mix(in srgb, var(--stage-glow, transparent) 30%, transparent), transparent 72%); transition: opacity .6s; }
+.stage[data-mode="dark"] { color-scheme: dark; --ui-ink: #ECEAE5; --ui-dim: #ABA8A1; }
+.stage[data-mode="light"]::before { opacity: .55; }
+.phone-slot { position: relative; isolation: isolate; width: calc(390px * var(--phone-scale, 1)); height: calc(844px * var(--phone-scale, 1)); }
+/* a brushed-metal frame around the black bezel */
+.phone-slot::before { content: ""; position: absolute; z-index: -1; inset: calc(-12px * var(--phone-scale, 1)); border-radius: calc(66px * var(--phone-scale, 1));
+  background: linear-gradient(145deg, #6B6E75 0%, #23252A 22%, #4A4D54 48%, #17181B 74%, #5C5F66 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 1px 0 rgba(255,255,255,.08); }
 .stage-caption { margin: 0; color: var(--ui-dim); font-size: 13px; min-height: 19px; text-align: center; }
 .stage-caption b { color: var(--ui-ink); font-weight: 600; }
 
@@ -97,6 +107,7 @@ body { background: var(--ui-page); color: var(--ui-ink); font: 14px/1.45 var(--u
   .page { display: block; }
   .stage { padding: 0 0 64px; min-height: 100vh; justify-content: flex-start; gap: 0; }
   .phone-slot { width: 100%; height: calc(100dvh - 64px); }
+  .phone-slot::before, .stage::before { display: none; }
   .stage-caption { display: none; }
   .panel { position: fixed; left: 0; right: 0; bottom: 0; top: auto; height: auto; max-height: 78dvh; border-left: 0; border-top: 1px solid var(--ui-line); border-radius: 18px 18px 0 0; box-shadow: 0 -8px 32px rgba(0,0,0,.18); transform: translateY(calc(100% - 64px)); transition: transform .28s cubic-bezier(.2,0,0,1); z-index: 50; }
   .panel.open { transform: none; }

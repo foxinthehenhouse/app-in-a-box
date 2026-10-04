@@ -14,13 +14,17 @@
 <div class="page">
   <main class="stage" aria-label="Prototype">
     <div class="phone-slot" id="phone-slot">
-      <div class="phone" id="phone" data-direction="" data-mode="light" data-density="regular" data-temperature="calm" data-icons="rounded">
-        <div class="statusbar" aria-hidden="true">
-          <span class="statusbar-time">9:41</span>
-          <span class="statusbar-glyphs"><i class="sig"></i><i class="bat"></i></span>
+      <div class="phone" id="phone" data-direction="" data-mode="light" data-density="regular" data-temperature="calm" data-icons="rounded" data-atmo="glow" data-intensity="medium" data-grain="on" data-surface="solid">
+        <div class="deck" id="deck">
+          <div class="atmo" aria-hidden="true"><canvas class="field"></canvas></div>
+          <div class="statusbar" aria-hidden="true">
+            <span class="statusbar-time">9:41</span>
+            <span class="statusbar-glyphs"><i class="sig"></i><i class="bat"></i></span>
+          </div>
+          <div class="viewport" id="viewport"></div>
+          <nav class="tabbar" id="tabbar" aria-label="Tabs" hidden></nav>
         </div>
-        <div class="viewport" id="viewport"></div>
-        <nav class="tabbar" id="tabbar" aria-label="Tabs" hidden></nav>
+        <div class="island" aria-hidden="true"></div>
         <div class="toast-host" id="toast-host" role="status" aria-live="polite"></div>
         <div class="sheet-host" id="sheet-host"></div>
         <div class="home-indicator" aria-hidden="true"></div>

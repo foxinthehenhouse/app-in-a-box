@@ -25,8 +25,10 @@ check    prints one line per problem and exits 1 on any: schema errors, dangling
          no block references.
 freeze   takes the JSON the prototype's "Copy my choices" button emits,
          {direction, mode, density, temperature, tone, variants: {screen: variant},
-         features: {id: bool}}, and writes under --target:
-           design/tokens.json       the chosen direction, density + temperature applied
+         features: {id: bool}, atmosphere: {mode, intensity, grain, surface}},
+         and writes under --target:
+           design/tokens.json       the chosen direction, density + temperature applied,
+                                    plus atmosphere (lights, colours, capped alpha)
            docs/product/SCREENS.md  per screen: chosen variant -> components/ui, nav
                                     graph, states, features in/out of v1
            design/choices.json      every selection, resolved (no gaps)
@@ -92,6 +94,26 @@ TEMPERATURE = {
         "damping": 0.75,  # springs overshoot a little, like the prototype's pop
     },
 }
+# Atmosphere: the light the app sits in, and its surfaces. A direction may set its
+# default in tokens.atmosphere; the founder turns the knobs in the panel; the result is
+# frozen into design/tokens.json -> atmosphere like every other choice.
+ATMO_MODES = ("none", "glow", "field")  # field = WebGL, falls back to glow without it
+ATMO_INTENSITY = {"low": 0.4, "medium": 0.62, "high": 0.85}  # peak alpha of each light
+ATMO_SURFACES = ("solid", "glass")
+ATMO_DEFAULT = {"mode": "glow", "intensity": "medium", "grain": True, "surface": "solid"}
+ATMO_KEYS = {"mode": ATMO_MODES, "intensity": tuple(ATMO_INTENSITY), "surface": ATMO_SURFACES}
+# Each light is the accent's hue (and a neighbour's), saturated, at the brightest
+# lightness that keeps every ink at AA over the lit ground and over a glass card on it.
+# A colour that exists in no token file can't be checked by a token gate, so the
+# renderer composites the field and checks it here instead (atmo_lights).
+# Two lights, as fractions of the phone: (centre x, centre y, radius x, radius y). The
+# first crowns the top edge, the second rises from the lower right; ATMO_DRIFT is the
+# far end of their slow drift (dx, dy, scale). phone.css draws exactly this geometry
+# from the --atmo-l* variables render() writes.
+ATMO_LIGHTS = ((0.18, -0.06, 0.78, 0.44), (1.02, 0.74, 0.70, 0.40))
+ATMO_DRIFT = (-0.03, 0.025, 1.06)
+GLASS_FILL = {"light": 0.78, "dark": 0.70}  # glass card = surfaceRaised at this alpha
+INK_AA = 4.5
 BUTTON_STYLES = ("primary", "secondary", "ghost")
 MAX_TABS = 5
 
@@ -677,6 +699,15 @@ def _token_values(t: dict, w: str, p: list) -> None:
         p.append(f"{w}.motion.pressScale: must be a number")
     if "minTapTarget" in t and not _is_num(t["minTapTarget"]):
         p.append(f"{w}.minTapTarget: must be a number")
+    for k, sp in (motion.get("spring") or {}).items():
+        if key(f"{w}.motion.spring", k) and not (
+            isinstance(sp, dict)
+            and all(_is_num(sp.get(f)) and sp.get(f) > 0 for f in ("damping", "stiffness", "mass"))
+        ):
+            p.append(f"{w}.motion.spring.{k}: damping, stiffness and mass must be positive numbers")
+    atmo = t.get("atmosphere")
+    if atmo is not None:
+        p.extend(f"{w}.atmosphere{e}" for e in atmo_errors(atmo))
     for role, spec in (t.get("type") or {}).items():
         if not key(f"{w}.type", role):
             continue
@@ -736,6 +767,161 @@ def _shadow(spec: dict, color: str) -> str:
     )
 
 
+def atmo_errors(a) -> list[str]:
+    """Problems with an atmosphere object (a direction's default or a choice)."""
+    if not isinstance(a, dict):
+        return [": must be an object"]
+    errs = [f".{k}: unknown key" for k in sorted(set(a) - set(ATMO_DEFAULT))]
+    for k, options in ATMO_KEYS.items():
+        if k in a and a[k] not in options:
+            errs.append(f".{k}: {a[k]!r} is not one of {', '.join(options)}")
+    if "grain" in a and not isinstance(a["grain"], bool):
+        errs.append(".grain: must be true or false")
+    return errs
+
+
+def atmosphere_of(d: dict) -> dict:
+    """A direction's default atmosphere, every key filled."""
+    a = merged_tokens(d).get("atmosphere")
+    return {**ATMO_DEFAULT, **(a if isinstance(a, dict) else {})}
+
+
+def _hex(rgb) -> str:
+    return "#{:02X}{:02X}{:02X}".format(*(max(0, min(255, round(c))) for c in rgb))
+
+
+def _over(fg: str, bg: str, a: float) -> str:
+    """fg composited over bg at alpha a (what color-mix(fg a%, transparent) over bg paints)."""
+    f, b = _hex_to_rgb(fg), _hex_to_rgb(bg)
+    return _hex([fc * a + bc * (1 - a) for fc, bc in zip(f, b)])
+
+
+def second_hue(pal: dict, mode: str) -> str:
+    """The glow's second light: the accent's hue turned 38 degrees, so two apps with
+    different accents never share an atmosphere (and no extra token is needed). It
+    turns the other way rather than land in yellow-olive, which goes muddy when dim."""
+    r, g, b = (c / 255 for c in _hex_to_rgb(pal["accent"]))
+    h, lum, sat = colorsys.rgb_to_hls(r, g, b)
+    lum = min(lum, 0.62) if mode == "dark" else max(lum, 0.42)
+    h2 = (h + 38 / 360) % 1
+    if 40 / 360 <= h2 <= 95 / 360:
+        h2 = (h - 38 / 360) % 1
+    return _hex(c * 255 for c in colorsys.hls_to_rgb(h2, lum, sat * 0.9))
+
+
+def _falloffs() -> list[tuple[float, float]]:
+    """Every (light 1, light 2) strength pair the glow paints inside the 390x844 phone,
+    from the same geometry the CSS draws (ATMO_LIGHTS) at both ends of its drift, cut
+    down to the pairs no other pair beats on both lights (only those can be the darkest
+    or brightest spot)."""
+    pairs = set()
+    for dx, dy, sc in ((0.0, 0.0, 1.0), ATMO_DRIFT):
+        for yi in range(43):
+            for xi in range(21):
+                # undo the drift transform (about the centre) to find the gradient point
+                x = (xi / 20 - 0.5 - dx) / sc + 0.5
+                y = (yi / 42 - 0.5 - dy) / sc + 0.5
+                f = []
+                for cx, cy, rx, ry in ATMO_LIGHTS:
+                    r = (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2) ** 0.5
+                    f.append(round(max(0.0, 1 - r), 3))
+                pairs.add((f[0], f[1]))
+    return [p for p in pairs if not any(q != p and q[0] >= p[0] and q[1] >= p[1] for q in pairs)]
+
+
+FALLOFFS: list[tuple[float, float]] = []
+
+
+def lit_grounds(pal: dict, mode: str, alpha: float, c1: str, c2: str) -> list[str]:
+    """Every colour text can land on once lights c1 and c2 are lit at peak `alpha`: the
+    lit ground at each worst-case spot, and a glass card over it."""
+    if not FALLOFFS:
+        FALLOFFS.extend(_falloffs())
+    out = []
+    for f1, f2 in FALLOFFS:
+        ground = _over(c2, _over(c1, pal["bg"], alpha * f1), alpha * f2)
+        out += [ground, _over(pal["surfaceRaised"], ground, GLASS_FILL[mode])]
+    return out
+
+
+def _glow(base: str, toward: str, t: float) -> str:
+    """base's hue, saturated, at a lightness t of the way from `toward` to base."""
+    r, g, b = (c / 255 for c in _hex_to_rgb(base))
+    h, lb, sb = colorsys.rgb_to_hls(r, g, b)
+    r, g, b = (c / 255 for c in _hex_to_rgb(toward))
+    lt = colorsys.rgb_to_hls(r, g, b)[1]
+    return _hex(c * 255 for c in colorsys.hls_to_rgb(h, lt + (lb - lt) * t, min(1.0, sb * 1.1)))
+
+
+def atmo_lights(pal: dict, mode: str, intensity: str) -> dict:
+    """The two light colours and their peak alpha for one palette: the brightest pair
+    (closest to the accent) at which every ink still clears AA everywhere on the lit
+    ground. Alpha 0 when even a ground-coloured light can't (the palette has no
+    headroom at all)."""
+    a = ATMO_INTENSITY[intensity]
+    hue2 = second_hue(pal, mode)
+
+    def pair(t: float) -> tuple[str, str]:
+        return _glow(pal["accent"], pal["bg"], t), _glow(hue2, pal["bg"], t)
+
+    def ok(t: float) -> bool:
+        c1, c2 = pair(t)
+        return all(cc.ratio(pal[ink], g) >= INK_AA for g in lit_grounds(pal, mode, a, c1, c2) for ink in cc.INKS)
+
+    if not ok(0.0):
+        c1, c2 = pair(0.0)
+        return {"light1": c1, "light2": c2, "alpha": 0}
+    lo, hi = 0.0, 1.0
+    if ok(1.0):
+        lo = 1.0
+    else:
+        for _ in range(16):
+            mid = (lo + hi) / 2
+            lo, hi = (mid, hi) if ok(mid) else (lo, mid)
+    c1, c2 = pair(lo)
+    return {"light1": c1, "light2": c2, "alpha": a}
+
+
+def _simplify(pts: list, eps: float) -> list:
+    """Ramer-Douglas-Peucker: the fewest points that stay within eps of the curve."""
+    (t0, x0), (t1, x1) = pts[0], pts[-1]
+    worst, at = 0.0, 0
+    for i in range(1, len(pts) - 1):
+        t, x = pts[i]
+        d = abs(x0 + (x1 - x0) * (t - t0) / (t1 - t0) - x)
+        if d > worst:
+            worst, at = d, i
+    if worst <= eps:
+        return [pts[0], pts[-1]]
+    return _simplify(pts[: at + 1], eps)[:-1] + _simplify(pts[at:], eps)
+
+
+def spring_curve(sp: dict) -> tuple[str, int]:
+    """A damped spring as a CSS linear() easing plus its settle time in ms, so the
+    prototype moves on the same spring tokens Reanimated uses in the app."""
+    k, c, m = float(sp["stiffness"]), float(sp["damping"]), float(sp.get("mass", 1))
+    x, v, dt, t, pts = 0.0, 0.0, 1 / 1000, 0.0, [(0.0, 0.0)]
+    settled = 0
+    while t < 3.0:
+        a = (k * (1 - x) - c * v) / m
+        v += a * dt
+        x += v * dt
+        t += dt
+        if abs(1 - x) < 0.002 and abs(v) < 0.02:
+            settled += 1
+            if settled > 30:
+                break
+        else:
+            settled = 0
+        if round(t * 1000) % 8 == 0:
+            pts.append((t, x))
+    dur = max(t, 0.05)
+    pts.append((t, 1.0))
+    keep = _simplify(pts, 0.003)
+    stops = ", ".join(f"{xv:.3f} {tv / dur * 100:.1f}%" for tv, xv in keep[1:-1])
+    return f"linear(0, {stops}, 1)", round(dur * 1000)
+
+
 def direction_css(d: dict) -> str:
     t = merged_tokens(d)
     sel = f'.phone[data-direction="{d["id"]}"]'
@@ -761,9 +947,22 @@ def direction_css(d: dict) -> str:
         v.append(f"--t-{role}-case: {'uppercase' if spec.get('uppercase') else 'none'};")
     v.append(f"--tap: {t.get('minTapTarget', 48)}px;")
     out = [f"{sel} {{ {' '.join(v)} }}"]
+    for temp, cfg in TEMPERATURE.items():
+        sv = []
+        for name, sp in (t.get("motion", {}).get("spring") or {}).items():
+            curve, ms = spring_curve(dict(sp, damping=sp["damping"] * cfg["damping"]))
+            sv.append(f"--spring-{name}: {curve}; --spring-{name}-dur: {ms}ms;")
+        if sv:
+            out.append(f'{sel}[data-temperature="{temp}"] {{ {" ".join(sv)} }}')
     for mode in MODES:
         pal = t["color"][mode]
         cv = [f"--{_kebab(k)}: {val};" for k, val in pal.items()]
+        for name in ATMO_INTENSITY:
+            lit = atmo_lights(pal, mode, name)
+            out.append(
+                f'{sel}[data-mode="{mode}"][data-intensity="{name}"] '
+                f"{{ --atmo-1: {lit['light1']}; --atmo-2: {lit['light2']}; --atmo-a: {lit['alpha']}; }}"
+            )
         shadow = pal.get("shadow", "#000000")
         for name, spec in (t.get("elevation") or {}).items():
             cv.append(f"--elev-{name}: {_shadow(spec, shadow)};")
@@ -793,28 +992,124 @@ def feel_css() -> str:
             f'--rmult: {cfg["radius"]}; --press-k: {cfg["press"]}; '
             f"--ease-pop: {enter}; }}"
         )
+    for mode, fill in GLASS_FILL.items():
+        out.append(f'.phone[data-mode="{mode}"] {{ --glass-fill: {fill * 100:g}%; }}')
+    (x1, y1, rx1, ry1), (x2, y2, rx2, ry2) = ATMO_LIGHTS
+    dx, dy, sc = ATMO_DRIFT
+
+    def light(n: int, rx, ry, x, y) -> str:
+        mix = f"color-mix(in srgb, var(--atmo-{n}) calc(var(--atmo-a) * 100%), transparent)"
+        return f"radial-gradient({rx * 100:g}% {ry * 100:g}% at {x * 100:g}% {y * 100:g}%, {mix}, transparent)"
+
+    out.append(
+        f".atmo::before {{ background: {light(1, rx1, ry1, x1, y1)}, {light(2, rx2, ry2, x2, y2)}; }}"
+    )
+    out.append(
+        f"@keyframes atmo-drift {{ to {{ transform: translate({dx * 100:g}%, {dy * 100:g}%) scale({sc:g}); }} }}"
+    )
     return "\n".join(out)
 
 
-def google_fonts(spec: dict) -> str:
+FONT_CACHE = Path(
+    os.environ.get("APPBOX_FONT_CACHE") or Path.home() / ".cache" / "app-in-a-box" / "fonts"
+)
+FONT_MAX_BYTES = 160_000  # one family's Latin subset; anything bigger stays a <link>
+_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+
+
+def _font_families(spec: dict) -> list[str]:
     fams = []
     for d in spec["directions"]:
         for fam in (merged_tokens(d).get("font") or {}).values():
             if fam not in SYSTEM_FONTS and fam not in MONO_FONTS and fam not in fams:
                 fams.append(fam)
-    if not fams:
-        return ""
-    links = [
-        '<link rel="preconnect" href="https://fonts.googleapis.com">',
-        '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
-    ]
-    for fam in fams:  # one link per family: a family missing a weight can't sink the rest
-        q = fam.replace(" ", "+")
-        links.append(
-            f'<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
-            f'family={q}:wght@400;500;600;700&amp;display=swap">'
+    return fams
+
+
+def _css2_url(fam: str) -> str:
+    return (
+        "https://fonts.googleapis.com/css2?family="
+        + fam.replace(" ", "+")
+        + ":wght@400;500;600;700&display=swap"
+    )
+
+
+_NET = {"down": False}  # after one failed fetch, stop trying: offline renders stay fast
+
+
+def _fetch(url: str, path: Path) -> bytes | None:
+    """url's bytes, from the cache or (unless APPBOX_OFFLINE=1) the network."""
+    if path.is_file():
+        return path.read_bytes()
+    if os.environ.get("APPBOX_OFFLINE") == "1" or _NET["down"]:
+        return None
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": _UA})
+        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310 (fixed https hosts)
+            data = r.read(FONT_MAX_BYTES + 1)
+    except Exception:  # offline, blocked, DNS: fall back to a <link>
+        _NET["down"] = True
+        return None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    except OSError:
+        pass
+    return data
+
+
+def inline_font(fam: str) -> str | None:
+    """@font-face rules for fam's Latin subset with the woff2 inlined, or None when it
+    can't be fetched (or is too big). Cached, so a re-render needs no network."""
+    import base64
+
+    slug = re.sub(r"[^a-z0-9]+", "-", fam.lower())
+    css = _fetch(_css2_url(fam), FONT_CACHE / f"{slug}.google.css")
+    if not css:
+        return None
+    by_url: dict[str, list[int]] = {}
+    for block in re.findall(r"/\* latin \*/\s*@font-face\s*\{(.*?)\}", css.decode("utf-8", "replace"), re.S):
+        m_url = re.search(r"url\((https://fonts\.gstatic\.com/[A-Za-z0-9/._-]+\.woff2)\)", block)
+        m_w = re.search(r"font-weight:\s*(\d{3})", block)
+        if m_url and m_w and "font-style: normal" in block:
+            by_url.setdefault(m_url.group(1), []).append(int(m_w.group(1)))
+    if not by_url:
+        return None
+    rules, total = [], 0
+    for url, weights in by_url.items():
+        data = _fetch(url, FONT_CACHE / (hashlib.sha256(url.encode()).hexdigest()[:24] + ".woff2"))
+        if not data or not data.startswith(b"wOF2"):
+            return None
+        total += len(data)
+        if total > FONT_MAX_BYTES:
+            return None
+        w = f"{min(weights)} {max(weights)}" if len(weights) > 1 else str(weights[0])
+        rules.append(
+            f'@font-face {{ font-family: "{fam}"; font-style: normal; font-weight: {w}; '
+            f"font-display: block; src: url(data:font/woff2;base64,"
+            f'{base64.b64encode(data).decode()}) format("woff2"); }}'
         )
-    return "\n".join(links)
+    return "\n".join(rules)
+
+
+def fonts(spec: dict) -> tuple[str, str]:
+    """(<head> links, inline @font-face CSS). Each family is inlined when it can be, so
+    the prototype renders right offline and when forwarded; one that can't (offline
+    first render, too big) falls back to a Google Fonts <link> and says so."""
+    links, faces = [], []
+    for fam in _font_families(spec):
+        face = inline_font(fam)
+        if face:
+            faces.append(face)
+        else:
+            links.append(f'<link rel="stylesheet" href="{_css2_url(fam).replace("&", "&amp;")}">')
+            print(f"note: font {fam!r} is loaded from Google Fonts (not inlined: offline or too big)")
+    if links:
+        links.insert(0, '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>')
+        links.insert(0, '<link rel="preconnect" href="https://fonts.googleapis.com">')
+    return "\n".join(links), "\n".join(faces)
 
 
 # ---------------------------------------------------------------- render
@@ -822,7 +1117,11 @@ def google_fonts(spec: dict) -> str:
 
 def _rev(spec: dict) -> str:
     """Fingerprint of what saved choices could override: defaults and the features."""
-    basis = [spec.get("defaults"), [[f.get("id"), f.get("default")] for f in spec.get("features") or []]]
+    basis = [
+        spec.get("defaults"),
+        [[f.get("id"), f.get("default")] for f in spec.get("features") or []],
+        {d.get("id"): atmosphere_of(d) for d in spec.get("directions") or []},
+    ]
     return hashlib.sha256(json.dumps(basis, sort_keys=True).encode()).hexdigest()[:12]
 
 
@@ -832,16 +1131,24 @@ def _script_json(obj) -> str:
 
 def render(spec: dict, out: str) -> None:
     css = "\n".join([feel_css()] + [direction_css(d) for d in spec["directions"]])
+    links, faces = fonts(spec)
     parts = {
         "TITLE": html.escape(tone(spec["app"]["name"]) + " prototype"),
-        "FONTS": google_fonts(spec),
-        "CSS": "\n".join((PROTO / f).read_text() for f in ("page.css", "phone.css")) + "\n" + css,
+        "FONTS": links,
+        "CSS": "\n".join([faces] + [(PROTO / f).read_text() for f in ("page.css", "phone.css")]) + "\n" + css,
         "SPEC": _script_json(spec),
         "CONFIG": _script_json(
             {
                 "icons": load_json(str(PROTO / "icons.json"))["icons"],
                 "density": list(DENSITY),
                 "temperature": list(TEMPERATURE),
+                "atmosphere": {
+                    "mode": list(ATMO_MODES),
+                    "intensity": list(ATMO_INTENSITY),
+                    "surface": list(ATMO_SURFACES),
+                    "lights": [list(x) for x in ATMO_LIGHTS],
+                    "defaults": {d["id"]: atmosphere_of(d) for d in spec["directions"]},
+                },
                 "components": COMPONENTS,
                 "rev": _rev(spec),
                 "palettes": {d["id"]: merged_tokens(d)["color"] for d in spec["directions"]},
@@ -851,7 +1158,9 @@ def render(spec: dict, out: str) -> None:
                 },
             }
         ),
-        "JS": "\n".join((PROTO / f).read_text() for f in ("blocks.js", "panel.js", "runtime.js")),
+        "JS": "\n".join(
+            (PROTO / f).read_text() for f in ("blocks.js", "fx.js", "panel.js", "runtime.js")
+        ),
     }
     shell = (PROTO / "shell.html").read_text()
     page = re.sub(r"\{\{([A-Z]+)\}\}", lambda m: parts[m.group(1)], shell)
@@ -866,7 +1175,7 @@ def resolve_choices(spec: dict, ch) -> tuple[dict, list[str]]:
     errs: list[str] = []
     if not isinstance(ch, dict):
         return {}, ["choices: must be a JSON object"]
-    allowed = {"direction", "mode", "density", "temperature", "tone", "variants", "features"}
+    allowed = {"direction", "mode", "density", "temperature", "tone", "variants", "features", "atmosphere"}
     for k in sorted(set(ch) - allowed):
         errs.append(f"choices.{k}: unknown key")
     d = spec["defaults"]
@@ -909,6 +1218,12 @@ def resolve_choices(spec: dict, ch) -> tuple[dict, list[str]]:
         elif not isinstance(val, bool):
             errs.append(f"choices.features.{fid}: must be true or false")
     out["features"] = {fid: bool(feats.get(fid, f["default"])) for fid, f in fdefs.items()}
+    # Atmosphere knobs: anything left out takes the chosen direction's default.
+    atmo = ch.get("atmosphere", {})
+    errs += [f"choices.atmosphere{e}" for e in atmo_errors(atmo)]
+    base = next((atmosphere_of(x) for x in spec["directions"] if x["id"] == out["direction"]), ATMO_DEFAULT)
+    out["atmosphere"] = {**base, **(atmo if isinstance(atmo, dict) else {})}
+    out["atmosphere"] = {k: out["atmosphere"][k] for k in ATMO_DEFAULT}
     return out, errs
 
 
@@ -934,7 +1249,20 @@ def frozen_tokens(spec: dict, ch: dict) -> dict:
     }
     if cfg["enter"]:
         motion.setdefault("easing", {})["enter"] = list(cfg["enter"])
-    t["color"] = {m: temper(t["color"][m], ch["temperature"], m) for m in MODES}
+    raw = t["color"]
+    t["color"] = {m: temper(raw[m], ch["temperature"], m) for m in MODES}
+    a = ch.get("atmosphere") or atmosphere_of(d)
+    # What the app needs to paint the same light: the choice, plus the resolved colours
+    # and the contrast-capped peak alpha per mode, so the app never re-derives them.
+    t["atmosphere"] = {
+        **a,
+        "lights": [list(x) for x in ATMO_LIGHTS],
+        # from the untempered palette, exactly as the prototype painted it
+        "color": {
+            m: dict(atmo_lights(raw[m], m, a["intensity"]), **({"alpha": 0} if a["mode"] == "none" else {}))
+            for m in MODES
+        },
+    }
     return t
 
 
@@ -1148,7 +1476,8 @@ def screens_md(spec: dict, ch: dict) -> str:
 def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
     """How the prototype's chrome and motion become native code. The prototype is
     HTML imitating the platform; these rows say which native piece does it for real."""
-    m = frozen_tokens(spec, ch)["motion"]
+    frozen = frozen_tokens(spec, ch)
+    m, at = frozen["motion"], frozen["atmosphere"]
     dur, ease = m["duration"], m.get("easing", {})
     enter = ease.get("enter", [])
     bouncy = ch["temperature"] == "lively"
@@ -1187,6 +1516,13 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
         f"| Toast in / out | `useToast()` (FadeInUp / fade out) | {dur.get('screen')}ms in |",
         "| Number counts up | `AnimatedNumber` / `StatCard` | static under reduce motion |",
         "| Payoff moment | `Celebration` + `haptic.success()` | the core loop's reward only |",
+        f"| Screen change (blur-rise, overlapping) | the Stack transition + `entrance(i)` | "
+        f"spring `gentle`, damping {m.get('spring', {}).get('gentle', {}).get('damping')} |",
+        "",
+        f"Atmosphere **{at['mode']}**, intensity {at['intensity']}, grain {'on' if at['grain'] else 'off'}, "
+        f"{at['surface']} surfaces: design/tokens.json → `atmosphere` carries the two light colours "
+        f"and the contrast-capped alpha per mode (light {at['color']['light']['alpha']}, "
+        f"dark {at['color']['dark']['alpha']}). Paint it behind every screen, never over text.",
         "",
         "Haptics follow the commitment ladder in `lib/motion.ts`: selection for chips and "
         "segments, medium for the primary action, success for the payoff.",
