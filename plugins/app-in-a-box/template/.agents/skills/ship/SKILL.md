@@ -27,6 +27,24 @@ native module, permission, config plugin or SDK bump needs a new build. When uns
 build. Check with `npx expo install --check` and `git diff <last-release-tag> --
 mobile/app.json mobile/package.json`.
 
+## Decisions due before launch (first TestFlight or store release)
+
+Some product calls were parked on day 0 because they're cheap to change and best made
+once people use the app. They come due here. Read `design/brief.json` → `decisions` for
+every `deferred` entry with `ask_at: pre-launch` (`next` lists them as
+`decisions_due`). Ask them in one structured round before the checklist, recommended
+option first, and write each answer back (`status: asked`). They always include:
+- **Price and paywall placement** (only if `money.model` isn't `free`): what it costs,
+  and where the paywall sits relative to the payoff (after it, never before the user has
+  felt it). Payments themselves are `recipe-payments`.
+- **Store listing**: name, subtitle, keywords and category, written for how the brief's
+  `distribution` says the first 100 users will search.
+- **Privacy labels**: the answers drafted in step 3 below, confirmed by the owner.
+- **Support channel**: where users reach a human (an email, a form, a community), which
+  becomes the store's support URL.
+
+An unanswered one blocks a store release, not an OTA update.
+
 ## 1. Pre-flight (all releases)
 
 - [ ] On a release branch or `main` at a tagged commit; `git status` clean.
