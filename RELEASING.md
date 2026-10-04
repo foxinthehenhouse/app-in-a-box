@@ -33,9 +33,19 @@ care about.
       or OTAs to `pr-<n>` when native code hasn't changed. `e2e.yml` runs the `smoke`
       flows on an Android emulator and an iOS simulator.
 - [ ] **Release + rollback:** push to `release`. With native code unchanged it OTAs
-      to `production`. Then run `scripts/rollback-ota.sh` (it only plans), check that
-      it names the update you just published, and run `scripts/rollback-ota.sh --yes`.
-      The app falls back to the previous update on the next launch or two.
+      to 10% of `production` (`eas update:list --branch production` shows the
+      rollout) and the run waits on a "Roll out to 100%" approval per platform. Run
+      `scripts/rollback-ota.sh` (it only plans): it names the update, says the rollout
+      is in progress and prints the promote command. Approve one platform's step and
+      check that update reaches 100%; reject the other and run
+      `scripts/rollback-ota.sh --yes`, which reverts that rollout. Then, with nothing in
+      progress, `scripts/rollback-ota.sh --yes` rolls back a full update; the app
+      falls back to the previous one on the next launch or two.
+- [ ] **Readable OTA crashes (Sentry):** in an OTA build, throw a test error from a
+      button. In Sentry it shows a symbolicated stack trace (file names and lines from
+      your source, not `index.android.bundle`), release `<app id>@<version>+<update id>`
+      and the `expo-update-id` tag, and the update job's log shows the source maps
+      uploaded.
 - [ ] **Self-driving loop:** in the generated repo, ask "what should I work on next?"
       (`next`), file a ticket (`backlog`), and take one small feature through
       `feature-discovery` → `build-feature` → `land` to a merged PR.
