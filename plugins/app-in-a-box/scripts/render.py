@@ -59,7 +59,10 @@ TEXT_SUFFIXES = {
     "",
 }
 # User decisions: written by the interview/design phases, never clobbered by --force.
+# README.md is rendered once and is the owner's from then on (it carries the removable
+# "Built with App in a Box" badge; a re-render must not put back a badge they deleted).
 PROTECTED = {
+    "README.md",
     "design/tokens.json",
     "appbox.yaml",
     "docs/product/BRIEF.md",

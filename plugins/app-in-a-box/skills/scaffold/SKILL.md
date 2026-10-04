@@ -112,8 +112,9 @@ The renderer also themes `app.json` from the tokens (splash background per mode,
 `userInterfaceStyle`) and draws a placeholder icon, adaptive icon, splash mark and
 favicon into `mobile/assets/brand/` (the app's initial in `onAccent` on `accent`).
 Drop a real 1024px `design/icon.png` and re-render to use your own.
-`design/tokens.json`, `appbox.yaml` and `BRIEF.md` are protected and never
-overwritten. The renderer also generates `mobile/lib/tokens.ts` and the
+`design/tokens.json`, `appbox.yaml`, `BRIEF.md` and the root `README.md` are protected
+and never overwritten. The README is rendered once with a small "Built with App in a
+Box" badge; it's the owner's to keep or delete. The renderer also generates `mobile/lib/tokens.ts` and the
 Claude/Codex adapters (`.claude/skills`, `.codex/*`).
 
 ## 4. Make it *their* app (the part that needs judgement)

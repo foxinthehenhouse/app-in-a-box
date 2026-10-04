@@ -4,13 +4,13 @@
     "name": "Kyle Fox"
   },
   "metadata": {
-    "description": "Idea to production-grade mobile app: shape the idea with a product advisor, check the market, click through a prototype, then provision, scaffold and run the agent harness around it."
+    "description": "Idea to clickable prototype to production iOS and Android app, with Claude Code or Codex"
   },
   "plugins": [
     {
       "name": "app-in-a-box",
       "source": "./plugins/app-in-a-box",
-      "description": "Shape → idea check → clickable prototype → free-tier accounts → Expo + FastAPI + Supabase scaffold → CI, PR review, agents, skills, hooks and memory."
+      "description": "A free, open-source plugin for Claude Code and Codex. A product advisor shapes your idea, you click through a prototype of every screen, then your agent builds and wires an Expo + FastAPI + Supabase app with auth, analytics, CI, store builds and an agent harness."
     }
   ]
 }
