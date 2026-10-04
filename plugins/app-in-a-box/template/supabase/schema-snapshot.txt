@@ -1,0 +1,89 @@
+table job_runs rls=on
+  column job text not null
+  column run_key text not null
+  column started_at timestamp with time zone not null default now()
+  column finished_at timestamp with time zone
+  column stats jsonb
+  constraint job_runs_pkey: PRIMARY KEY (job, run_key)
+  index CREATE UNIQUE INDEX job_runs_pkey ON public.job_runs USING btree (job, run_key)
+  grant anon: none
+  grant authenticated: none
+  grant service_role: select,insert,update,delete
+table keep_alive rls=on
+  column id smallint not null default 1
+  column last_ping_at timestamp with time zone not null default now()
+  constraint keep_alive_id_check: CHECK ((id = 1))
+  constraint keep_alive_pkey: PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX keep_alive_pkey ON public.keep_alive USING btree (id)
+  grant anon: none
+  grant authenticated: none
+  grant service_role: select,insert,update,delete
+table profiles rls=on
+  column id uuid not null
+  column display_name text
+  column onboarded boolean not null default false
+  column created_at timestamp with time zone not null default now()
+  column updated_at timestamp with time zone not null default now()
+  constraint profiles_display_name_check: CHECK ((char_length(display_name) <= 80))
+  constraint profiles_id_fkey: FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+  constraint profiles_pkey: PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)
+  policy profiles_insert_own: insert to public check (( SELECT auth.uid() AS uid) = id)
+  policy profiles_select_own: select to public using (( SELECT auth.uid() AS uid) = id)
+  policy profiles_update_own: update to public using (( SELECT auth.uid() AS uid) = id) check (( SELECT auth.uid() AS uid) = id)
+  trigger CREATE TRIGGER profiles_set_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()
+  grant anon: select,insert,update,delete
+  grant authenticated: select,insert,update,delete
+  grant service_role: select,insert,update,delete
+table push_tickets rls=on
+  column ticket_id text not null
+  column user_id uuid not null
+  column token text not null
+  column created_at timestamp with time zone not null default now()
+  constraint push_tickets_pkey: PRIMARY KEY (ticket_id)
+  constraint push_tickets_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+  index CREATE INDEX push_tickets_created_idx ON public.push_tickets USING btree (created_at)
+  index CREATE UNIQUE INDEX push_tickets_pkey ON public.push_tickets USING btree (ticket_id)
+  grant anon: none
+  grant authenticated: none
+  grant service_role: select,insert,update,delete
+table push_tokens rls=on
+  column id bigint not null generated always as identity
+  column user_id uuid not null
+  column token text not null
+  column platform text
+  column created_at timestamp with time zone not null default now()
+  column last_seen_at timestamp with time zone not null default now()
+  constraint push_tokens_pkey: PRIMARY KEY (id)
+  constraint push_tokens_platform_check: CHECK ((platform = ANY (ARRAY['ios'::text, 'android'::text, 'web'::text])))
+  constraint push_tokens_token_check: CHECK (((char_length(token) <= 256) AND (token ~ '^Expo(nent)?PushToken\[.+\]$'::text)))
+  constraint push_tokens_token_key: UNIQUE (token)
+  constraint push_tokens_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+  index CREATE UNIQUE INDEX push_tokens_pkey ON public.push_tokens USING btree (id)
+  index CREATE UNIQUE INDEX push_tokens_token_key ON public.push_tokens USING btree (token)
+  index CREATE INDEX push_tokens_user_idx ON public.push_tokens USING btree (user_id, last_seen_at DESC)
+  policy push_tokens_delete_own: delete to public using (( SELECT auth.uid() AS uid) = user_id)
+  policy push_tokens_select_own: select to public using (( SELECT auth.uid() AS uid) = user_id)
+  grant anon: select,insert,update,delete
+  grant authenticated: select,insert,update,delete
+  grant service_role: select,insert,update,delete
+table rate_limits rls=on
+  column key text not null
+  column window_start timestamp with time zone not null
+  column count integer not null default 0
+  constraint rate_limits_key_check: CHECK ((char_length(key) <= 200))
+  constraint rate_limits_pkey: PRIMARY KEY (key, window_start)
+  index CREATE UNIQUE INDEX rate_limits_pkey ON public.rate_limits USING btree (key, window_start)
+  index CREATE INDEX rate_limits_window_idx ON public.rate_limits USING btree (window_start)
+  grant anon: none
+  grant authenticated: none
+  grant service_role: select,insert,update,delete
+function handle_new_user() returns trigger language plpgsql security definer set search_path="" body:3519e3cb192208fc036f5a9d6bb2f1d5
+  execute: anon,authenticated,service_role
+function rate_limit_hit(p_key text, p_window_seconds integer) returns integer language plpgsql security definer set search_path="" body:c84dd3892747ab3495b7b7388c335151
+  execute: service_role
+function register_push_token(p_user_id uuid, p_token text, p_platform text, p_max_tokens integer) returns void language plpgsql security definer set search_path="" body:d9888fc6187921e69c2e2efaeb5a7a1e
+  execute: service_role
+function set_updated_at() returns trigger language plpgsql set search_path="" body:815fd294aa9abdde7b602ba33ca27416
+  execute: anon,authenticated,service_role
+trigger CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user()

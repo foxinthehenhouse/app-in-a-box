@@ -2,7 +2,12 @@
 # brand-new Postgres on the runner, then the Supabase-advisor checks and the pgTAP RLS
 # tests, then a NEGATIVE CONTROL that plants RLS holes and requires both to go red.
 # All of it lives in scripts/db-test.sh, so `DATABASE_URL=... scripts/db-test.sh`
-# reproduces this job locally (or against `supabase start`).
+# reproduces this job locally (or against `supabase start`). It ends by diffing the
+# migrated schema against supabase/schema-snapshot.txt (with its own negative control).
+#
+# Before any of that, scripts/db-lint.sh runs squawk on every migration: an empty test
+# database can't show that an index build locks a busy table or that a rename breaks
+# the app version already in people's hands. Rules: .squawk.toml.
 #
 # Plain Postgres + supabase/ci/platform_stubs.sql (roles, auth.users, auth.uid()), not
 # `supabase start`: no Docker pulls, ~1 minute, and no secrets. The pgTAP files are
@@ -42,6 +47,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Lint migrations with squawk (plus planted unsafe migrations it must fail)
+        run: scripts/db-lint.sh
       - name: Start the runner's Postgres with pgTAP
         run: |
           PGV="$(find /usr/lib/postgresql -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -n | tail -1)"
@@ -49,7 +56,7 @@ jobs:
           sudo apt-get install -y -q "postgresql-${PGV}-pgtap"
           sudo systemctl start postgresql.service
           sudo -u postgres psql -q -c "alter user postgres password 'postgres'"
-      - name: Migrations, advisors, pgTAP RLS tests, negative control
+      - name: Migrations, advisors, pgTAP RLS tests, schema snapshot, negative controls
         run: scripts/db-test.sh
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "3.12" }
