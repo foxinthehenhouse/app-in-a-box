@@ -86,6 +86,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Apple + Google sign-in | Recipe | `recipe-social-auth` |
 | Subscriptions / IAP with server-side entitlements | Recipe | `recipe-payments` |
 | AI feature (fenced, capped, evaluated) | Recipe | `recipe-ai-feature` |
+| Search (Postgres full-text, RLS-scoped; optional pgvector hybrid) | Recipe | `recipe-search` |
 
 ## Store review gotchas
 
