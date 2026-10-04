@@ -13,6 +13,8 @@ system supports two active keys, that gives zero downtime.
 | Supabase JWT signing key | Supabase | Auth → JWT Keys: create a standby key, rotate. The API verifies against JWKS and picks up the new key automatically; existing sessions stay valid until expiry. | Forged sessions |
 | `CRON_SECRET` | Railway + GitHub secret (or Railway cron service) | `openssl rand -hex 32`; set on Railway AND the scheduler at the same time (one missed run is fine, jobs are idempotent). | Anyone can trigger jobs (spam digests) |
 | `EXPO_ACCESS_TOKEN` | Railway | expo.dev → Account → Access tokens: create, set, redeploy, revoke old. | Send pushes as your app (with enhanced security on) |
+| `SMTP_PASS` (auth email; for Resend, an API key) | Supabase (Auth → SMTP) + `.env`, never Railway | Create a new key at the provider (resend.com/api-keys), put it in `.env`, re-run the kit's `supabase_smtp.py` (provision step 2.7), send yourself a sign-in code, then revoke the old key. | Mail sent as your domain (phishing your users, burned sender reputation) |
+| `SUPABASE_ACCESS_TOKEN` (provisioning only) | `.env` | supabase.com/dashboard/account/tokens: revoke, create, paste into `.env`. Delete it from `.env` when provisioning is done if you like. | **Total**: manages every project in your Supabase account |
 | `SENTRY_DSN` | Railway, EAS env | Sentry → Client Keys: add key, switch, disable old. DSNs are semi-public (they ship in the app); rotate only if abused. | Junk events |
 | `SENTRY_AUTH_TOKEN` | EAS env (source maps) | Sentry → Auth Tokens. | Read your Sentry data |
 | `ANTHROPIC_API_KEY` (if AI enabled) | Railway | console.anthropic.com → create key, set, redeploy, delete old. | Spend on your account |

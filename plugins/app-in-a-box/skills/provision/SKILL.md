@@ -1,6 +1,6 @@
 ---
 name: provision
-description: Phase 5 of App in a Box. Creates the cloud resources (GitHub repo, Supabase project, Expo/EAS project, Railway service, PostHog and Sentry projects) idempotently, then wires every secret into .env, GitHub secrets, EAS env and Railway variables. It records IDs in appbox.yaml and never writes secret values to tracked files or chat.
+description: Phase 5 of App in a Box. Creates the cloud resources (GitHub repo, Supabase project and its auth email (custom SMTP, Resend recommended), Expo/EAS project, Railway service, PostHog and Sentry projects) idempotently, then wires every secret into .env, GitHub secrets, EAS env and Railway variables. It records IDs in appbox.yaml and never writes secret values to tracked files or chat.
 allowed-tools: "Bash(gh:*), Bash(git:*), Bash(supabase:*), Bash(eas:*), Bash(railway:*), Bash(node:*), Bash(npx:*), Bash(openssl:*), Bash(python3:*), Bash(curl:*), Bash(set:*), Bash(grep:*), Bash(touch:*), Bash(cd:*), Read, Write, Edit, Glob, Grep"
 ---
 
@@ -99,7 +99,60 @@ means it landed) and carry on with the setup branch. Symptom and fix also live i
    Google providers need console setup; see `$KIT/docs/SOCIAL_AUTH.md`. Defer
    them if the user wants to move fast. Email OTP is enough to ship a prototype.
 
-Record `resources.supabase.{ref,url,region}`.
+7. **Auth email (custom SMTP).** Supabase, not the API, sends the sign-in code, and
+   its built-in mailer allows only a couple of emails an hour (new projects can't
+   even edit their email templates without custom SMTP). That's fine for you testing
+   the prototype and fails the first day real users sign in, so ask now:
+
+   > Sign-in emails need a mail service before real users arrive. **Resend
+   > (recommended)**: free for 100 emails a day, about five minutes. **Another SMTP
+   > provider** you already use (Postmark, SES, SendGrid...). Or **later**: fine for a
+   > prototype, but `/health` in production says email isn't working until it's done.
+
+   Either way the owner needs:
+   - A **Supabase personal access token** (supabase.com/dashboard/account/tokens),
+     pasted into `.env` as `SUPABASE_ACCESS_TOKEN` by them. It's for provisioning
+     only; it never goes to Railway, EAS or GitHub.
+   - **Resend:** sign up at https://resend.com/signup, add and verify the app's
+     domain (Domains → DNS records; until it's verified Resend only delivers to the
+     account's own address), then create an API key with sending access and paste it
+     into `.env` as `SMTP_PASS`. **Other SMTP:** the provider's host, port and username
+     (they can tell you those; none is secret), and its password pasted into `.env`
+     as `SMTP_PASS`.
+
+   Confirm both names with `grep -c '^SMTP_PASS=.' .env` and
+   `grep -c '^SUPABASE_ACCESS_TOKEN=.' .env` (never print a value). Then point the
+   project at it. The script reads both secrets from the environment, sends the
+   Management API `PATCH /v1/projects/<ref>/config/auth` (`smtp_host`, `smtp_port`,
+   `smtp_user`, `smtp_pass`, `smtp_admin_email`, `smtp_sender_name`), and prints only
+   `AUTH_SMTP_HOST=<host>`, which `env_set.py` records:
+   ```
+   set -a; . ./.env; set +a; python3 "$KIT/scripts/supabase_smtp.py" --ref "<ref>" --resend --sender-email "no-reply@<verified domain>" --sender-name "<App name>" | python3 "$KIT/scripts/env_set.py" .env
+   ```
+   Other SMTP: replace `--resend` with `--host <host> --port <465|587> --user <user>`.
+   Add `--dry-run` first if you want to see the request; the password and token show
+   as `***`. Never pass a secret as an argument, `curl -d` it, or `echo` it: the
+   script exists so neither value touches a command line or the transcript.
+
+   `AUTH_SMTP_HOST` (the host name, not a secret) goes to Railway in step 6. It's how
+   the API knows email works: with `APP_ENV=production` and no `AUTH_SMTP_HOST`,
+   `/health` lists "email sign-in (custom SMTP)" under `features_unavailable`. The
+   SMTP password lives only in Supabase and `.env`.
+
+   Supabase starts custom SMTP at 30 auth emails an hour. Resend's free 100 a day fits
+   under that, so leave it; on a bigger plan add `--rate-limit <emails per hour>`.
+   Then send yourself a code from the app to check the sender and the domain.
+
+   Local development needs none of this: `supabase start` catches every email in its
+   own inbox (Mailpit, on the port `supabase status` names). To send real mail from
+   the local stack, add `[auth.email.smtp]` to `supabase/config.toml` with
+   `enabled = true`, `host`, `port`, `user`, `admin_email`, `sender_name`, and
+   `pass = "env(SMTP_PASS)"` so the key stays in `.env`.
+
+   **Later:** record `resources.supabase.smtp: deferred` and leave `AUTH_SMTP_HOST`
+   unset; production `/health` keeps saying so until it's done.
+
+Record `resources.supabase.{ref,url,region,smtp}` (`smtp`: the host, or `deferred`).
 
 ## 3. Sentry (two projects: `<slug>-api`, `<slug>-app`)
 
@@ -175,10 +228,11 @@ railway init --name "<slug>"
 
 Create a service for the API connected to the GitHub repo (auto-deploy on push to
 `main`), set variables from `.env` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
-`SUPABASE_ANON_KEY`, `SENTRY_DSN`, `APP_ENV=production`, and
-`ANTHROPIC_API_KEY` if AI is enabled), and generate a domain. Write that domain to
-`.env` as `API_URL` and `EXPO_PUBLIC_API_URL`, then go back to step 5 for the EAS
-var. `railway.json` from the template sets the start command and `/health`
+`SUPABASE_ANON_KEY`, `SENTRY_DSN`, `APP_ENV=production`, `AUTH_SMTP_HOST` once step
+2.7 has run, and `ANTHROPIC_API_KEY` if AI is enabled), and generate a domain. Never
+set `SMTP_PASS` or `SUPABASE_ACCESS_TOKEN` on Railway: the API needs neither. Write
+that domain to `.env` as `API_URL` and `EXPO_PUBLIC_API_URL`, then go back to step 5
+for the EAS var. `railway.json` from the template sets the start command and `/health`
 healthcheck.
 
 Fly.io or Render instead of Railway: same variables and the same `/health` healthcheck;
@@ -229,6 +283,8 @@ app's calls were no-ops all along, so no app code changes.
 - Every `appbox.yaml.resources` entry resolves (list calls succeed).
 - `git status --porcelain` shows no `.env`.
 - `node mobile/scripts/check-eas-shipping-env.js` passes (once `mobile/` exists).
-- `curl -fsS "$API_URL/health"` returns 200 (once deployed).
+- `curl -fsS "$API_URL/health"` returns 200 (once deployed), and its
+  `features_unavailable` doesn't name "email sign-in (custom SMTP)" unless the owner
+  chose to defer it.
 
 Set `progress.provision: done`.

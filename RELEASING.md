@@ -13,7 +13,7 @@ you ran, on what (device, OS, Expo SDK), and paste anything that failed.
 Use a throwaway app idea and throwaway accounts. Nothing here should touch an app you
 care about.
 
-## Free (GitHub, Supabase, Expo, PostHog and Sentry free tiers)
+## Free (GitHub, Supabase, Expo, Resend, PostHog and Sentry free tiers)
 
 - [ ] **Start to finish:** in a new empty folder, run the plugin's `new-app` with a
       one-line idea. Shape, the idea check and the prototype complete, and scaffold
@@ -22,6 +22,11 @@ care about.
       Expo project, and wires every secret without printing one. Afterwards,
       `node mobile/scripts/check-eas-shipping-env.js` passes, and `/health` lists no
       `features_unavailable` for the services you picked.
+- [ ] **Sign-in email (Resend free tier):** provision step 2.7 with a domain you've
+      verified at Resend sets Supabase's custom SMTP without printing the key. Then a
+      sign-in code reaches a fresh address from that domain, and the deployed API's
+      `/health` (`APP_ENV=production`) stops listing "email sign-in (custom SMTP)".
+      Before the step, it lists it.
 - [ ] **On a phone:** the app runs in Expo Go or a dev build. You can sign in with a real
       email OTP, see Home, edit your name, toggle settings and sign out. The events
       show up in PostHog, and `GET /debug/sentry` on a non-production API shows up in Sentry.

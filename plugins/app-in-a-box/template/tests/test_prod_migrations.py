@@ -21,6 +21,7 @@ from fastapi import HTTPException
 from backend.config import (
     FEATURE_CONFIG,
     OPTIONAL_FEATURE_CONFIG,
+    PRODUCTION_FEATURE_CONFIG,
     check_feature_config,
     feature_missing,
 )
@@ -77,7 +78,8 @@ def test_optional_features_are_guarded_by_their_own_key(monkeypatch: pytest.Monk
 
 
 def test_feature_names_are_unique_across_registries() -> None:
-    assert not set(FEATURE_CONFIG) & set(OPTIONAL_FEATURE_CONFIG)
+    names = [*FEATURE_CONFIG, *PRODUCTION_FEATURE_CONFIG, *OPTIONAL_FEATURE_CONFIG]
+    assert len(names) == len(set(names))
 
 
 # --- static migration rules -------------------------------------------------------
