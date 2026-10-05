@@ -5,7 +5,7 @@
 Proto.panel = (function () {
   "use strict";
   var el = Proto.el, CFG = Proto.CFG;
-  var api, body, screenBox, mapList, radios = {}, switches = {}, annotSwitch, grainSwitch, rmSwitch, copied, textarea, lastScreen = null;
+  var api, body, screenBox, typeBox, mapList, radios = {}, switches = {}, annotSwitch, grainSwitch, rmSwitch, copied, textarea, lastScreen = null, lastType = null;
   var LABELS = {
     light: "Light", dark: "Dark", compact: "Compact", regular: "Regular", airy: "Airy",
     calm: "Calm", lively: "Lively", playful: "Playful", "default": "Default", empty: "Empty",
@@ -63,6 +63,33 @@ Proto.panel = (function () {
     return el("div", { class: "p-row" }, [el("span", { class: "p-label", id: id, text: "Direction" }), wrap]);
   }
 
+  /* The Type knob: the direction's own faces, or another pairing with the same
+     personality. Rebuilt when the direction changes, since each offers its own. */
+  function buildTypeBox(state) {
+    typeBox.textContent = "";
+    radios.font = [];
+    var opts = api.typeOptions();
+    if (!opts.length) {
+      typeBox.appendChild(el("span", { class: "p-label", text: "Type" }));
+      typeBox.appendChild(el("p", { class: "p-hint", text: "This direction uses the phone's own type, or a face outside the kit's library, so there's nothing to swap." }));
+      return;
+    }
+    var byId = {};
+    opts.forEach(function (o) { byId[o.id] = o; });
+    var row = seg("font", "Type", "Another pairing with the same personality. Your pick is what the app ships.",
+      ["default"].concat(opts.map(function (o) { return o.id; })),
+      function (v) { api.setFont(v === "default" ? null : v); },
+      function (v) { return v === "default" ? "Direction default" : byId[v].label; });
+    var group = row.querySelector(".p-seg");
+    group.classList.add("p-seg-stack");
+    // each choice is set in its own display face, so the list previews itself
+    radios.font.forEach(function (input) {
+      input.nextSibling.style.fontFamily = byId[input.value] ? byId[input.value].stacks.display
+        : '"' + CFG.fonts[state.direction] + '", system-ui, sans-serif';
+    });
+    while (row.firstChild) typeBox.appendChild(row.firstChild);
+  }
+
   function paintDirections(mode) {
     Array.prototype.forEach.call(body.querySelectorAll("[data-dir]"), function (n) {
       var pal = CFG.palettes[n.getAttribute("data-dir")][mode];
@@ -88,6 +115,7 @@ Proto.panel = (function () {
 
     body.appendChild(el("section", { class: "p-section", "aria-labelledby": "ph-look" }, [
       el("h2", { id: "ph-look", text: "Look" }), directionCards(spec),
+      typeBox = el("div", { class: "p-row" }),
       seg("mode", "Appearance", "The app follows the phone's setting; both palettes ship.", ["light", "dark"],
         function (v) { api.set("mode", v); })
     ]));
@@ -207,6 +235,11 @@ Proto.panel = (function () {
     grainSwitch.setAttribute("aria-checked", String(!!state.atmosphere.grain));
     rmSwitch.setAttribute("aria-checked", String(!!state.rmPreview));
     paintDirections(state.mode);
+    if (lastType !== state.direction) {
+      lastType = state.direction;
+      buildTypeBox(state);
+    }
+    setRadio("font", state.font || "default");
     // Rebuild the per-screen box only when the screen changes, so arrow-keying
     // through layouts doesn't lose focus; otherwise just re-check its radios.
     var key = screen.id + "|" + state.tone;
