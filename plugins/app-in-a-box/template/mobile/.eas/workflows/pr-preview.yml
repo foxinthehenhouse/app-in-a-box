@@ -9,6 +9,10 @@
 #   none exists (native changed) -> build a new preview binary
 # Platforms are independent: an iOS-only native change still OTAs Android.
 #
+# Previews go to 100% of the pr-<n> branch at once (testers want them now), and never
+# take a staged rollout: one in progress would block the PR's next push. Each update
+# uploads its source maps to Sentry (SENTRY_* in the `preview` EAS environment, provision step 3).
+#
 # Every job runs in the `preview` EAS environment. fingerprint and update default to
 # `production`, which would hash and publish with production env vars and never
 # match a preview build.
@@ -75,6 +79,7 @@ jobs:
       platform: android
       branch: pr-${{ github.event.pull_request.number }}
       message: "PR #${{ github.event.pull_request.number }}"
+      upload_sentry_sourcemaps: true
 
   update_ios:
     name: Native unchanged - iOS OTA to pr-<n>
@@ -86,3 +91,4 @@ jobs:
       platform: ios
       branch: pr-${{ github.event.pull_request.number }}
       message: "PR #${{ github.event.pull_request.number }}"
+      upload_sentry_sourcemaps: true

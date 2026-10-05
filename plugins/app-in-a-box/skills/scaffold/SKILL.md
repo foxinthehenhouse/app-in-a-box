@@ -11,6 +11,24 @@ this file in Codex, or `<clone>/plugins/app-in-a-box` otherwise.
 Everything here runs locally. No secrets are needed yet. Read `appbox.yaml` and
 `docs/product/BRIEF.md` first.
 
+## 0. Decisions due now
+
+The scaffold is when the name and the integrations start costing something to change.
+Read `design/brief.json` → `decisions` and ask, in one structured round, every
+`deferred` entry with `ask_at: scaffold`, which always covers:
+- **Name + bundle ID** (interview question 16), unless shape already settled it: the
+  working title becomes the name or gets replaced now, because the bundle ID is
+  permanent once the app is in a store.
+- **Integrations the v1 features imply**, and only those: payments for a paid v1
+  feature (`recipe-payments`), reminders that need push credentials (`recipe-push`),
+  Apple and Google sign-in (`recipe-social-auth`), an AI feature (`recipe-ai-feature`).
+  Say what each one costs and whether it's built now or ticketed for after the scaffold.
+- The services and hosting defaults shape stated, in one line ("PostHog, Sentry,
+  Railway, GitHub Issues, as assumed; say if not"), not as questions.
+
+Write the answers to `appbox.yaml` (`app.*`, `stack.*`) and flip each entry to `asked`
+(or `default` if they kept the assumption).
+
 ## 1. Expo app first (versions come from Expo, not from this kit)
 
 Create it **before** `git init`, with stdin closed: in a dogfood run,

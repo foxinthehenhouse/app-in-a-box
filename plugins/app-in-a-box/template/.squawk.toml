@@ -1,0 +1,30 @@
+# Squawk (https://squawkhq.com): lints every supabase/migrations/*.sql for statements
+# that lock or break a LIVE database. Run by scripts/db-lint.sh (in .github/workflows/db.yml).
+# Every rule is on except the ones below, each with its reason. To skip one rule for one
+# statement, put `-- squawk-ignore <rule>` on the line above it and say why next to it.
+
+# The Supabase CLI applies each migration file inside one transaction, so a failed file
+# rolls back whole. Telling squawk that also stops it flagging an index or constraint on
+# a table created earlier in the same file (nobody else can be using that table yet).
+assume_in_transaction = true
+
+# The oldest Postgres a Supabase project runs. Squawk relaxes rules that newer versions
+# made safe (e.g. ADD COLUMN ... DEFAULT no longer rewrites the table since 11), so the
+# oldest version is the strict choice.
+pg_version = "15.0"
+
+excluded_rules = [
+  # require-lock-timeout, require-statement-timeout: these want `set lock_timeout` /
+  # `set statement_timeout` at the top of every file. Worth it once a table is busy
+  # (a migration queued behind a long query blocks every read after it), but noise on a
+  # young app's small tables. The statements that actually take long locks (an index
+  # without CONCURRENTLY, a NOT NULL column, a rename or drop) stay on by name below.
+  # Turn these two back on when your tables hold real traffic.
+  "require-lock-timeout",
+  "require-statement-timeout",
+  # prefer-bigint-over-int, prefer-bigint-over-smallint: aimed at id columns running out
+  # of numbers. Ids here are uuid or bigint identity; the ints flagged are small
+  # counters and a single-row keep-alive key, which never overflow.
+  "prefer-bigint-over-int",
+  "prefer-bigint-over-smallint",
+]
