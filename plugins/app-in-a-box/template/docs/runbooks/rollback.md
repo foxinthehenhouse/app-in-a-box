@@ -14,7 +14,13 @@ scripts/rollback-ota.sh                               # plan: shows the latest u
 scripts/rollback-ota.sh --yes -m "crash on checkout"  # roll it back
 ```
 
-The script finds the newest update group on the `production` branch (or
+If the bad update is still a **staged rollout** (10% of users, waiting on its
+approval; see [release.md](release.md#staged-ota-rollout)), reject the approval in the
+workflow run first, then run the script: it sees the rollout and runs
+`eas update:revert-update-rollout --group <group> --non-interactive` instead, which
+puts those users back on the update the rollout started from.
+
+Otherwise the script finds the newest update group on the `production` branch (or
 `--runtime <v>`'s newest) and runs `eas update:rollback <group> --non-interactive`.
 That republishes the update before it on the same runtime, or rolls back to the
 build's embedded bundle if there is none. `update:rollback` only accepts a branch's

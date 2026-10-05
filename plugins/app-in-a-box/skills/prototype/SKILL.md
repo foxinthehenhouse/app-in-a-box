@@ -27,6 +27,13 @@ Ask together (structured):
 
 Record the answers in `brief.json` → `feel.inspiration` / `feel.avoid`.
 
+**Decisions due now.** Read `design/brief.json` → `decisions` for every `deferred` entry
+with `ask_at: prototype` (look and feel, tone, which maybe-features make v1). Don't ask
+them as questions here: the prototype's toggles *are* the question, and Step 4 settles
+them. Anything due here that the prototype can't show (rare) joins Step 4's round. Use
+the brief's `payoff` for the core-loop screen's payoff moment: it's the one place
+`interaction-designer` spends the authored animation.
+
 ## Step 2: build (parallel, then gate)
 
 Every helper gets `design/brief.json` + `docs/TASTE.md` as a stable prefix, nothing else
@@ -127,7 +134,9 @@ components, the navigation, the states and the v1 feature list),
 UI work, generated from tokens.json; a re-freeze rewrites only its generated blocks, so
 write the feel in the founder's words and any design call in its Decisions log, outside
 the markers). Update `BRIEF.md` → "Screens (v1)" and "Out of scope for v1"
-from SCREENS.md. Set `progress.design: done`.
+from SCREENS.md. In the ledger, flip each `ask_at: prototype` decision to `asked` with
+the founder's choice (or `default` where they kept the spec's default), then re-run
+`python3 "$KIT/scripts/check_intake.py" brief design/brief.json`. Set `progress.design: done`.
 
 ## `design/prototype.json` (schema)
 

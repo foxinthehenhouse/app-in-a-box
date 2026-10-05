@@ -42,6 +42,18 @@ OPTIONAL_FEATURE_CONFIG: dict[str, tuple[str | tuple[str, ...], ...]] = {
 }
 
 
+# Capabilities every HOSTED environment needs but local dev doesn't, so they only count
+# when APP_ENV=production. Email sign-in is the one: Supabase, not this API, sends the
+# OTP email, and its built-in mailer allows a couple of emails an hour, so real users
+# can't sign in until the project has custom SMTP. The backend never holds the SMTP
+# password. Provision sets AUTH_SMTP_HOST (the host, not a secret) on the API service
+# only after Supabase accepted the SMTP config, so it's the API's record that email
+# works. Local `supabase start` catches mail in its own inbox and needs none of this.
+PRODUCTION_FEATURE_CONFIG: dict[str, tuple[str | tuple[str, ...], ...]] = {
+    "email sign-in (custom SMTP)": ("AUTH_SMTP_HOST",),
+}
+
+
 def env(name: str, default: str = "") -> str:
     return os.getenv(name, default).strip()
 
@@ -66,19 +78,26 @@ def _label(req: str | tuple[str, ...]) -> str:
 
 def feature_missing(feature: str) -> list[str]:
     """Missing env var names for one feature. Names only, never values."""
-    reqs = (
-        FEATURE_CONFIG[feature] if feature in FEATURE_CONFIG else OPTIONAL_FEATURE_CONFIG[feature]
-    )
-    return [_label(req) for req in reqs if not _present(req)]
+    for registry in (FEATURE_CONFIG, PRODUCTION_FEATURE_CONFIG, OPTIONAL_FEATURE_CONFIG):
+        if feature in registry:
+            return [_label(req) for req in registry[feature] if not _present(req)]
+    raise KeyError(feature)
 
 
 def check_feature_config(*, optional: bool = False) -> dict[str, list[str]]:
     """{feature: [missing var names]} for every feature that isn't fully wired.
 
-    `optional=True` reports OPTIONAL_FEATURE_CONFIG instead of FEATURE_CONFIG.
+    FEATURE_CONFIG always, plus PRODUCTION_FEATURE_CONFIG when APP_ENV=production.
+    `optional=True` reports OPTIONAL_FEATURE_CONFIG instead.
     """
+    if optional:
+        features = list(OPTIONAL_FEATURE_CONFIG)
+    else:
+        features = list(FEATURE_CONFIG)
+        if is_production():
+            features += PRODUCTION_FEATURE_CONFIG
     out: dict[str, list[str]] = {}
-    for feature in OPTIONAL_FEATURE_CONFIG if optional else FEATURE_CONFIG:
+    for feature in features:
         missing = feature_missing(feature)
         if missing:
             out[feature] = missing

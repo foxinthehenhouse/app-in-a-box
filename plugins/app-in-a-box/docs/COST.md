@@ -40,17 +40,47 @@ directions instead of 3, and cap refine rounds at 2. Say which lever you pulled.
 
 ## The brief
 
-`design/brief.json`, written by `scribe`, updated each shaping round:
+`design/brief.json`, written by `scribe`, updated each shaping round and by every later
+phase that settles a decision. It travels into the generated repo at the same path, so
+the app's own skills (`next`, `feature-discovery`, `ship`) read the same ledger:
 
 ```json
 {
   "app": {"name": "…", "one_liner": "…"},
   "users": [{"who": "…", "moment": "when they reach for it", "pain": "their words"}],
+  "context": {"frequency": "daily|weekly|when X happens", "where": "on the bus, at the shop…"},
   "core_loop": {"trigger": "…", "action": "…", "feedback": "…", "return": "…"},
+  "payoff": {"first_session": "what they must feel before they leave", "moment": "the one moment worth an authored animation"},
+  "social": {"shape": "solo|shared|community|two_sided", "cold_start": "how it's useful before anyone else joins"},
+  "distribution": {"first_100": "how the first 100 users find it", "channels": ["share", "invite", "referral", "web", "aso"]},
+  "money": {"model": "free|subscription|one_off|ads|b2b"},
   "v1_features": ["…"], "maybe_features": ["…"], "out_of_scope": ["…"],
   "feel": {"words": ["…"], "inspiration": ["…"], "avoid": ["…"]},
   "constraints": {"platforms": ["ios", "android"], "accounts": "email_otp", "sensitive": []},
   "validation": {"verdict": "…", "angle": "…", "riskiest": ["…"]},
+  "decisions": [
+    {"id": "platforms", "question": "Which phones?", "answer": "iPhone and Android",
+     "status": "default", "ask_at": "shape", "why": "sets the build profiles and store accounts"},
+    {"id": "pricing", "question": "What does it cost, and where's the paywall?", "answer": null,
+     "status": "deferred", "ask_at": "pre-launch", "why": "price is cheap to change and best set once people use it"}
+  ],
   "open_questions": ["…"]
 }
 ```
+
+**The decision ledger** (`decisions`) is how the kit asks only what's expensive to
+change on day 0 and leaves the rest for the moment it matters. Every product call the
+team makes or parks gets one entry:
+
+- `status`: `asked` (the founder answered), `default` (the team assumed it and said so:
+  "I'm assuming…, say if not"), or `deferred` (not decided yet; `answer` is `null`).
+- `ask_at`: when it gets settled: `shape`, `prototype`, `scaffold`, `first-feature`,
+  `pre-launch` or `post-launch`. The phase that owns it asks it and flips the entry to
+  `asked` or `default`. In the generated repo, `next` surfaces a `deferred` decision
+  whose phase has arrived.
+- `why`: one line on what the answer changes, shown with the question.
+
+`money.model` is the model only. The price and the paywall's placement are a
+`pre-launch` decision. `python3 "$KIT/scripts/check_intake.py" brief design/brief.json`
+validates the shape (the ledger and the five day-0 sections are required) and caps the
+questions asked at shape at 7.
