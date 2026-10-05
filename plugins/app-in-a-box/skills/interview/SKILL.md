@@ -1,7 +1,7 @@
 ---
 name: interview
 user-invocable: false
-description: The App in a Box question bank and output spec: the questions about platforms, accounts, data, AI, money, retention, sensitive data, services, hosting and name that the shape phase draws from for whatever is still unknown, and the exact appbox.yaml and docs/product/BRIEF.md formats. Use when someone wants to be walked through setup step by step, or when the brief needs re-doing.
+description: The App in a Box question bank and output spec: the questions about the payoff, who else is in it, platforms, accounts, data, AI, money, distribution, retention, sensitive data, services, hosting and name that the shape phase draws from for whatever is still unknown, when each one is asked (the decision ledger), and the exact appbox.yaml and docs/product/BRIEF.md formats. Use when someone wants to be walked through setup step by step, or when the brief needs re-doing.
 ---
 
 # The interview (question bank)
@@ -32,7 +32,7 @@ matters. You are a senior PM running a crisp kickoff, not a form.
   with the question, in the structured question's description where the tool has
   one or as a short line under it in chat. People answer better, and skip less, when
   they can see what the answer changes.
-- Tell them at the start: about 14 questions in 4 short rounds, roughly 10 minutes.
+- Tell them at the start: about 17 questions in 4 short rounds, roughly 12 minutes.
 
 ## Round 1: the idea (open, in chat)
 
@@ -52,18 +52,29 @@ recommendation below.
    *Why we ask:* the core loop decides the data model, the home screen and the
    analytics events, so it's the most load-bearing answer in the interview.
 
+3. **"At the end of their first session, what should they feel?"** One feeling, in
+   their words ("relieved it's handled", "proud of the streak"). This is the **payoff**.
+   *Why we ask:* onboarding is built to reach it fast, and it's the one moment that gets
+   an authored animation.
+
 ## Round 2: shape (ask, structured)
 
-3. **Platforms:** iOS + Android via Expo (Recommended) · iOS only · Android only ·
+4. **Who else is in it?** Just them (Recommended unless they described other people) ·
+   Shared with a few people they know · A community of strangers · Two sides (e.g.
+   buyers and sellers). *Why:* it decides the data model, who can see what, invites, and
+   whether the app is empty until other people join. It's the costliest answer to
+   change later. *Community or two-sided:* also ask how the first user gets value before
+   anyone else shows up (the cold start).
+5. **Platforms:** iOS + Android via Expo (Recommended) · iOS only · Android only ·
    Also a web app. *Why:* sets the build profiles and which store accounts you'll need.
-4. **Accounts:** Email magic link + Apple + Google (Recommended for consumer) ·
+6. **Accounts:** Email magic link + Apple + Google (Recommended for consumer) ·
    Email + password only · No accounts at first (anonymous, local-only) ·
    Organisation/team accounts (B2B). *Why:* decides the auth setup, and whether every
    table is scoped per user or per team.
-5. **Where does the data come from?** Users type it in (Recommended default) ·
+7. **Where does the data come from?** Users type it in (Recommended default) ·
    Device sensors/health data · Third-party APIs (name them) · Mix. *Why:* sensors
    and APIs add permissions, keys and failure modes the scaffold has to wire up.
-6. **Does the product need AI?** No. Keep it deterministic (Recommended unless the
+8. **Does the product need AI?** No. Keep it deterministic (Recommended unless the
    core loop is conversational or generative) · Yes, a chat/assistant feature ·
    Yes, generation/summarisation behind the scenes · Not sure yet. *Why:* an AI
    feature needs an API key, a cost ceiling and a rule fencing where it's allowed.
@@ -72,17 +83,22 @@ recommendation below.
 
 ## Round 3: business and motivation (ask, structured)
 
-7. **How will it make money (eventually)?** Free while validating (Recommended) ·
-   Subscription · One-off purchase · Ads · B2B licence. *Why:* payments change store
+9. **How will it make money (eventually)?** Free while validating (Recommended) ·
+   Subscription · One-off purchase · Ads · B2B licence. The model only: the price and
+   where the paywall sits wait until just before launch. *Why:* payments change store
    rules and the backlog. "Free for now" keeps every door open.
-8. **What makes someone come back tomorrow?** Streaks/progress (gamification) ·
-   Notifications/reminders · Social/community · Content that changes daily ·
-   Utility (they need it when X happens). *Why:* it picks the retention features
-   the backlog starts with, and the event that shows whether they work.
-9. **Anything sensitive?** None · Health data · Financial data · Children under 13 ·
-   Location. *Why:* each one adds a rule file the agents must follow, and store
-   privacy answers you'll need at launch.
-10. **What does success look like in 30 days?** Pick one north-star metric (offer
+10. **How will the first 100 users find it?** Friends and group chats (Recommended for
+    shared apps: a share link) · An existing community they're in · App Store search ·
+    Content or social posts · Sales (B2B). *Why:* it picks what v1 builds in for growth:
+    a share sheet and deep links, invites, a web page, or store keywords.
+11. **What makes someone come back tomorrow?** Streaks/progress (gamification) ·
+    Notifications/reminders · Social/community · Content that changes daily ·
+    Utility (they need it when X happens). *Why:* it picks the retention features
+    the backlog starts with, and the event that shows whether they work.
+12. **Anything sensitive?** None · Health data · Financial data · Children under 13 ·
+    Location. *Why:* each one adds a rule file the agents must follow, and store
+    privacy answers you'll need at launch.
+13. **What does success look like in 30 days?** Pick one north-star metric (offer
     3 suggestions derived from the core loop, e.g. "users who complete the core
     action 3× in week 1"). *Why:* the 5 analytics events, the weekly north-star
     report and the `next` skill all steer by this one number.
@@ -98,7 +114,7 @@ tracker `${user_config.default_tracker}`, hosting `${user_config.default_hosting
 If those read as real values rather than `${...}` placeholders, make them the
 "(Recommended)" options below; otherwise (Codex, pasted prompt) use the defaults shown.
 
-11. **Services: which outside tools do you want?** Ask these together (structured),
+14. **Services: which outside tools do you want?** Ask these together (structured),
     each with "you pick". Nothing here is required. Declining one skips its account,
     provisioning and MCP server, but the app keeps its typed calls as harmless no-ops,
     so turning it on later takes one key, not a rewrite.
@@ -112,14 +128,36 @@ If those read as real values rather than `${...}` placeholders, make them the
     - **Error monitoring:** Sentry (Recommended: free tier; crashes arrive with the
       request id the user sees) · Not now. *Why:* without it you learn about crashes
       from store reviews.
-12. **Backend hosting:** Railway (Recommended: what the kit is built and tested on, about $5/mo after
+15. **Backend hosting:** Railway (Recommended: what the kit is built and tested on, about $5/mo after
     trial) · Fly.io · Render. *Why:* the only choice here with a monthly cost. (A
     Supabase-only stack with no Python backend isn't supported in v1.)
-13. **Name + bundle ID:** Propose 3 name options if they don't have one. Derive
+16. **Name + bundle ID:** Propose 3 name options if they don't have one. Derive
     `slug` (kebab-case) and `bundle_id` (`com.<their-handle>.<slug>`). Confirm.
     *Why:* the bundle ID is permanent once the app is in a store.
-14. **Who else works on this?** Just me · Me + 1–2 friends · A team. *Why:* it changes
+17. **Who else works on this?** Just me · Me + 1–2 friends · A team. *Why:* it changes
     the branch protection and review-bot defaults.
+
+## When each question is asked (the decision ledger)
+
+Shape doesn't walk this list. It asks **only what's expensive to change on day 0** (at
+most 7 questions), states most of the rest as defaults, and defers the remainder to the
+phase where it matters, recording each in `design/brief.json` → `decisions` (schema in
+`docs/COST.md` → "The brief"):
+
+| Question | When | Status if not asked |
+|---|---|---|
+| 1 idea + who, 2 core loop + moment and frequency, 3 payoff | `shape` (day 0) | inferred from the ramble where possible |
+| 4 who else is in it, 9 money model, 10 first 100 users, 12 sensitive data | `shape` (day 0) | stated as a default if the ramble makes it obvious |
+| 5 platforms, 6 accounts, 7 data source, 8 AI, 11 come-back reason, 13 north star | `shape` | `default` ("I'm assuming…, say if not") |
+| 14 services, 15 hosting, 17 who else works on it | `shape` default, confirmed at `scaffold` | `default` |
+| 16 name + bundle ID | `scaffold` (a working title until then) | `deferred` |
+| Look and feel, copy tone, which maybe-features make v1 | `prototype` | `deferred` |
+| Integrations the v1 features imply (payments, push, social sign-in) | `scaffold` | `deferred` |
+| Nudge policy, when to ask for each permission | `first-feature` | `deferred` |
+| Price and paywall placement, store listing and keywords, privacy labels, support channel | `pre-launch` | `deferred` |
+
+Walked step by step (this skill on its own), ask them all, but still record each answer
+in the ledger as `asked`.
 
 ## Output 1: `appbox.yaml` (repo root, tracked, no secrets)
 
@@ -141,9 +179,13 @@ product:
     action: "..."
     feedback: "..."
     return_reason: "..."
+  context: "<how often, and where they are when they reach for it>"
+  payoff: "<what they feel at the end of the first session>"
+  social: solo|shared|community|two_sided
+  distribution: "<how the first 100 users find it>"
   north_star: "<metric>"
   retention_mechanic: streaks|notifications|social|content|utility
-  monetisation: free|subscription|one_off|ads|b2b
+  monetisation: free|subscription|one_off|ads|b2b   # the model; price waits for pre-launch
   sensitive_data: []          # health|financial|children|location
   ai:
     enabled: false
@@ -184,6 +226,18 @@ Use this structure. Keep it to one page:
 ## Core loop
 Trigger → Action → Feedback → Return reason (one line each)
 
+## Payoff
+What they must feel by the end of the first session, and the moment that delivers it
+(the one authored animation).
+
+## Social shape
+Solo, shared with a few, community or two-sided, and (for the last two) how the first
+user gets value before anyone else joins.
+
+## Distribution
+How the first 100 users find it, and what v1 builds in for that (share link, invites,
+web page, store keywords).
+
 ## Screens (v1)
 Derive 4–6 screens from the core loop, e.g. Onboarding · Home/Today · <Core action> ·
 History/Progress · Settings. One line on each screen's job.
@@ -202,6 +256,9 @@ measures each one.
 
 ## North-star metric + the 5 analytics events that measure it
 ## Out of scope for v1
+## Decisions still to make
+From `design/brief.json` → `decisions`, every `deferred` entry: the question and the
+phase that will ask it (e.g. "Price and paywall placement: pre-launch").
 ## Open questions (things the user said "not sure" to)
 ```
 
