@@ -94,6 +94,15 @@ changed them, restore them from the template. Run it through the shared venv:
 that var (Railway variables for the deployed API, `.env` locally), or remove the
 feature from `FEATURE_CONFIG` in `backend/config.py` if the app doesn't use it.
 
+### Sign-in codes stop arriving, or Supabase says "email rate limit exceeded"
+**Why:** the project is still on Supabase's built-in mailer, which allows a couple of
+emails an hour and only exists for trying things out. Production `/health` lists
+"email sign-in (custom SMTP)" under `features_unavailable` when this is the case.
+**Fix:** provision step 2.7: a Resend API key (or any SMTP password) in `.env` as
+`SMTP_PASS`, then `supabase_smtp.py`, then `AUTH_SMTP_HOST` on Railway. If codes still
+don't arrive, the sender's domain isn't verified at the provider yet (Resend only
+delivers to your own address until it is).
+
 ## After setup
 
 ### "The agent doesn't know what to do next"

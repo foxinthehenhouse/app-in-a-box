@@ -26,7 +26,6 @@ const NO_TEST_NEEDED = {
   "components/ui/PressableScale": "exercised through Button/Chip/ListRow in components.test.tsx (haptics, disabled)",
   "components/ui/FormField": "react-hook-form binding over Field; covered by lib/__tests__/forms.test.tsx",
   "components/ui/Sheet": "native formSheet chrome; covered by the delete-account and edit-name screen tests",
-  "lib/monitoring": "Sentry no-op wrapper when no DSN; its wiring is checked by check-eas-shipping-env",
   "lib/updates": "expo-updates calls only reachable in a release build; UpdateBanner is tested",
   "lib/use-load": "covered through the screen tests that render loading, error and retry states",
 };

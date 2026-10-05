@@ -17,7 +17,7 @@ Apple/Google credentials, keystores or `.p8` keys (EAS stores those).
 
 | Kind | What changes | Command shape | Reversible? |
 |---|---|---|---|
-| **OTA update** | JS/assets only, same native build | `eas update --channel production --message "<summary>"` | Yes: republish the previous update |
+| **OTA update** | JS/assets only, same native build | push to `release` (`release.yml`), or by hand `eas update --branch production --rollout-percentage 10 --message "<summary>"` | Yes: revert the rollout, or roll back (`scripts/rollback-ota.sh`) |
 | **TestFlight / internal** | New native build for testers | `eas build --profile preview` (Android APK) or `--profile production` + `eas submit -p ios` | Mostly |
 | **Store release** | Public build | `eas build --profile production --platform all` then `eas submit --platform all` | **No** |
 
@@ -37,7 +37,11 @@ mobile/app.json mobile/package.json`.
 - [ ] Every `EXPO_PUBLIC_*` the app reads is set for the target EAS environment:
       `eas env:list --environment production`. Missing = a feature that silently
       does nothing in the store build.
-- [ ] Sentry release + source maps configured, so crashes are readable.
+- [ ] Sentry source maps upload, so crashes are readable: `SENTRY_AUTH_TOKEN`,
+      `SENTRY_ORG` and `SENTRY_PROJECT` are set for the target EAS environment
+      (`eas env:list --environment production`). Every OTA job in
+      `mobile/.eas/workflows/` uploads with `upload_sentry_sourcemaps: true` and fails
+      without them; that's deliberate, an unreadable OTA crash is worse than a red job.
 
 ## 2. Version + changelog (store/TestFlight)
 
@@ -78,15 +82,35 @@ mobile/app.json mobile/package.json`.
 - [ ] `eas submit --platform <…>`, then the owner completes review questions in App
       Store Connect / Play Console.
 
-## 5. After release
+## 5. OTA: promote the staged rollout
+
+An OTA reaches 10% of users first and waits on a "Roll out to 100%" approval in the
+workflow run. Report the numbers, then tell the owner which button to press (approving
+is theirs, on expo.dev):
+
+- [ ] The update's Sentry release is `<app id>@<version>+<update id>` (Sentry →
+      Releases; the update id is in the workflow run). It has had 24 hours at 10%.
+- [ ] Crash-free sessions are **99.5% or more** and no lower than the previous
+      release's; no new issue first seen in this release. Under about 100 sessions,
+      say so and list the release's issues instead of quoting a percentage.
+- [ ] All ✅: **promote**, by approving the step (or `cd mobile && eas update:edit
+      <group-id> --rollout-percentage 100 --non-interactive`).
+- [ ] Any ❌: **don't promote.** Reject the approval and run
+      `scripts/rollback-ota.sh` (it plans; `--yes` reverts the rollout).
+- [ ] Either way, finish the rollout before the next release: EAS won't publish a new
+      update on a runtime with a rollout still in progress.
+
+The gate and its reasoning: `docs/runbooks/release.md` → "Staged OTA rollout".
+
+## 6. After release
 
 - [ ] Watch Sentry and the north-star funnel for 48h (`north-star-report` can read it).
-- [ ] If a JS-only bug slips through: fix on a branch, then `eas update`, and say
-      which builds it reaches.
+- [ ] If a JS-only bug slips through: fix on a branch, then ship it as an OTA (it
+      stages like any other), and say which builds it reaches.
 
 Report: the checklist with ✅/❌/n/a, the build/submit URLs, and "What I need from you"
-(the store-console steps only the owner can do).
+(the store-console steps and the rollout approval, which only the owner can do).
 
 ## Ask the owner
 
-Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Release notes wording, store listing copy and screenshots, pricing or availability changes, and releasing with a known issue. Ask each before submitting; store changes can't be quietly undone.
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Release notes wording, store listing copy and screenshots, pricing or availability changes, releasing with a known issue, and promoting an OTA whose crash-free numbers miss the gate. Ask each before submitting; store changes can't be quietly undone.
