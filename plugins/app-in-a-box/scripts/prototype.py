@@ -10,11 +10,13 @@ the scaffold builds from.
     prototype.py render <spec> <out.html>
     prototype.py check  <spec>
     prototype.py freeze <spec> <choices.json> --target <repo root>
+    prototype.py fonts  [--library fonts.json] [--skill design-directions/SKILL.md]
 
 render   one HTML file: phone frame (390x844), working navigation, tabs, sheets,
-         toasts, per-screen states, and a control panel (direction, light/dark,
-         density, temperature, tone, per-screen variant, feature toggles, screen
-         map, annotations, "Copy my choices"). Inline CSS/JS; Google Fonts only.
+         toasts, per-screen states, and a control panel (direction, type pairing,
+         light/dark, density, temperature, tone, per-screen variant, feature
+         toggles, screen map, annotations, "Copy my choices"). Inline CSS/JS;
+         Google Fonts only.
          Refuses a malformed spec (schema errors); other lints print as warnings
          so a work-in-progress spec can still be clicked through.
 check    prints one line per problem and exits 1 on any: schema errors, dangling
@@ -25,16 +27,21 @@ check    prints one line per problem and exits 1 on any: schema errors, dangling
          no block references.
 freeze   takes the JSON the prototype's "Copy my choices" button emits,
          {direction, mode, density, temperature, tone, variants: {screen: variant},
-         features: {id: bool}, atmosphere: {mode, intensity, grain, surface}},
-         and writes under --target:
+         features: {id: bool}, atmosphere: {mode, intensity, grain, surface},
+         font: {display, body}}, and writes under --target:
            design/tokens.json       the chosen direction, density + temperature applied,
-                                    plus atmosphere (lights, colours, capped alpha)
+                                    the chosen type pairing (if any) in `font`, plus
+                                    atmosphere (lights, colours, capped alpha)
            docs/product/SCREENS.md  per screen: chosen variant -> components/ui, nav
                                     graph, states, features in/out of v1
            design/choices.json      every selection, resolved (no gaps)
            DESIGN.md                the design system for agents, generated from
                                     tokens.json (design_md.py); prose outside the
                                     generated markers in an existing one is kept
+fonts    checks the type library (scripts/proto/fonts.json): every family OFL-1.1 with
+         no Reserved Font Name, none on check_design.py's overused list, every pairing
+         made of listed families suited to their roles, and the design-directions
+         archetype table naming only listed (or built-in) families.
 
 A direction's `tokens` is a tokens v2 object. Its `color` must be complete (light AND
 dark); any other top-level key it leaves out (type, space, elevation...) is taken from
@@ -1076,10 +1083,16 @@ def _font_families(spec: dict) -> list[str]:
 
 
 def _css2_url(fam: str) -> str:
+    # Ask only for weights the family has: Google answers 400 to a weight it lacks
+    # (Young Serif is 400 only), and the whole family would silently fall back.
+    have = (_library_families().get(fam) or {}).get("weights")
+    ws = [w for w in (400, 500, 600, 700) if not have or w in have] or [400]
     return (
         "https://fonts.googleapis.com/css2?family="
         + fam.replace(" ", "+")
-        + ":wght@400;500;600;700&display=swap"
+        + ":wght@"
+        + ";".join(str(w) for w in ws)
+        + "&display=swap"
     )
 
 
@@ -1146,10 +1159,20 @@ def inline_font(fam: str) -> str | None:
 def fonts(spec: dict) -> tuple[str, str]:
     """(<head> links, inline @font-face CSS). Each family is inlined when it can be, so
     the prototype renders right offline and when forwarded; one that can't (offline
-    first render, too big) falls back to a Google Fonts <link> and says so."""
+    first render, too big) falls back to a Google Fonts <link> and says so. The Type
+    knob's alternates come after the directions' own families and share a budget
+    (ALT_FONT_BUDGET): past it they load as <link>s, so offering them can't bloat the
+    file past it, at the cost of needing a connection to preview those few."""
     links, faces = [], []
-    for fam in _font_families(spec):
+    own = _font_families(spec)
+    alt_bytes = 0
+    for fam in own + [f for f in _alt_families(spec) if f not in own]:
         face = inline_font(fam)
+        if face and fam not in own:
+            if alt_bytes + len(face) > ALT_FONT_BUDGET:
+                face = None
+            else:
+                alt_bytes += len(face)
         if face:
             faces.append(face)
         else:
@@ -1159,6 +1182,191 @@ def fonts(spec: dict) -> tuple[str, str]:
         links.insert(0, '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>')
         links.insert(0, '<link rel="preconnect" href="https://fonts.googleapis.com">')
     return "\n".join(links), "\n".join(faces)
+
+
+# ---------------------------------------------------------------- type library
+
+# A curated list of OFL families (scripts/proto/fonts.json) with pairings grouped by
+# personality. The Type knob offers a direction the pairings that share its display
+# face's personality, so the founder can swap faces without leaving its character.
+FONT_LIBRARY = PROTO / "fonts.json"
+DIRECTIONS_SKILL = KIT / "skills" / "design-directions" / "SKILL.md"
+FONT_ROLES = ("display", "body", "mono")
+TYPE_OPTIONS_MAX = 3  # alternative pairings offered per direction
+ALT_FONT_BUDGET = 400_000  # inlined CSS for all the alternates; keeps the page under ~1 MB
+FONT_SOURCE_RE = re.compile(r"https://github\.com/google/fonts/tree/main/ofl/[a-z0-9]+")
+_LIB: dict = {}
+
+
+def font_library() -> dict:
+    if not _LIB:
+        _LIB.update(load_json(str(FONT_LIBRARY)))
+    return _LIB
+
+
+def _library_families(lib: dict | None = None) -> dict[str, dict]:
+    lib = font_library() if lib is None else lib
+    fams = lib.get("families") if isinstance(lib, dict) else None
+    return {f["family"]: f for f in fams or [] if isinstance(f, dict) and isinstance(f.get("family"), str)}
+
+
+def pairing_label(pr: dict) -> str:
+    return pr["display"] if pr["display"] == pr["body"] else f"{pr['display']} + {pr['body']}"
+
+
+def personality_of(d: dict) -> str | None:
+    """The personality of a direction's display face (else its body face), when the
+    library knows it. A system or unlisted face has none, so the knob offers nothing."""
+    fams = _library_families()
+    font = merged_tokens(d).get("font") or {}
+    for role in ("display", "body"):
+        f = fams.get(font.get(role))
+        if f and f.get("personality") != "mono":
+            return f["personality"]
+    return None
+
+
+def type_options(d: dict) -> list[dict]:
+    """The pairings the Type knob offers for direction d, in library order: same
+    personality as its display face, not the pairing it already uses, at most
+    TYPE_OPTIONS_MAX (each one is a family or two the page has to load)."""
+    group = personality_of(d)
+    if not group:
+        return []
+    fams = _library_families()
+    own = merged_tokens(d).get("font") or {}
+    out = []
+    for pr in font_library().get("pairings") or []:
+        if (fams.get(pr["display"]) or {}).get("personality") != group:
+            continue
+        if (pr["display"], pr["body"]) == (own.get("display"), own.get("body")):
+            continue
+        out.append({k: pr[k] for k in ("id", "display", "body", "mono") if k in pr})
+        if len(out) == TYPE_OPTIONS_MAX:
+            break
+    return out
+
+
+def _alt_families(spec: dict) -> list[str]:
+    fams = []
+    for d in spec["directions"]:
+        for pr in type_options(d):
+            for role in FONT_ROLES:
+                if pr.get(role) and pr[role] not in fams:
+                    fams.append(pr[role])
+    return fams
+
+
+def _nearest_weight(weight, have: list[int]) -> str:
+    """The family's closest weight to `weight` (ties go heavier): a pairing face with
+    fewer weights must not ask the app to register one that doesn't exist."""
+    w = int(str(weight))
+    return str(min(have, key=lambda x: (abs(x - w), -x)))
+
+
+def archetype_fonts(skill: str) -> list[str] | None:
+    """Every family the design-directions archetype table suggests: the names in
+    parentheses in its "Type pairing" column, split on / and +. None when the table
+    is missing (the guard reports that rather than passing on nothing)."""
+    lines = skill.splitlines()
+    head = next((i for i, ln in enumerate(lines) if ln.startswith("|") and "Type pairing" in ln), None)
+    if head is None:
+        return None
+    col = [c.strip() for c in lines[head].strip().strip("|").split("|")].index("Type pairing")
+    out = []
+    for ln in lines[head + 2 :]:
+        if not ln.startswith("|"):
+            break
+        cells = [c.strip() for c in ln.strip().strip("|").split("|")]
+        for group in re.findall(r"\(([^)]*)\)", cells[col] if col < len(cells) else ""):
+            for name in re.split(r"\s*[/+]\s*", group):
+                name = name.strip()
+                if name and not name.lower().startswith("the "):  # "the system sans"
+                    out.append(name)
+    return out
+
+
+def library_errors(lib, skill: str | None = None) -> list[str]:
+    """Problems with the type library (and, given its text, the archetype table)."""
+    if not isinstance(lib, dict):
+        return ["fonts.json: must be an object"]
+    p: list[str] = []
+    groups = lib.get("personalities")
+    if not (isinstance(groups, dict) and groups):
+        p.append("personalities: needs at least one personality")
+        groups = {}
+    fams = lib.get("families")
+    if not isinstance(fams, list):
+        return p + ["families: must be a list"]
+    seen: dict[str, dict] = {}
+    for i, f in enumerate(fams):
+        name = f.get("family") if isinstance(f, dict) else None
+        if not (isinstance(name, str) and FONT_RE.fullmatch(name)):
+            p.append(f"families[{i}]: family must be a plain family name")
+            continue
+        w = f"families[{name}]"
+        if name in seen:
+            p.append(f"{w}: listed twice")
+        seen[name] = f
+        if name.lower() in dc.OVERUSED_FONTS:
+            p.append(f"{w}: is on check_design.py's OVERUSED_FONTS, so the app's gates would fail it")
+        if name.lower() in dc.BUILT_IN:
+            p.append(f"{w}: is built into the phone; the library lists only families to load")
+        if f.get("license") != "OFL-1.1":
+            p.append(f"{w}: license must be OFL-1.1, got {f.get('license')!r}")
+        if f.get("rfn") is not False:
+            p.append(f"{w}: declares a Reserved Font Name (rfn must be false): drop the family")
+        if f.get("personality") not in groups:
+            p.append(f"{w}: personality {f.get('personality')!r} is not one of {', '.join(groups)}")
+        roles = f.get("roles")
+        if not (isinstance(roles, list) and roles and set(roles) <= set(FONT_ROLES)):
+            p.append(f"{w}: roles must be a non-empty list of {', '.join(FONT_ROLES)}")
+        ws = f.get("weights")
+        if not (
+            isinstance(ws, list)
+            and 400 in ws
+            and all(isinstance(x, int) and not isinstance(x, bool) and x in range(100, 1000, 100) for x in ws)
+        ):
+            p.append(f"{w}: weights must be a list of 100-900 that includes 400")
+        if not (isinstance(f.get("source"), str) and FONT_SOURCE_RE.fullmatch(f["source"])):
+            p.append(f"{w}: source must be its google/fonts ofl/ folder")
+    if not 40 <= len(seen) <= 60:
+        p.append(f"families: {len(seen)} listed; the library is curated to about 45")
+    pairs = lib.get("pairings")
+    if not isinstance(pairs, list):
+        return p + ["pairings: must be a list"]
+    ids, combos = set(), set()
+    for i, pr in enumerate(pairs):
+        pid = pr.get("id") if isinstance(pr, dict) else None
+        if not (isinstance(pid, str) and ID_RE.match(pid)):
+            p.append(f"pairings[{i}]: id must be a lowercase id")
+            continue
+        w = f"pairings[{pid}]"
+        if pid in ids:
+            p.append(f"{w}: duplicate id")
+        ids.add(pid)
+        for k in sorted(set(pr) - {"id", *FONT_ROLES}):
+            p.append(f"{w}.{k}: unknown key")
+        for role in FONT_ROLES:
+            fam = pr.get(role)
+            if fam is None and role == "mono":
+                continue
+            if fam not in seen:
+                p.append(f"{w}.{role}: {fam!r} is not a listed family")
+            elif role not in (seen[fam].get("roles") or []):
+                p.append(f"{w}.{role}: {fam!r} isn't suited to {role} (its roles: {seen[fam].get('roles')})")
+        combo = (pr.get("display"), pr.get("body"))
+        if combo in combos:
+            p.append(f"{w}: same display + body as an earlier pairing")
+        combos.add(combo)
+    if skill is not None:
+        named = archetype_fonts(skill)
+        if named is None:
+            p.append("design-directions: no archetype table with a Type pairing column")
+        for fam in named or []:
+            if fam.lower() not in dc.BUILT_IN and fam not in seen:
+                p.append(f"design-directions: the archetype table suggests {fam!r}, which is not in fonts.json")
+    return p
 
 
 # ---------------------------------------------------------------- render
@@ -1176,6 +1384,21 @@ def _rev(spec: dict) -> str:
 
 def _script_json(obj) -> str:
     return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/").replace("<!--", "<\\!--")
+
+
+def _type_config(d: dict) -> list[dict]:
+    own = merged_tokens(d).get("font") or {}
+    out = []
+    for pr in type_options(d):
+        fams = {r: pr.get(r, own.get(r, "System")) for r in FONT_ROLES}
+        out.append(
+            {
+                **pr,
+                "label": pairing_label(pr),
+                "stacks": {r: _stack(fams[r], r) for r in FONT_ROLES},
+            }
+        )
+    return out
 
 
 def render(spec: dict, out: str) -> None:
@@ -1205,6 +1428,9 @@ def render(spec: dict, out: str) -> None:
                     d["id"]: merged_tokens(d).get("font", {}).get("display", "System")
                     for d in spec["directions"]
                 },
+                # The Type knob: each offered pairing with the CSS stacks the runtime
+                # swaps into --font-display/--font-body/--font-mono.
+                "typeOptions": {d["id"]: _type_config(d) for d in spec["directions"]},
             }
         ),
         "JS": "\n".join(
@@ -1224,7 +1450,7 @@ def resolve_choices(spec: dict, ch) -> tuple[dict, list[str]]:
     errs: list[str] = []
     if not isinstance(ch, dict):
         return {}, ["choices: must be a JSON object"]
-    allowed = {"direction", "mode", "density", "temperature", "tone", "variants", "features", "atmosphere"}
+    allowed = {"direction", "mode", "density", "temperature", "tone", "variants", "features", "atmosphere", "font"}
     for k in sorted(set(ch) - allowed):
         errs.append(f"choices.{k}: unknown key")
     d = spec["defaults"]
@@ -1273,7 +1499,43 @@ def resolve_choices(spec: dict, ch) -> tuple[dict, list[str]]:
     base = next((atmosphere_of(x) for x in spec["directions"] if x["id"] == out["direction"]), ATMO_DEFAULT)
     out["atmosphere"] = {**base, **(atmo if isinstance(atmo, dict) else {})}
     out["atmosphere"] = {k: out["atmosphere"][k] for k in ATMO_DEFAULT}
+    out["font"] = _resolve_font(spec, out["direction"], ch.get("font"), errs)
     return out, errs
+
+
+def _resolve_font(spec: dict, did: str, val, errs: list[str]) -> dict:
+    """The Type knob's choice, resolved: {pairing, display, body, mono}. Left out (older
+    choices) or naming the direction's own faces, it's the direction default; anything
+    else must be a pairing the knob offered for that direction, so freeze never writes a
+    family the founder didn't see."""
+    d = next((x for x in spec["directions"] if x["id"] == did), None)
+    own = (merged_tokens(d).get("font") or {}) if d else {}
+    default = {"pairing": "default", **{r: own.get(r, "System") for r in FONT_ROLES}}
+    if val is None or val == {} or d is None:
+        return default
+    if not isinstance(val, dict):
+        errs.append('choices.font: must be an object, {"display": ..., "body": ...}')
+        return default
+    for k in sorted(set(val) - {"pairing", *FONT_ROLES}):
+        errs.append(f"choices.font.{k}: unknown key")
+    disp, body = val.get("display"), val.get("body")
+    if (disp, body) == (own.get("display"), own.get("body")):
+        picked = default
+    else:
+        opts = type_options(d)
+        hit = next((o for o in opts if (o["display"], o["body"]) == (disp, body)), None)
+        if hit is None:
+            offered = "; ".join(pairing_label(o) for o in opts) or "none"
+            errs.append(
+                f"choices.font: {disp!r} + {body!r} is not a pairing the Type knob offers "
+                f"for direction {did!r} (offered: {offered})"
+            )
+            return default
+        picked = {"pairing": hit["id"], "display": disp, "body": body, "mono": hit.get("mono", default["mono"])}
+    for k in ("mono", "pairing"):
+        if k in val and val[k] != picked[k]:
+            errs.append(f"choices.font.{k}: {val[k]!r} doesn't match the pairing ({picked[k]!r})")
+    return picked
 
 
 def frozen_tokens(spec: dict, ch: dict) -> dict:
@@ -1281,6 +1543,16 @@ def frozen_tokens(spec: dict, ch: dict) -> dict:
     t = merged_tokens(d)
     t = {"$schema": load_json(str(TEMPLATE_TOKENS)).get("$schema", ""), **t}
     t["name"], t["version"], t["mode"] = d["id"], 2, ch["mode"]
+    f = ch.get("font") or {}
+    if f.get("pairing", "default") != "default":
+        # The Type knob's pairing replaces the faces; each role keeps its weight unless
+        # the new family lacks it (then its nearest, as the prototype rendered it).
+        t["font"] = {**(t.get("font") or {}), **{r: f[r] for r in FONT_ROLES}}
+        fams = _library_families()
+        for spec_ in (t.get("type") or {}).values():
+            have = (fams.get(t["font"].get(spec_.get("font", "body"))) or {}).get("weights")
+            if have:
+                spec_["weight"] = _nearest_weight(spec_.get("weight", "400"), have)
     k = DENSITY[ch["density"]]
     t["space"] = {n: max(1, round(v * k)) for n, v in t.get("space", {}).items()}
     cfg = TEMPERATURE[ch["temperature"]]
@@ -1452,6 +1724,7 @@ def screens_md(spec: dict, ch: dict) -> str:
         f"| Density | {ch['density']} |",
         f"| Temperature | {ch['temperature']} |",
         f"| Copy tone | {ch['tone']} |",
+        _type_row(ch),
         "",
         "## Features in / out of v1",
         "",
@@ -1523,6 +1796,17 @@ def screens_md(spec: dict, ch: dict) -> str:
     L += _icons_table(spec, ch)
     L += _platform_and_motion(spec, ch)
     return "\n".join(L) + "\n"
+
+
+def _type_row(ch: dict) -> str:
+    f = ch.get("font") or {}
+    if not f.get("display"):
+        return "| Type | direction default |"
+    which = "direction default" if f.get("pairing", "default") == "default" else f"pairing `{f['pairing']}`"
+    return (
+        f"| Type | display {_md(f['display'])}, body {_md(f['body'])}, mono {_md(f['mono'])} "
+        f"({which}; register each weight in `mobile/lib/fonts.ts`) |"
+    )
 
 
 def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
@@ -1675,7 +1959,27 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("spec")
     f.add_argument("choices")
     f.add_argument("--target", required=True, help="repo root to write into")
+    fl = sub.add_parser("fonts", help="check the type library (and the archetype table)")
+    fl.add_argument("--library", default=str(FONT_LIBRARY))
+    fl.add_argument("--skill", default=str(DIRECTIONS_SKILL))
     a = ap.parse_args(argv)
+    if a.cmd == "fonts":
+        try:
+            lib, skill = load_json(a.library), Path(a.skill).read_text()
+        except (OSError, json.JSONDecodeError) as e:
+            print(f"fonts: cannot read: {e}")
+            return 1
+        errs = library_errors(lib, skill)
+        for e in errs:
+            print(e)
+        if errs:
+            print(f"type library check FAILED: {len(errs)} problem(s)")
+            return 1
+        print(
+            f"type library check passed ({len(lib['families'])} families, "
+            f"{len(lib['pairings'])} pairings, all OFL-1.1)"
+        )
+        return 0
     try:
         spec = load_json(a.spec)
     except (OSError, json.JSONDecodeError) as e:

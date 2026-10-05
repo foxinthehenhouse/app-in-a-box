@@ -18,6 +18,10 @@ Rules:
 - The three must differ in at least three of: mode, hue family, type pairing,
   radius, motion character. Three shades of the same idea isn't a choice.
 - One accent per direction. Neutrals tinted toward the brand hue, never pure grey.
+- Pick each direction's faces from the type library, `$KIT/scripts/proto/fonts.json`
+  (OFL families with personalities and pairings), when one fits: a direction whose
+  display face is in it gets the prototype's Type knob, so the founder can try that
+  direction's other pairings without another round.
 - If the founder opted into Mobbin, pull 3–5 reference screens from apps their users
   already love and say what you took from each (a spacing rhythm, a type scale), never
   copying a brand.
