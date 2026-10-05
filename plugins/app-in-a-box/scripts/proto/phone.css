@@ -52,6 +52,9 @@
 .t-display, .t-title, .t-heading, .t-body, .t-secondary, .t-meta, .t-mono { margin: 0; }
 .t-display, .t-title, .t-heading { text-wrap: balance; }
 .t-body, .t-secondary, .b-text, .row-meta { text-wrap: pretty; }
+/* A Type-knob pairing never fakes a bold its family lacks: freeze writes the nearest
+   real weight, so the prototype shows that weight too. */
+.phone:not([data-font="default"]) { font-synthesis: style; }
 .t-display { font-family: var(--t-display-font); font-size: var(--t-display-size); line-height: var(--t-display-lh); font-weight: var(--t-display-weight); letter-spacing: var(--t-display-ls); }
 .t-title { font-family: var(--t-title-font); font-size: var(--t-title-size); line-height: var(--t-title-lh); font-weight: var(--t-title-weight); letter-spacing: var(--t-title-ls); }
 .t-heading { font-family: var(--t-heading-font); font-size: var(--t-heading-size); line-height: var(--t-heading-lh); font-weight: var(--t-heading-weight); letter-spacing: var(--t-heading-ls); }

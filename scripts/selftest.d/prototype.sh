@@ -489,7 +489,10 @@ _proto_fonts_offline() {
   local out
   out=$(python3 "$PROTO_PY" render "$PROTO_FIX" "$T/pf2.html") || return 1
   printf '%s\n' "$out" | grep -q "note: font 'Figtree' is loaded from Google Fonts" \
-    && [ "$(grep -c 'fonts.googleapis.com/css2' "$T/pf2.html")" -eq 4 ] && ! grep -q '@font-face' "$T/pf2.html"
+    && [ "$(grep -c 'fonts.googleapis.com/css2' "$T/pf2.html")" -eq "$(_proto_font_count)" ] && ! grep -q '@font-face' "$T/pf2.html"
+}
+_proto_font_count() {  # the directions' 4 families + the Type knob's alternates (font-library.sh)
+  python3 -c "import json,sys;sys.path.insert(0,'$KIT/scripts');import prototype as p;s=json.load(open('$PROTO_FIX'));o=p._font_families(s);print(len(o)+len([f for f in p._alt_families(s) if f not in o]))"
 }
 check "prototype: offline with no cache, every font is a Google Fonts <link> and render says so" "_proto_fonts_offline"
 

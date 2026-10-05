@@ -30,14 +30,25 @@ setting); pick which one each mockup shows first by the archetype's home mode.
 | Archetype | Feel | Good for | Type pairing | Radius | Motion (tokens) |
 |---|---|---|---|---|---|
 | **Calm** | Airy, soft neutrals, one muted accent (home: light) | Wellbeing, journaling, finance | Humanist sans (Figtree / Hanken Grotesk / Onest) | 16–24 | Slow fades: `standard` 260ms, gentle springs, press scale 0.98 |
-| **Athletic dark** | Near-black field, warm off-white ink, one hot accent (home: dark) | Fitness, performance, pro tools | Condensed grotesk + mono numerals (Archivo / Barlow Semi Condensed + JetBrains Mono / IBM Plex Mono) | 12 | Snappy: `fast` 120ms, stiff springs (damping 22, stiffness 320) |
-| **Playful** | Saturated brand colour, chunky shapes, confetti moments (home: light) | Gamified habits, savings, kids-adjacent | Rounded sans (Nunito / Baloo 2) | 20–28 | Springy where you touch: presses and chips on springs damping ~9–12, press scale 0.95, `Celebration` on the payoff. Content still arrives on a curve that doesn't overshoot |
-| **Editorial** | Serif headlines, generous whitespace, paper tones (home: light) | Content, reading, learning | Serif + sans (Newsreader / Source Serif 4 / Literata + the system sans) | 4–8 | Minimal: fades only, no springs |
-| **Clinical** | White/blue, dense information, high trust (home: light) | Health data, B2B, admin | System sans (SF / Roboto) | 8 | Almost none: `fast` fades |
-| **Neo-brutal** | Hard borders, flat blocks, loud type (home: either) | Creator tools, youth, novelty | Display grotesk (Bricolage Grotesque / Familjen Grotesk) | 0 | Hard cuts: `instant` durations, no easing flourish |
+| **Athletic dark** | Near-black field, warm off-white ink, one hot accent (home: dark) | Fitness, performance, pro tools | Condensed grotesk + mono numerals (Archivo / Barlow Semi Condensed / Big Shoulders + JetBrains Mono / Azeret Mono) | 12 | Snappy: `fast` 120ms, stiff springs (damping 22, stiffness 320) |
+| **Playful** | Saturated brand colour, chunky shapes, confetti moments (home: light) | Gamified habits, savings, kids-adjacent | Rounded sans (Fredoka / Nunito) | 20–28 | Springy where you touch: presses and chips on springs damping ~9–12, press scale 0.95, `Celebration` on the payoff. Content still arrives on a curve that doesn't overshoot |
+| **Editorial** | Serif headlines, generous whitespace, paper tones (home: light) | Content, reading, learning | Serif + sans (Newsreader / Source Serif 4 / Literata / Petrona + Public Sans / the system sans) | 4–8 | Minimal: fades only, no springs |
+| **Clinical** | White/blue, dense information, high trust (home: light) | Health data, B2B, admin | System sans (SF Pro / Roboto) | 8 | Almost none: `fast` fades |
+| **Neo-brutal** | Hard borders, flat blocks, loud type (home: either) | Creator tools, youth, novelty | Display grotesk (Bricolage Grotesque / Familjen Grotesk / Syne) | 0 | Hard cuts: `instant` durations, no easing flourish |
 
 The type pairings are starting points, not the answer: pick the face from the
-product's world. `prototype.py check` and the app's gates fail the families every
+product's world. The kit's **type library**, `$KIT/scripts/proto/fonts.json`, is where to
+look first: about 45 families, each checked as SIL Open Font License 1.1 with no
+Reserved Font Name (so the app can bundle them), tagged with a personality (humanist,
+grotesk, geometric, condensed, rounded, serif display, serif text, mono), the roles it
+suits and its weights, plus ready pairings (Young Serif + Albert Sans, Petrona +
+Schibsted Grotesk, Besley + Public Sans, Funnel Display + Funnel Sans, Sora + Fragment
+Mono, Bodoni Moda + Jost, Big Shoulders + Azeret Mono, the Red Hat superfamily, Golos
+Text + Martian Mono...). A direction whose display face is in the library also gets
+the prototype's **Type** knob: the founder can swap it for another pairing with the
+same personality, live. Every family this table names is in the library (or built in);
+`prototype.py fonts` checks that, so add a family to `fonts.json` before suggesting it
+here. `prototype.py check` and the app's gates fail the families every
 generated app reaches for (Inter, Roboto as a loaded font, Open Sans, Lato, Montserrat,
 Fraunces, Geist, Space Grotesk, Instrument, Plus Jakarta, Mona Sans, Recoleta, Arial,
 Helvetica). The phone's own system font is always fine. They also fail pure-grey
