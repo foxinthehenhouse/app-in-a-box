@@ -50,7 +50,9 @@ avatar needs its own bucket and its own policy review), and how long files are k
    `uuid references public.uploads (id) on delete set null` column), never the URL: URLs
    expire. Show images with `<Media source={upload.url} />` from `listUploads()`.
 4. **Run the gates**: `scripts/dev-venv.sh python -m pytest -q`, `cd mobile && npm run gates`,
-   and the DB gate (`DATABASE_URL=... scripts/db-test.sh`, or let CI's DB job run it).
+   and the DB gate. The migration changes the schema, so refresh the snapshot and commit
+   it with the migration: `DATABASE_URL=... scripts/db-test.sh --write-snapshot`, review
+   the diff of `supabase/schema-snapshot.txt`, then CI's DB job checks it.
 5. **Apply the migration** to production (`supabase db push`, owner-run), then check in
    the dashboard: Storage → `uploads` is **private**, with the 10 MB limit and the four
    image types; Policies shows the four `uploads_*_own` policies on `storage.objects`.

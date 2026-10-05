@@ -161,7 +161,8 @@ _ru_db() {
   local base="$APPBOX_SELFTEST_DATABASE_URL" name="appbox_ru_$$" url out
   url="${base%/*}/$name"; case "$base" in *\?*) url="${base%%\?*}"; url="${url%/*}/$name?${base#*\?}" ;; esac
   psql "$base" -X -q -c "drop database if exists $name" -c "create database $name" || return 1
-  out=$(cd "$RU_APP" && DATABASE_URL="$url" ./scripts/db-test.sh 2>&1); local rc=$?
+  # --write-snapshot: the skill refreshes supabase/schema-snapshot.txt with the migration.
+  out=$(cd "$RU_APP" && DATABASE_URL="$url" ./scripts/db-test.sh --write-snapshot 2>&1); local rc=$?
   printf '%s\n' "$out" | grep -E 'pgTAP|caught|db-test|not ok|ERROR' | head -20
   if [ "$rc" = 0 ] && printf '%s' "$out" | grep -q '# supabase/tests/database/uploads.test.sql'; then
     # Each half of the select policy, removed on its own, must turn the suite red.
