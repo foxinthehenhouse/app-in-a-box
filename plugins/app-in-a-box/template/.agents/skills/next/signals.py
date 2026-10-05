@@ -24,6 +24,9 @@ SETUP = [  # must match the kit's progress.py PHASES keys (selftest-checked)
     "provision", "harness", "verify", "first_feature",
 ]  # fmt: skip
 DONE = {"done", "true", "yes", "skipped"}
+# The brief's decision ledger (design/brief.json -> decisions, schema in the kit's
+# docs/COST.md): a `deferred` decision is due once its `ask_at` phase has arrived.
+DECISION_PHASES = ["shape", "prototype", "scaffold", "first-feature", "pre-launch", "post-launch"]
 RITUALS = [  # (ritual, manifest cadence key, default days)
     ("reflect", "reflect_days", 10),
     ("harness-optimize", "optimize_days", 7),
@@ -94,6 +97,34 @@ def rituals() -> list[dict]:
     return out
 
 
+def decisions_due(prog: dict) -> list[dict]:
+    """Deferred decisions whose phase has arrived, earliest phase first. A phase arrives
+    when the setup step before it is done; pre-launch once setup is complete (launch is
+    what's left), post-launch once a release is tagged (`ship` tags v<version>)."""
+    try:
+        decisions = json.loads((ROOT / "design" / "brief.json").read_text()).get("decisions")
+    except (OSError, ValueError, AttributeError):
+        return []
+    arrived = {
+        "shape": True,
+        "prototype": prog.get("interview") in DONE,
+        "scaffold": prog.get("design") in DONE,
+        "first-feature": prog.get("verify") in DONE,
+        "pre-launch": prog.get("first_feature") in DONE,
+        "post-launch": bool(sh("git", "tag", "--list", "v*")),
+    }
+    if not isinstance(decisions, list):
+        return []
+    due = [
+        {k: d.get(k) for k in ("id", "question", "ask_at", "why")}
+        for d in decisions
+        if isinstance(d, dict)
+        and d.get("status") == "deferred"
+        and arrived.get(str(d.get("ask_at")))
+    ]
+    return sorted(due, key=lambda d: DECISION_PHASES.index(d["ask_at"]))
+
+
 def local() -> dict:
     box = appbox()
     prog = box["progress"]
@@ -115,6 +146,7 @@ def local() -> dict:
         "tracker": box["stack"].get("tracker", "github"),
         "analytics": box["stack"].get("analytics", ""),
         "overdue_rituals": rituals(),
+        "decisions_due": decisions_due(prog),
         "brief": (ROOT / "docs" / "product" / "BRIEF.md").is_file(),
     }
 
@@ -164,6 +196,10 @@ def line(sig: dict) -> str:
     if overdue:
         r = max(overdue, key=lambda x: x["days_since"] - x["cadence_days"])
         return f"the `{r['ritual']}` ritual is overdue ({r['days_since']}d, cadence {r['cadence_days']}d)"
+    due = sig["decisions_due"]
+    if due:
+        return (f"{len(due)} product decision(s) are due, starting with `{due[0]['id']}` "
+                f"(parked until {due[0]['ask_at']})")  # fmt: skip
     return "no local blockers"
 
 

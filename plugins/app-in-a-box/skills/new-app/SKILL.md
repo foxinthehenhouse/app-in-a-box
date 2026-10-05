@@ -39,7 +39,10 @@ question to at most 3 options plus "you pick" so it fits both tools.
 
 1. **The user owns decisions, you own mechanics.** Ask about product, taste, money
    and anything irreversible. Never ask about anything you can find out yourself:
-   versions, whether a CLI is installed, which command to run.
+   versions, whether a CLI is installed, which command to run. Ask each decision at
+   the moment it matters, not all on day 0: `design/brief.json` → `decisions` records
+   which phase asks what (schema in `KIT/docs/COST.md`), and `KIT/docs/DEFAULTS.md`
+   lists the calls already made for them.
 2. **One question at a time is too slow. Twenty at once is a form.** Batch 2–3
    related questions per ask (structured), always with a recommended option first,
    marked "(Recommended)".
