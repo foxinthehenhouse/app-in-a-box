@@ -30,7 +30,10 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
    `user.id`) → `Wire` response model. `scripts/dev-venv.sh python -m pytest -q`.
 5. **Mobile:** `*Wire` type + adapter in `lib/api.ts` → screen from `components/ui`
    primitives + theme tokens → analytics helpers (view event, success+failure) → honest
-   loading/empty/error states → testIDs. `cd mobile && npm run gates`.
+   loading/empty/error states → testIDs. `cd mobile && npm run gates`. Build to
+   `docs/DEFAULTS.md` unless the spec or the ledger overrides it: ask for a permission
+   only from the moment it's useful, after the payoff; a notification goes out at most
+   once a day, never in quiet hours (9pm to 8am local), and points at the core loop.
 6. **E2E:** give the new screen a root `<screen>-screen` (or `-sheet`) testID and add
    a flow under `mobile/.maestro/` for its happy path (`check-maestro-coverage` in the
    gates fails without one). Write the flow even when `maestro` isn't installed here:

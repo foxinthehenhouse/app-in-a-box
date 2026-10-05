@@ -21,6 +21,9 @@
     temperature: Proto.CFG.temperature, tone: ["calm", "playful"]
   };
   var ATMO = Proto.CFG.atmosphere;
+  var TYPE = Proto.CFG.typeOptions || {};
+  function typeOptions(dir) { return TYPE[dir] || []; }
+  function pairing(dir, id) { return typeOptions(dir).filter(function (o) { return o.id === id; })[0] || null; }
   var ATMO_ALLOWED = { mode: ATMO.mode, intensity: ATMO.intensity, surface: ATMO.surface, grain: [true, false] };
   var reduced = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
   function isReduced() { return reduced.matches || (state && state.rmPreview); }
@@ -35,7 +38,7 @@
     var s = { direction: D.direction, mode: D.mode, density: D.density, temperature: D.temperature,
       tone: D.tone, variants: {}, features: {}, annotations: false, screenState: {},
       tab: tabIds[0] || "_", stacks: {}, sheet: null,
-      atmosphere: atmoDefault(D.direction), atmoTouched: false, rmPreview: false };
+      atmosphere: atmoDefault(D.direction), atmoTouched: false, rmPreview: false, font: null };
     (spec.features || []).forEach(function (f) { s.features[f.id] = !!f["default"]; });
     tabIds.forEach(function (id) { s.stacks[id] = [id]; });
     if (ROOT) s.stacks._ = [ROOT];
@@ -64,6 +67,7 @@
     Object.keys(saved.features || {}).forEach(function (fid) {
       if (fid in state.features && typeof saved.features[fid] === "boolean") state.features[fid] = saved.features[fid];
     });
+    if (saved.font && pairing(state.direction, saved.font.pairing)) state.font = saved.font.pairing;
     state.annotations = saved.annotations === true;
     state.rmPreview = saved.rmPreview === true;
     if (saved.atmoTouched === true && saved.atmosphere && typeof saved.atmosphere === "object") {
@@ -106,8 +110,16 @@
     Object.keys(state.features).forEach(function (k) { f[k] = state.features[k]; });
     var a = {};
     Object.keys(ATMO_ALLOWED).forEach(function (k) { a[k] = state.atmosphere[k]; });
-    return { direction: state.direction, mode: state.mode, density: state.density,
+    var c = { direction: state.direction, mode: state.mode, density: state.density,
       temperature: state.temperature, tone: state.tone, variants: v, features: f, atmosphere: a };
+    // The Type knob: left out while it's on the direction default (older choices
+    // look the same), else the pairing's faces, exactly what freeze writes.
+    var p = pairing(state.direction, state.font);
+    if (p) {
+      c.font = { pairing: p.id, display: p.display, body: p.body };
+      if (p.mono) c.font.mono = p.mono;
+    }
+    return c;
   }
 
   function applyFeatures(root) {
@@ -126,6 +138,14 @@
     phone.setAttribute("data-density", state.density);
     phone.setAttribute("data-temperature", state.temperature);
     phone.setAttribute("data-icons", iconStyle());
+    // A pairing overrides the direction's font stacks on the phone itself; the type
+    // roles read them through var(), so every text style follows.
+    var p = pairing(state.direction, state.font);
+    ["display", "body", "mono"].forEach(function (r) {
+      if (p) phone.style.setProperty("--font-" + r, p.stacks[r]);
+      else phone.style.removeProperty("--font-" + r);
+    });
+    phone.setAttribute("data-font", p ? p.id : "default");
     phone.classList.toggle("annot", state.annotations);
     phone.classList.toggle("has-tabs", tabIds.length > 0);
     var a = state.atmosphere;
@@ -351,7 +371,14 @@
       state[k] = v;
       // Until the founder turns an atmosphere knob, each direction brings its own.
       if (k === "direction" && !state.atmoTouched) state.atmosphere = atmoDefault(v);
+      // A pairing belongs to its direction's personality: a new direction starts on its own.
+      if (k === "direction" && !pairing(v, state.font)) state.font = null;
       refresh();
+    },
+    typeOptions: function () { return typeOptions(state.direction); },
+    setFont: function (id) {
+      if (id !== null && !pairing(state.direction, id)) return;
+      state.font = id; refresh();
     },
     setVariant: function (sid, vid) { state.variants[sid] = vid; refresh(); },
     setScreenState: function (sid, st) { state.screenState[sid] = st; refresh(); },
