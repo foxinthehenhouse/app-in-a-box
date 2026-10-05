@@ -9,7 +9,9 @@ GET /api/v1/me/export -> 200 DataExport: every row the caller owns, per table, a
   every chain). `tests/test_v1_export.py` fails when a migration adds a table keyed to
   `auth.users` that isn't exported here (or listed in `NOT_EXPORTED` with a reason).
 - Rate limited: an export reads every table, so it is the most expensive GET we serve.
-- Read-only handler: plain `def` (runs in the threadpool).
+- Audited: every export appends a `data.export` row to the audit trail, and the
+  export includes the caller's own audit rows (`audit_events`, by `actor_id`).
+- Plain `def` (runs in the threadpool).
 
 Adding a user-owned table: add `_read_<table>` below and an `EXPORTERS` entry, in the
 same PR as the migration.
@@ -27,6 +29,7 @@ from backend.auth import CurrentUser, get_current_user
 from backend.db import get_db
 from backend.ratelimit import rate_limit
 from backend.routers.me import Wire
+from backend.services import audit_service
 
 router = APIRouter(prefix="/api/v1/me", tags=["export"])
 
@@ -78,11 +81,26 @@ def _read_push_tickets(db: Any, user_id: str, start: int, end: int) -> list[dict
     )
 
 
+def _read_audit_events(db: Any, user_id: str, start: int, end: int) -> list[dict[str, Any]]:
+    """The caller's own entries in the audit trail (what they did, and when)."""
+    return (
+        db.table("audit_events")
+        .select("action, target, request_id, at")
+        .eq("actor_id", user_id)
+        .order("id")
+        .range(start, end)
+        .execute()
+        .data
+        or []
+    )
+
+
 # table -> scoped reader. Order is the order tables appear in the file.
 EXPORTERS: dict[str, Reader] = {
     "profiles": _read_profiles,
     "push_tokens": _read_push_tokens,
     "push_tickets": _read_push_tickets,
+    "audit_events": _read_audit_events,
 }
 
 # Tables keyed to auth.users that are deliberately NOT exported, with the reason.
@@ -109,6 +127,9 @@ def export_me(
     user: CurrentUser = Depends(get_current_user), db: Any = Depends(get_db)
 ) -> DataExport:
     tables = {name: _read_all(reader, db, user.id) for name, reader in EXPORTERS.items()}
+    # Recorded after the read (so this export lists the earlier ones, the next lists this
+    # one) and before the response: no export leaves without its audit row.
+    audit_service.record(db, user.id, "data.export")
     return DataExport(
         format_version=FORMAT_VERSION,
         exported_at=datetime.now(UTC).isoformat(timespec="seconds"),

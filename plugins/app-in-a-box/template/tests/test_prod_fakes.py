@@ -186,6 +186,43 @@ class FakeAuth:
         self.admin = FakeAdmin()
 
 
+class FakeBucket:
+    """Supabase Storage, one bucket: `list(folder, {limit, offset})` returns the folder's
+    direct children (sub-folders with `id: None`, like the real API), `remove(paths)`."""
+
+    def __init__(self, storage: FakeStorage, name: str) -> None:
+        self.storage = storage
+        self.name = name
+
+    def list(self, folder: str, options: dict[str, int]) -> list[dict[str, Any]]:
+        if self.storage.error:
+            raise self.storage.error
+        prefix = f"{folder}/"
+        children: dict[str, dict[str, Any]] = {}
+        for path in sorted(self.storage.objects.get(self.name, set())):
+            if not path.startswith(prefix):
+                continue
+            head, _, rest = path[len(prefix) :].partition("/")
+            children[head] = {"name": head, "id": None if rest else f"obj-{head}"}
+        page = list(children.values())
+        return page[options["offset"] : options["offset"] + options["limit"]]
+
+    def remove(self, paths: list[str]) -> list[dict[str, Any]]:
+        self.storage.removed.append((self.name, list(paths)))
+        self.storage.objects[self.name] = self.storage.objects.get(self.name, set()) - set(paths)
+        return [{"name": p} for p in paths]
+
+
+class FakeStorage:
+    def __init__(self) -> None:
+        self.objects: dict[str, set[str]] = {}  # bucket -> object paths
+        self.removed: list[tuple[str, list[str]]] = []
+        self.error: Exception | None = None
+
+    def from_(self, bucket: str) -> FakeBucket:
+        return FakeBucket(self, bucket)
+
+
 class FakeDB:
     def __init__(self, tables: dict[str, list[dict[str, Any]]] | None = None) -> None:
         self.tables: dict[str, list[dict[str, Any]]] = tables or {}
@@ -195,6 +232,7 @@ class FakeDB:
         self.counters: dict[str, int] = {}
         self.rpc_error: Exception | None = None
         self.auth = FakeAuth()
+        self.storage = FakeStorage()
         self._ids = itertools.count(1)
 
     def table(self, name: str) -> FakeQuery:
@@ -262,6 +300,15 @@ def test_fake_enforces_job_runs_primary_key() -> None:
     db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
     with pytest.raises(FakeAPIError):
         db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
+
+
+def test_fake_storage_lists_folders_and_removes_only_named_paths() -> None:
+    db = FakeDB()
+    db.storage.objects["b"] = {"u/a.png", "u/sub/b.png", "other/c.png"}
+    listing = db.storage.from_("b").list("u", {"limit": 100, "offset": 0})
+    assert listing == [{"name": "a.png", "id": "obj-a.png"}, {"name": "sub", "id": None}]
+    db.storage.from_("b").remove(["u/a.png"])
+    assert db.storage.objects["b"] == {"u/sub/b.png", "other/c.png"}
 
 
 def test_fake_order_breaks_ties_with_later_keys() -> None:

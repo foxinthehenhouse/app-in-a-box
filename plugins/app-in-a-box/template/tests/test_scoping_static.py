@@ -7,8 +7,9 @@ The ownership tests in tests/test_me.py catch a missing filter for the endpoints
 they cover; this guard covers every `.table(...)` chain in backend/, including the
 ones nobody has written a test for yet.
 
-A chain starting at `.table("...")` must contain `.eq("user_id", <token id>)` or
-`.eq("id", <token id>)` (a table keyed by the auth user id, like `profiles`), where
+A chain starting at `.table("...")` must contain `.eq("user_id", <token id>)`,
+`.eq("id", <token id>)` (a table keyed by the auth user id, like `profiles`) or
+`.eq("actor_id", <token id>)` (the audit trail's owner column), where
 <token id> PROVABLY came from the verified token, not from the request:
   - `user.id` where `user: CurrentUser` is a parameter of the enclosing function
     (any name; it is the annotation that proves the origin), or a local assigned
@@ -64,6 +65,9 @@ ALLOWLIST: dict[str, str] = {
     "backend/services/jobs_service.py:weekly_digest": (
         "The weekly digest is cross-user by design (iterates onboarded profiles to push each their own digest); only runs behind the cron secret, returns counts only."
     ),
+    "backend/services/audit_service.py:record": (
+        "Appends one audit_events row whose actor_id is the caller-supplied id (handlers pass user.id from the token); an insert has no filter to add, and the table refuses updates and deletes."
+    ),
     "backend/services/push_service.py:send_to_user": (
         "Inserts push_tickets rows stamped with the caller-supplied user_id whose tokens were just read with .eq('user_id', user_id); an insert has no filter to add."
     ),
@@ -73,6 +77,9 @@ ALLOWLIST: dict[str, str] = {
 }
 
 Fn = ast.FunctionDef | ast.AsyncFunctionDef
+# Columns that hold the owning auth user's id: `user_id` (user-owned rows), `id` (a table
+# keyed by the auth user id, like `profiles`), `actor_id` (audit_events: who acted).
+_OWNER_COLUMNS = ("user_id", "id", "actor_id")
 _ID_NAMES = {"user_id", "uid"}
 _TOKEN_TYPE = "CurrentUser"
 # A parameter with one of these as default/annotation is request data, not the token.
@@ -183,7 +190,7 @@ def _scoped(chain: list[tuple[str, list[ast.expr]]], fn: Fn | None) -> bool:
     for name, args in chain:
         if name != "eq" or len(args) < 2:
             continue
-        if _str(args[0]) in ("user_id", "id") and _is_user_id(args[1], fn):
+        if _str(args[0]) in _OWNER_COLUMNS and _is_user_id(args[1], fn):
             return True
     return False
 
@@ -277,6 +284,7 @@ _HANDLER = '@router.get("/x")\n'
         'def f(db, user):\n    db.table("posts").select("*").eq("user_id", user.id).execute()',
         _HANDLER + 'def f(db, body, user: CurrentUser):\n    user_id = body.user_id\n    db.table("posts").select("*").eq("user_id", user_id).execute()',
         'db.table("posts").select("*").eq("user_id", user_id).execute()',
+        'def f(db, body):\n    db.table("audit_events").select("*").eq("actor_id", body.actor_id).execute()',
     ],
     ids=[
         "other-id",
@@ -294,6 +302,7 @@ _HANDLER = '@router.get("/x")\n'
         "untyped-user-dot-id",
         "local-from-body",
         "module-level",
+        "body-actor-id",
     ],
 )
 def test_detector_flags_unscoped(snippet: str) -> None:
@@ -312,6 +321,7 @@ def test_detector_flags_unscoped(snippet: str) -> None:
         _HANDLER + 'def f(db, user: CurrentUser):\n    user_id = user.id\n    db.table("posts").select("*").eq("user_id", user_id).execute()',
         'def f(db, user_id: str):\n    db.table("posts").delete().eq("user_id", user_id).execute()',
         'def f(db, user_id, start, end):\n    return db.table("profiles").select("*").eq("id", user_id).range(start, end).execute().data',
+        'def f(db, user_id, start, end):\n    return db.table("audit_events").select("*").eq("actor_id", user_id).range(start, end).execute().data',
     ],
     ids=[
         "user-dot-id",
@@ -322,6 +332,7 @@ def test_detector_flags_unscoped(snippet: str) -> None:
         "handler-local",
         "service-param",
         "service-param-untyped",
+        "audit-actor-id",
     ],
 )
 def test_detector_passes_scoped(snippet: str) -> None:

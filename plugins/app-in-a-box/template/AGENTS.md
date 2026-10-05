@@ -64,8 +64,8 @@ fails CI when a screen, router, service or table is missing here.
 | Area | Screens (`mobile/`) | API (`backend/`) | Logic (`backend/`) | Tables |
 |---|---|---|---|---|
 | Sign-in; Home (the core loop) | `app/(auth)/sign-in.tsx`; `app/(app)/index.tsx` | (Supabase Auth) | | |
-| Profile, settings, account | `app/(app)/settings.tsx`, `app/edit-name.tsx`, `app/delete-account.tsx` | `routers/me.py` | | `profiles` |
-| Data export | | `routers/export.py` | | |
+| Profile, settings, account | `app/(app)/settings.tsx`, `app/edit-name.tsx`, `app/delete-account.tsx` | `routers/me.py` | `services/erasure_service.py` (deletion: Storage, PostHog, Sentry) | `profiles` |
+| Data export; audit trail (deletion, export, role changes) | | `routers/export.py` | `services/audit_service.py` | `audit_events` |
 | Push notifications | | `routers/push.py` | `services/push_service.py` | `push_tokens`, `push_tickets` |
 | Scheduled jobs, rate limits | | `routers/internal.py` | `services/jobs_service.py` | `job_runs`, `rate_limits`, `keep_alive` |
 | Dev only | `app/gallery.tsx` | | | |
