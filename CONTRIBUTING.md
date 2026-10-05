@@ -8,7 +8,8 @@ which renders that template and runs its guards.
 
 - Python 3.12 with PyYAML (`pip install pyyaml`), Node 22, git.
 - Optional, for the checks that need them: `actionlint`, `zizmor`, `gitleaks`, the
-  Maestro CLI, and Postgres with pgTAP. Locally, a check whose tool is missing prints
+  Maestro CLI, `squawk` (`npm i -g squawk-cli@<the version in .github/workflows/kit.yml>`),
+  and Postgres with pgTAP. Locally, a check whose tool is missing prints
   `SKIP`. In CI (`APPBOX_SELFTEST_STRICT=1`) a skip is a failure, so CI runs everything.
 
 ## The one rule: prove it can fail

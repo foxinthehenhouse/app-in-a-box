@@ -13,6 +13,11 @@
 # to the build's embedded bundle if there is none. Users get it on their next launch
 # or two. Run it as a logged-in owner (`eas login`); see docs/runbooks/rollback.md.
 #
+# Staged rollouts: release.yml publishes production OTAs to a slice of users first.
+# While that rollout is in progress, the plan says so and prints the promote command
+# too, and --yes reverts it (`eas update:revert-update-rollout`), which puts everyone
+# back on the update the rollout started from.
+#
 # EAS=<command> overrides the CLI (default: `eas`, else `npx --yes eas-cli`).
 set -euo pipefail
 
@@ -24,7 +29,7 @@ while [ $# -gt 0 ]; do
     --runtime) runtime="$2"; shift 2 ;;
     -m|--message) message="$2"; shift 2 ;;
     --yes) yes=1; shift ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
     *) echo "unknown option: $1 (see --help)" >&2; exit 2 ;;
   esac
 done
@@ -49,24 +54,37 @@ if not want and groups:
     want = groups[0]["runtimeVersion"]
 for g in groups:
     if g["runtimeVersion"] == want:
+        pct = g.get("rolloutPercentage")
         print("\x1f".join([g["group"], g["runtimeVersion"], g.get("platforms", ""),
                          str(g.get("isRollBackToEmbedded", False)),
+                         str(pct) if isinstance(pct, int) and pct < 100 else "",
                          (g.get("message") or "").replace("\x1f", " ").replace("\n", " ")]))
         break
 ' "$runtime")
 if [ -z "$pick" ]; then
   echo "no update on branch '$branch'${runtime:+ for runtime $runtime}: nothing to roll back" >&2; exit 1
 fi
-IFS=$'\x1f' read -r group rt platforms embedded msg <<<"$pick"
+IFS=$'\x1f' read -r group rt platforms embedded rollout msg <<<"$pick"
 if [ "$embedded" = True ]; then
   echo "the latest update on '$branch' (runtime $rt) is already a rollback to the embedded bundle" >&2; exit 1
 fi
 
-cmd=("${eas[@]}" update:rollback "$group" --non-interactive --platform "$platform" --message "${message:-rollback of $group}")
 echo "Branch:   $branch"
 echo "Runtime:  $rt"
 echo "Latest:   $group ($platforms) \"$msg\""
-echo "Effect:   republish the update before it on runtime $rt, or the embedded bundle if none"
+if [ -n "$rollout" ]; then
+  # update:rollback would publish over a live rollout; reverting it is the clean undo.
+  if [ "$platform" != all ]; then
+    echo "a staged rollout is reverted as a whole group: drop --platform" >&2; exit 2
+  fi
+  cmd=("${eas[@]}" update:revert-update-rollout --group "$group" --non-interactive --message "${message:-revert rollout of $group}")
+  echo "Rollout:  in progress, at ${rollout}% of users"
+  echo "Effect:   revert the rollout: everyone goes back to the update it started from"
+  printf 'Crash-free sessions held up instead? Promote it to everyone (docs/runbooks/release.md):\n  (cd mobile && %s update:edit %s --rollout-percentage 100 --non-interactive)\n' "${eas[*]}" "$group"
+else
+  cmd=("${eas[@]}" update:rollback "$group" --non-interactive --platform "$platform" --message "${message:-rollback of $group}")
+  echo "Effect:   republish the update before it on runtime $rt, or the embedded bundle if none"
+fi
 if [ "$yes" != 1 ]; then
   printf 'Plan only. To roll back, re-run with --yes, or run:\n  (cd mobile && %s)\n' "${cmd[*]}"
   exit 0
