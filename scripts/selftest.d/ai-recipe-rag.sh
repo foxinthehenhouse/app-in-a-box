@@ -139,12 +139,14 @@ _rag_db() {  # <name> [plant]: db-test.sh on a fresh database
   local base="${APPBOX_SELFTEST_DATABASE_URL%/*}" db="aib_rag_$1_$$" out rc
   psql "$APPBOX_SELFTEST_DATABASE_URL" -X -q -c "drop database if exists $db" -c "create database $db" || return 1
   if [ "${2:-}" = plant ]; then
-    cp "$RAG_MIG" "$T/rag-plant.bak"
+    cp "$RAG_MIG" "$T/rag-plant.bak"; cp "$RAG/supabase/schema-snapshot.txt" "$T/rag-snap.bak"
     _rag_sub "$RAG_MIG" "$RAG_INVOKER" "${RAG_INVOKER/invoker/definer}" && _rag_sub "$RAG_MIG" "$RAG_FILTER" "" \
       || { cp "$T/rag-plant.bak" "$RAG_MIG"; return 0; }
   fi
-  out=$(cd "$RAG" && DATABASE_URL="$base/$db" ./scripts/db-test.sh 2>&1); rc=$?
-  [ "${2:-}" = plant ] && cp "$T/rag-plant.bak" "$RAG_MIG"
+  # --write-snapshot: the skill refreshes supabase/schema-snapshot.txt with the migration,
+  # so a planted run can only go red on pgTAP, never on schema drift.
+  out=$(cd "$RAG" && DATABASE_URL="$base/$db" ./scripts/db-test.sh --write-snapshot 2>&1); rc=$?
+  [ "${2:-}" = plant ] && cp "$T/rag-plant.bak" "$RAG_MIG" && cp "$T/rag-snap.bak" "$RAG/supabase/schema-snapshot.txt"
   psql "$APPBOX_SELFTEST_DATABASE_URL" -X -q -c "drop database if exists $db" >/dev/null 2>&1
   printf '%s\n' "$out"
   return "$rc"

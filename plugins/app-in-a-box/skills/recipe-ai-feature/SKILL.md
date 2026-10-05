@@ -48,7 +48,9 @@ item, a suggestion), follow the steps and keep the same shape.
    an atomic `ai_usage_add(p_user_id, p_in, p_out, p_cap)` function that adds and returns
    whether the user is still under the cap. Check before the call (429
    `ai_daily_limit`), record actual usage after. Also `rate_limit("ai.<feature>", 10)` on
-   the route. The reference ships this migration.
+   the route. The reference ships this migration. Each migration changes the schema:
+   refresh the snapshot with `DATABASE_URL=... scripts/db-test.sh --write-snapshot` and
+   commit `supabase/schema-snapshot.txt` with it.
 6. **Route** `POST /api/v1/<feature>` with the guard, rate limit, cap, and a response
    `Wire` model mirrored in `mobile/lib/api.ts`.
 7. **Evals** `tests/evals/<feature>/cases.jsonl`: 10-30 real-ish inputs with assertions
