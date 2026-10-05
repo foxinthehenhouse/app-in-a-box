@@ -56,7 +56,9 @@ Everything you copy is in this skill's folder (`$KIT/skills/recipe-search/`, whe
    the service key returns nothing, ranking puts title hits first, and the cursor walks
    past ties without repeating a row. The negative control plants the tempting
    rewrite (SECURITY DEFINER, no user filter) and `scripts/db-test.sh` requires the
-   suite to go red on it. Run `DATABASE_URL=... scripts/db-test.sh`.
+   suite to go red on it. Run `DATABASE_URL=... scripts/db-test.sh --write-snapshot`:
+   the migration changes the schema, so commit the refreshed
+   `supabase/schema-snapshot.txt` with it (review its diff first).
 
 3. **Backend.** Copy `files/backend/services/search_service.py`,
    `files/backend/routers/search.py` and `files/tests/test_search.py`. Then:

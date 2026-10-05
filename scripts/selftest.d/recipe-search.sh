@@ -214,7 +214,7 @@ if [ -n "${APPBOX_SELFTEST_DATABASE_URL:-}" ]; then
     cp "$RS/sql/search_hybrid.test.sql" "$RS_APP/supabase/tests/database/search_hybrid.test.sql"
   fi
   check "recipe-search: the app's DB gate is green with the recipe in (migrations, advisors, pgTAP, negative control)" \
-    "cd '$RS_APP' && DATABASE_URL='$RS_URL' ./scripts/db-test.sh"
+    "cd '$RS_APP' && DATABASE_URL='$RS_URL' ./scripts/db-test.sh --write-snapshot"
   # rs_tap_plant <plant sql> <test file> <needle>...: plant in a rolled-back transaction,
   # run one pgTAP file, and require each named assertion to fail.
   _rs_tap_plant() {
