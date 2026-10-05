@@ -9,6 +9,9 @@
 # (postgresql://postgres:postgres@127.0.0.1:54322/postgres); the platform stubs are
 # skipped because auth.users already exists. Needs psql and the pgTAP extension.
 #
+# Changed the schema on purpose? Refresh the committed snapshot, then review its diff:
+#   DATABASE_URL=... scripts/db-test.sh --write-snapshot
+#
 # Steps, each of which fails the run:
 #   1. migration versions unique and well-formed (scripts/check_migration_versions.py)
 #   2. Supabase platform stubs, only if auth.users is absent (supabase/ci/platform_stubs.sql)
@@ -17,6 +20,9 @@
 #   5. pgTAP: every supabase/tests/**/*.test.sql passes
 #   6. negative control: with supabase/ci/negative_control.sql planted (rolled back),
 #      steps 4 and 5 MUST fail. If they stay green the gate is blind, and this fails.
+#   7. schema snapshot: supabase/ci/schema_snapshot.sql on the migrated database must
+#      match the committed supabase/schema-snapshot.txt, and a planted column (rolled
+#      back) MUST show up in it. The migration linter is scripts/db-lint.sh (no DB).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -27,6 +33,12 @@ case "$DATABASE_URL" in
     exit 2 ;;
 esac
 PSQL=(psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1)
+WRITE_SNAPSHOT=0
+case "${1:-}" in
+  "") ;;
+  --write-snapshot) WRITE_SNAPSHOT=1 ;;
+  *) echo "usage: scripts/db-test.sh [--write-snapshot]" >&2; exit 2 ;;
+esac
 fail=0
 say() { printf '\n== %s\n' "$*"; }
 
@@ -123,6 +135,32 @@ fi
 # The negative control must leave nothing behind.
 [ "$("${PSQL[@]}" -tAc "select count(*) from pg_class where relname = 'negctl_unprotected'")" = "0" ] \
   || { echo "::error::negative control leaked into the database"; fail=1; }
+
+say "7. schema snapshot (supabase/schema-snapshot.txt)"
+SNAP=supabase/schema-snapshot.txt
+"${PSQL[@]}" -tA -f supabase/ci/schema_snapshot.sql > "$TMPD/schema.txt"
+if [ "$WRITE_SNAPSHOT" = 1 ]; then
+  cp "$TMPD/schema.txt" "$SNAP"
+  echo "wrote $SNAP ($(wc -l < "$SNAP" | tr -d ' ') lines); review its diff and commit it with the migration"
+elif [ ! -f "$SNAP" ]; then
+  echo "::error file=$SNAP::no committed schema snapshot; run: DATABASE_URL=... scripts/db-test.sh --write-snapshot"; fail=1
+elif diff -u --label "$SNAP (committed)" --label "$SNAP (from the migrations)" "$SNAP" "$TMPD/schema.txt"; then
+  echo "the migrated schema matches $SNAP"
+else
+  echo "::error file=$SNAP::the migrations produce a different schema than $SNAP (diff above). If the change is intended, run: DATABASE_URL=... scripts/db-test.sh --write-snapshot, and commit the file"
+  fail=1
+fi
+# Negative control: a column added (and rolled back) must change the snapshot, or the
+# diff above could never fail.
+neg_snap="$(run_sql <(printf 'begin;\nalter table public.profiles add column negctl_drift text;\n') \
+  supabase/ci/schema_snapshot.sql "$TMPD/rollback.sql")"
+if grep -q 'column negctl_drift text' <<<"$neg_snap" \
+   && ! diff -q "$TMPD/schema.txt" <(printf '%s\n' "$neg_snap") >/dev/null; then
+  echo "the snapshot caught the planted column"
+else
+  printf '%s\n' "$neg_snap" | head -20
+  echo "::error::a planted column did NOT change the schema snapshot; the drift check is blind"; fail=1
+fi
 
 say "result"
 if [ "$fail" -eq 0 ]; then echo "db-test: all green"; else echo "db-test: FAILED"; fi

@@ -44,3 +44,43 @@ def test_unhandled_errors_return_an_error_id() -> None:
     assert resp.status_code == 500
     assert resp.json()["error"] == "internal_error"
     assert len(resp.json()["error_id"]) == 36
+
+
+# --- production-only: email sign-in needs custom SMTP --------------------------------
+
+_EMAIL = "email sign-in (custom SMTP)"
+
+
+def test_production_health_names_email_when_smtp_is_missing(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    body = TestClient(create_app()).get("/health").json()
+    assert body["status"] == "degraded"
+    assert body["features_unavailable"][_EMAIL] == ["AUTH_SMTP_HOST"]
+
+
+def test_production_health_stops_naming_email_once_smtp_is_wired(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_SMTP_HOST", "smtp.resend.com")
+    body = TestClient(create_app()).get("/health").json()
+    assert _EMAIL not in body["features_unavailable"]
+    assert "smtp.resend.com" not in str(body)  # names only, never values
+
+
+def test_email_is_not_required_outside_production() -> None:
+    # Local `supabase start` catches mail itself, and APP_ENV here is "test".
+    assert _EMAIL not in check_feature_config()
+    assert feature_missing(_EMAIL) == ["AUTH_SMTP_HOST"]  # still answerable by name
+
+
+def test_smtp_and_other_features_are_scoped_apart(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("AUTH_SMTP_HOST", "smtp.resend.com")
+    missing = check_feature_config()
+    assert _EMAIL not in missing
+    assert "database + auth (Supabase)" in missing
+    monkeypatch.delenv("AUTH_SMTP_HOST")
+    monkeypatch.setenv("SUPABASE_URL", "x")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "x")
+    missing = check_feature_config()
+    assert "database + auth (Supabase)" not in missing
+    assert _EMAIL in missing

@@ -50,8 +50,8 @@ check "provision has the owner fallback for a hook-refused first push, and TROUB
   "grep -q 'refused by .bash-safety' '$SK/provision/SKILL.md' && grep -q 'git ls-remote --heads origin main' '$SK/provision/SKILL.md' \
    && grep -q 'pushing to main/master' '$KIT/docs/TROUBLESHOOTING.md'"
 
-check "interview counts its own questions (14) and the schema carries the merge policy key" \
-  "grep -q 'about 14 questions' '$SK/interview/SKILL.md' && grep -q 'auto_merge_low_risk: false' '$SK/interview/SKILL.md'"
+check "interview counts its own questions (17) and the schema carries the merge policy key" \
+  "grep -q 'about 17 questions' '$SK/interview/SKILL.md' && grep -q 'auto_merge_low_risk: false' '$SK/interview/SKILL.md'"
 
 check "one merge-policy key: AGENTS.md and pr-review both read policy.auto_merge_low_risk" \
   "grep -q 'policy.auto_merge_low_risk' '$APP/AGENTS.md' && grep -q 'policy.auto_merge_low_risk' '$APP/.agents/skills/pr-review/SKILL.md' \

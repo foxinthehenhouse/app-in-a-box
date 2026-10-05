@@ -22,6 +22,7 @@ Then it generates the per-agent adapters from the shared, agent-neutral sources:
     .codex/hooks.json               <- .claude/settings.json hooks (same scripts)
     mobile/lib/tokens.ts            <- design/tokens.json
     docs/design/TASTE.md            <- KIT/docs/TASTE.md (the taste rubric; never overwritten)
+    docs/DEFAULTS.md                <- KIT/docs/DEFAULTS.md (the baked-in product defaults; same)
 
 Existing files are skipped unless --force (PROTECTED files are never overwritten);
 the summary lists every skip. Standard library only.
@@ -62,10 +63,12 @@ TEXT_SUFFIXES = {
 # User decisions: written by the interview/design phases, never clobbered by --force.
 PROTECTED = {
     "design/tokens.json",
+    "design/brief.json",
     "appbox.yaml",
     "docs/product/BRIEF.md",
     "docs/product/VALIDATION.md",
     "docs/design/TASTE.md",
+    "docs/DEFAULTS.md",
 }
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")
 BUNDLE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*){2,}$")
@@ -637,16 +640,19 @@ def render(a: argparse.Namespace) -> int:
     # generated repo's designers and reviewers read the same page the kit's team did.
     # It lives in the kit's docs/, not the template, so it is copied here; and it is
     # PROTECTED: a repo that edited its own copy keeps it, --force or not.
-    taste_src, taste_rel = KIT / "docs" / "TASTE.md", "docs/design/TASTE.md"
-    taste_dst = target / taste_rel
-    if taste_src.is_file():
-        if taste_dst.exists():
-            skipped.append(taste_rel)
+    # DEFAULTS.md travels the same way: the product defaults shape stated instead of
+    # asking, which the app's feature-discovery, build-feature and ship skills build to.
+    for kit_doc, rel in (("TASTE.md", "docs/design/TASTE.md"), ("DEFAULTS.md", "docs/DEFAULTS.md")):
+        src, dst = KIT / "docs" / kit_doc, target / rel
+        if not src.is_file():
+            continue
+        if dst.exists():
+            skipped.append(rel)
         else:
-            written.append(taste_rel)
+            written.append(rel)
             if not a.dry_run:
-                taste_dst.parent.mkdir(parents=True, exist_ok=True)
-                taste_dst.write_text(taste_src.read_text())
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_text(src.read_text())
 
     tokens_file = target / "design" / "tokens.json"
     contrast_failed = False
