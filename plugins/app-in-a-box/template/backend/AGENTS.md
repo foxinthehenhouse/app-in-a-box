@@ -10,7 +10,9 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
   here so a missing var shows in `/health.features_unavailable`, never as a silent no-op.
   Guard call sites with `feature_missing("<that feature>")`, never a blanket check.
   `OPTIONAL_FEATURE_CONFIG` holds shipped-but-dormant capabilities (cron): same guard,
-  but they don't degrade `/health` until you move them up.
+  but they don't degrade `/health` until you move them up. `PRODUCTION_FEATURE_CONFIG`
+  counts only when `APP_ENV=production`: email sign-in, whose `AUTH_SMTP_HOST` marker
+  says Supabase has custom SMTP (Supabase sends the email; the API never holds the key).
 - `auth.py`: `get_current_user` verifies the Supabase JWT (JWKS, with an Auth API
   fallback). Returns `CurrentUser(id, email)`.
 - `db.py`: `get_db` service client (bypasses RLS). **Filter every query by `user.id`.**

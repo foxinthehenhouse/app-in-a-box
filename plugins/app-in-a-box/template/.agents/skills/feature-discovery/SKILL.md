@@ -11,6 +11,11 @@ Don't jump to code off a one-line idea. Twenty minutes here saves days of rework
 ## 1. Ground it
 
 - Read `docs/product/BRIEF.md` (core loop, north star, out-of-scope list).
+- Read `design/brief.json` → `decisions`: any `deferred` decision whose phase has
+  arrived (`next`'s `decisions_due` lists them; on the first feature that's the
+  `first-feature` ones: the nudge policy and when to ask for each permission) and any
+  this feature touches. Read `docs/DEFAULTS.md` for the calls already made (permission
+  priming after the payoff, at most one notification a day, the review prompt…).
 - Find or file the ticket (`backlog` skill).
 - Read the code the feature touches: screens, `lib/api.ts` adapters, routers, tables.
   Note what already exists that can be reused.
@@ -53,6 +58,9 @@ A small feature is half a page. Don't pad.
 ## 4. Gate
 
 Show the owner the Problem/Scope/UX/⚖️ sections (not the whole spec) and get a yes.
+Ask the due decisions from step 1 in the same structured round, each with the
+`docs/DEFAULTS.md` answer as the recommended option, and write each answer back to its
+ledger entry (`status: asked`, or `default` if they took the recommendation).
 Then hand off: "Run `build-feature <spec path>`."
 
 ## Ask the owner

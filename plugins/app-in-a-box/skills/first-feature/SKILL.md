@@ -24,7 +24,10 @@ a real user do the core action and see feedback. Ask (structured) to confirm.
 ## 3. Run the loop, narrating each step in one line
 
 1. `feature-discovery` → spec in `docs/product/specs/`. Show the owner the
-   Problem/Scope/UX and get a yes.
+   Problem/Scope/UX and get a yes. This is when the ledger's `ask_at: first-feature`
+   decisions come due (`design/brief.json` → `decisions`): the nudge policy and when to
+   ask for each permission. `feature-discovery` asks them in its gate, starting from
+   `docs/DEFAULTS.md` as the recommended answer.
 2. `build-feature` → worktree, tests, migration, API, screen, analytics, gates, PR.
 3. `pr-review` → verdict comment.
 
