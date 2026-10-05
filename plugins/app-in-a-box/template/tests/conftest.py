@@ -18,12 +18,17 @@ _FEATURE_VARS = (
     "RAILWAY_GIT_COMMIT_SHA",
     "APP_VERSION",
     "SENTRY_RELEASE",
+    "SENTRY_TRACES_SAMPLE_RATE",
+    "POSTHOG_API_KEY",
+    "POSTHOG_HOST",
 )
 
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in _FEATURE_VARS:
+        monkeypatch.delenv(name, raising=False)
+    for name in [n for n in os.environ if n.startswith("FLAG_")]:  # backend/flags.py overrides
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("APP_ENV", "test")
     os.environ.pop("SENTRY_ENVIRONMENT", None)

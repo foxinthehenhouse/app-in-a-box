@@ -40,7 +40,8 @@ template says src/app; this kit doesn't use it).
   `useReducedMotion`, and `haptic.*`.
 - `lib/api.ts`: the only backend client. `*Wire` types mirror Pydantic models; adapters
   map wire → UI types. A generic cast is not validation. Every call sends an
-  `X-Request-ID`; an `ApiError` carries `requestId` / `errorId`, and
+  `X-Request-ID` and a W3C `traceparent` (trace id = the request id, unsampled; the API
+  samples); an `ApiError` carries `requestId` / `errorId`, and
   `errorReference(e)` is the 8-character code `<ErrorNotice reference>` shows.
 - `lib/query.ts`: **offline-first data** (TanStack Query + AsyncStorage persister,
   `onlineManager` ← NetInfo). Reads are query hooks (`useMe()`); each write is ONE
@@ -72,6 +73,10 @@ template says src/app; this kit doesn't use it).
 - `lib/analytics.ts`: the only place events are defined (`lib/analytics-optin.ts` holds
   the Settings opt-in switch, which reads the SDK's flag and orders its capture so it is
   never dropped).
+- `lib/flags.ts`: the only place feature flags and kill switches are defined. Read with
+  `flag("name")` / `useFlag("name")`; every flag has a safe default (PostHog is
+  bootstrapped with them; no key = defaults), an `owner` and an `expires` date
+  (`scripts/check_flags.py`). Kill switches are `kill-*`, default `false`.
 - `lib/monitoring.ts`: Sentry (no-op in dev / without DSN).
 
 ## Design system rules

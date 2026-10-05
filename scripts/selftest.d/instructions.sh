@@ -137,6 +137,6 @@ check "README states the plugin manifest version, once and consistently" _versio
 check "START_HERE install commands name the real marketplace, not a placeholder" \
   "grep -q 'foxinthehenhouse/app-in-a-box' '$ROOT/START_HERE.md' && ! grep -q '<owner>/app-in-a-box' '$ROOT/START_HERE.md'"
 
-check "kit and README agree on the generated skill count (14, including land)" \
-  "grep -q '14 skills' '$SK/harness/SKILL.md' && grep -q '14 skills' '$ROOT/README.md' \
-   && [ \$(ls -d '$APP'/.agents/skills/*/ | wc -l) -eq 14 ]"
+check "kit and README agree on the generated skill count (15, including land and incident)" \
+  "grep -q '15 skills' '$SK/harness/SKILL.md' && grep -q '15 skills' '$ROOT/README.md' \
+   && [ \$(ls -d '$APP'/.agents/skills/*/ | wc -l) -eq 15 ]"

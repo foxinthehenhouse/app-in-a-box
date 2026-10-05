@@ -244,7 +244,9 @@ railway init --name "<slug>"
 Create a service for the API connected to the GitHub repo (auto-deploy on push to
 `main`), set variables from `.env` (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
 `SUPABASE_ANON_KEY`, `SENTRY_DSN`, `APP_ENV=production`, `AUTH_SMTP_HOST` once step
-2.7 has run, and `ANTHROPIC_API_KEY` if AI is enabled), and generate a domain. Never
+2.7 has run, `POSTHOG_API_KEY` and `POSTHOG_HOST` (the same host as
+`EXPO_PUBLIC_POSTHOG_HOST`) unless `stack.analytics: none`, so the API's `flag()` reads
+the same flags as the app, and `ANTHROPIC_API_KEY` if AI is enabled), and generate a domain. Never
 set `SMTP_PASS` or `SUPABASE_ACCESS_TOKEN` on Railway: the API needs neither. Write
 that domain to `.env` as `API_URL` and `EXPO_PUBLIC_API_URL`, then go back to step 5
 for the EAS var. `railway.json` from the template sets the start command and `/health`

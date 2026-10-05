@@ -5,6 +5,10 @@
  * - Sends an `X-Request-ID` on every call. The backend echoes it on the response,
  *   stamps it on every log line and tags Sentry with it, so one id joins the
  *   client error, the server logs and the Sentry issue.
+ * - Sends W3C trace context next to it (`traceparent`, plus `sentry-trace` with the
+ *   same ids, which is what Sentry's Python SDK continues). The trace id IS the
+ *   request id without its dashes, so a support code, a log line and a Sentry trace
+ *   all lead to the same request. Unsampled: the backend picks its own low rate.
  * - Turns non-2xx responses into a typed ApiError carrying the server's error_id
  *   and the request id. `errorReference(e)` is the short code a screen shows
  *   (<ErrorNotice>) and support greps for.
@@ -61,6 +65,21 @@ export function newRequestId(): string {
     Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
   const variant = "89ab"[Math.floor(Math.random() * 4)];
   return `${hex(8)}-${hex(4)}-4${hex(3)}-${variant}${hex(3)}-${hex(12)}`;
+}
+
+/**
+ * W3C trace context for one request (w3.org/TR/trace-context): version 00, the
+ * request id's 32 hex digits as the trace id, a fresh 16-hex-digit span id, and the
+ * sampled flag off: the app records no spans, and the API's own sampler decides
+ * (backend/observability.py). `sentry-trace` carries the same ids with no sampling
+ * decision, the form Sentry's SDK continues.
+ */
+export function traceHeaders(requestId: string): { traceparent: string; "sentry-trace": string } {
+  const hex = requestId.replace(/-/g, "").toLowerCase();
+  const traceId = /^[0-9a-f]{32}$/.test(hex) && !/^0+$/.test(hex) ? hex : newRequestId().replace(/-/g, "");
+  const random = Array.from({ length: 16 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+  const spanId = /^0+$/.test(random) ? "0000000000000001" : random; // all-zero is invalid
+  return { traceparent: `00-${traceId}-${spanId}-00`, "sentry-trace": `${traceId}-${spanId}` };
 }
 
 async function authHeader(): Promise<{ header: Record<string, string>; userId: string | undefined }> {
@@ -132,6 +151,7 @@ async function send(path: string, init: ApiInit, requestId: string): Promise<Raw
     ...auth.header,
     ...((request.headers as Record<string, string>) ?? {}),
     "X-Request-ID": requestId,
+    ...traceHeaders(requestId),
   };
   // The timer covers the body too: a server that sends headers and then stalls is
   // as stuck as one that never answers.

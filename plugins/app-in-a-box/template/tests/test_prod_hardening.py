@@ -175,7 +175,10 @@ def test_health_deep_pings_db_and_lists_optional_features(
     deep = TestClient(create_app()).get("/health?deep=1").json()
     assert deep["db"] == "ok"
     assert deep["status"] == "ok"
-    assert deep["features_optional_unconfigured"] == {"scheduled jobs (cron)": ["CRON_SECRET"]}
+    assert deep["features_optional_unconfigured"] == {
+        "scheduled jobs (cron)": ["CRON_SECRET"],
+        "feature flags (PostHog)": ["POSTHOG_API_KEY"],
+    }
 
 
 def test_health_deep_degrades_when_db_errors(monkeypatch: pytest.MonkeyPatch) -> None:

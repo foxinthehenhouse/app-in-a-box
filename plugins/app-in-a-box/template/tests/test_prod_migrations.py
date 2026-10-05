@@ -72,9 +72,9 @@ def test_optional_features_are_guarded_by_their_own_key(monkeypatch: pytest.Monk
     monkeypatch.delenv("CRON_SECRET", raising=False)
     assert feature_missing("scheduled jobs (cron)") == ["CRON_SECRET"]
     assert "scheduled jobs (cron)" not in check_feature_config()
-    assert check_feature_config(optional=True) == {"scheduled jobs (cron)": ["CRON_SECRET"]}
+    assert check_feature_config(optional=True)["scheduled jobs (cron)"] == ["CRON_SECRET"]
     monkeypatch.setenv("CRON_SECRET", "x" * 40)
-    assert check_feature_config(optional=True) == {}
+    assert "scheduled jobs (cron)" not in check_feature_config(optional=True)
 
 
 def test_feature_names_are_unique_across_registries() -> None:

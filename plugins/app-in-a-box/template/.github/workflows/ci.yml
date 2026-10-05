@@ -49,6 +49,10 @@ jobs:
         # Overused fonts, pure-grey neutrals, the stock AI violet, overshooting curves:
         # docs/design/TASTE.md. The kit ran the same check on every prototype direction.
         run: python3 scripts/check_design.py design/tokens.json
+      - name: Feature flags have an owner and an expiry (mobile/lib/flags.ts, backend/flags.py)
+        # A flag nobody owns, with no date to remove it, lives forever. Expired flags only
+        # warn here (a passing date is not a code change); the `next` skill surfaces them.
+        run: python3 scripts/check_flags.py
       - name: Ruff
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)

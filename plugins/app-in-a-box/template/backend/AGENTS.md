@@ -23,7 +23,13 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
 - `routers/`: I/O only. `me.py` (profile, account deletion), `push.py` (push tokens),
   `internal.py` (`/internal/cron/*`, shared-secret auth).
 - `services/`: logic. `push_service.py` (Expo push), `jobs_service.py` (cron jobs).
-- `observability.py`: Sentry with PII scrubbing, request-id logging, `LOG_FORMAT=json`.
+- `observability.py`: Sentry with PII scrubbing, request-id logging, `LOG_FORMAT=json`,
+  and tracing at a low sample (`SENTRY_TRACES_SAMPLE_RATE`, 5% default, 25% cap) that
+  continues the app's trace (its `traceparent` trace id is the request id).
+- `flags.py`: `flag("name", user_id)` / `enabled(...)`, the same PostHog flags as
+  `mobile/lib/flags.ts`. Register every flag in `FLAGS` with a safe default, an owner
+  and an expiry (`scripts/check_flags.py` fails CI otherwise); kill switches are
+  `kill-*`, default off. `FLAG_<NAME>=1` on Railway overrides PostHog.
 
 ## Conventions
 

@@ -53,7 +53,7 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 - `mobile/AGENTS.md`: React Native conventions, tokens, analytics, testIDs
 - `backend/AGENTS.md`: FastAPI conventions, auth, feature config, Supabase
 - `docs/decision-log.md`: architectural decisions (append-only)
-- `docs/runbooks/`: release, rollback, incident, secrets rotation
+- `docs/runbooks/` (release, rollback, incident, secrets), `docs/postmortems/`, `docs/slo.yaml`
 - `docs/product/`: brief, PRDs, specs
 
 ## Where things live
@@ -115,11 +115,11 @@ Skills are invoked as `/name` in Claude Code and `$name` in Codex; both agents a
 `next` skill (it ranks CI, PRs, backlog, rituals and analytics; the session-start
 line is its one-line version). Weekly: `north-star-report`. Monthly: `market-watch`
 (re-checks competitors against `docs/product/VALIDATION.md`). Releases: `ship`.
-Scheduling rituals: `routines`. Subagents run on routed models (Opus judges, Sonnet
-builds, Haiku sweeps, `chair` on Fable rules on irreversible calls): don't override
-`model:` without a reason. Claude Code also has opt-in Workflows
-(`.claude/workflows/`) for thorough `build-feature` / `pr-review` runs: several times
-the tokens, so only when the owner asks. Skill evals: `.agents/evals/`.
+Scheduling rituals: `routines`. Broken in production: `incident` (rollback first).
+Subagents run on routed models (Opus judges, Sonnet builds, Haiku sweeps, `chair` on
+Fable rules on irreversible calls): don't override `model:` without a reason. Claude
+Code also has opt-in Workflows (`.claude/workflows/`) for thorough `build-feature` /
+`pr-review` runs (several times the tokens: only when asked). Skill evals: `.agents/evals/`.
 
 ## Memory
 

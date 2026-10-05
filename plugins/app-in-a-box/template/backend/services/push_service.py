@@ -30,6 +30,7 @@ from typing import Any
 import httpx
 
 from backend.config import env
+from backend.flags import enabled
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +195,13 @@ def send_to_user(
     *,
     client: ExpoPushClient | None = None,
 ) -> SendResult:
-    """Send to every device of ONE user. Records tickets, prunes dead tokens."""
+    """Send to every device of ONE user. Records tickets, prunes dead tokens.
+
+    Sends nothing while the `kill-push` kill switch is on (backend/flags.py).
+    """
+    if enabled("kill-push", user_id):
+        logger.warning("push skipped: the kill-push kill switch is on")
+        return SendResult()
     rows = db.table("push_tokens").select("token").eq("user_id", user_id).execute().data or []
     tokens = [r["token"] for r in rows if is_valid_token(r.get("token", ""))]
     if not tokens:

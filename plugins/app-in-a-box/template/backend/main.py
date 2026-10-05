@@ -69,7 +69,14 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=cors_origins(),
         allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+        # traceparent + sentry-trace: the trace ids the app sends (backend/observability.py).
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-ID",
+            "traceparent",
+            "sentry-trace",
+        ],
         expose_headers=["X-Request-ID", "Retry-After"],
         allow_credentials=False,
     )
