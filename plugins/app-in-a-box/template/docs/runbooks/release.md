@@ -9,7 +9,7 @@ steps are marked **(owner)**: an agent can't press store buttons or set deploy c
 |---|---|---|
 | Backend (FastAPI) | Railway auto-deploys `main` | [rollback.md](rollback.md#backend) |
 | Database | `supabase db push` **(owner)** | [rollback.md](rollback.md#database) |
-| JS / assets | OTA via EAS Update (`release.yml`, native unchanged) | [rollback.md](rollback.md#ota) |
+| JS / assets | OTA via EAS Update (`release.yml`, native unchanged), 10% first | [rollback.md](rollback.md#ota) |
 | Native binary | EAS Build + Submit (`release.yml`, native changed) | a new build; stores can't un-ship |
 
 ## Order of operations (always this order)
@@ -22,7 +22,10 @@ steps are marked **(owner)**: an agent can't press store buttons or set deploy c
    `git push origin main:release`. `mobile/.eas/workflows/release.yml` fingerprints the
    native layer and either publishes an OTA update to `production` or builds +
    submits to TestFlight / Play internal testing.
-4. **Store steps (owner):** in App Store Connect add the build to review (use phased
+4. **OTA: promote or roll back (owner).** The update reaches 10% of users first. Read
+   its crash-free sessions ([below](#staged-ota-rollout)), then approve the run's
+   "Roll out to 100%" step, or reject it and run `scripts/rollback-ota.sh`.
+5. **Store steps (owner):** in App Store Connect add the build to review (use phased
    release); in Play Console promote internal → production with a staged rollout.
 
 Why this order: old app builds stay installed for weeks, so the API must accept what
@@ -40,14 +43,51 @@ versions write.
       emails an hour, so App Review (and your first users) can't sign in without it.
 - [ ] `version` bumped in `mobile/app.json` for a native release (build numbers are
       remote-managed: `appVersionSource: remote`).
-- [ ] Sentry release = git sha (Railway sets `RAILWAY_GIT_COMMIT_SHA`; the app's
-      Sentry plugin uploads source maps during EAS Build).
+- [ ] Sentry release = git sha for the API (Railway sets `RAILWAY_GIT_COMMIT_SHA`).
+      The app's Sentry plugin uploads source maps during EAS Build, and every OTA
+      update job uploads its own (`upload_sentry_sourcemaps: true`), so both need
+      `SENTRY_AUTH_TOKEN`, `SENTRY_ORG` and `SENTRY_PROJECT` in the EAS environment.
+
+## Staged OTA rollout
+
+An OTA update reaches every user on their next launch, so a bad one is a bad day for
+everyone at once. `release.yml` publishes each production update to **10%** of users
+(`rollout_percentage: 10`), per platform, and then waits on a "crash-free sessions hold
+up? Roll out to 100%" approval in the workflow run on expo.dev.
+
+Each update is its own Sentry release while it runs: `<app id>@<version>+<update id>`
+(`mobile/lib/monitoring.ts`), with the update id, group, runtime version and channel
+as tags. So its crash-free sessions are a number you can read, and its stack traces
+are symbolicated from the source maps its job uploaded.
+
+**Promote when, for that release in Sentry → Releases:**
+
+- [ ] at least 24 hours have passed at 10% (a weekday, if you can: weekend use is thin);
+- [ ] crash-free sessions are **99.5% or more**, and no lower than the release before it;
+- [ ] no new issue is first seen in this release that a user would hit.
+
+Below about 100 sessions the percentage is noise: wait the 24 hours and read the
+release's issues one by one instead.
+
+**Promote:** approve the step in the workflow run (expo.dev → the project →
+Workflows → the run). Without the run at hand:
+`cd mobile && eas update:edit <group-id> --rollout-percentage 100 --non-interactive`
+(`scripts/rollback-ota.sh` prints the exact command while a rollout is in progress).
+
+**Don't promote:** reject the approval and run `scripts/rollback-ota.sh --yes -m
+"<reason>"`. It reverts the rollout, so the 10% go back to the previous update
+([rollback.md](rollback.md#ota)).
+
+Finish each rollout, one way or the other, before the next release: EAS refuses a new
+update on a runtime that still has a rollout in progress, so the next push to
+`release` would fail its update job until you do.
 
 ## PR previews
 
 `mobile/.eas/workflows/pr-preview.yml` runs on every PR: unchanged native → OTA to branch
 `pr-<number>` (open it from the preview build's update picker / dev client); changed
-native → a fresh preview build. Railway PR environments are optional (Railway →
+native → a fresh preview build. Previews go to their branch at 100% and never stage: a
+rollout in progress would block the PR's next push. Railway PR environments are optional (Railway →
 Settings → Environments → enable PR environments) and need their own Supabase branch
 or a shared staging project.
 

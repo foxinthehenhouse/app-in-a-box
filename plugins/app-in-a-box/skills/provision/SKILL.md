@@ -157,7 +157,10 @@ Record `resources.supabase.{ref,url,region,smtp}` (`smtp`: the host, or `deferre
 ## 3. Sentry (two projects: `<slug>-api`, `<slug>-app`)
 
 **Skip if `stack.errors: none`.** Monitoring stays a no-op without a DSN; leave
-`SENTRY_DSN` / `EXPO_PUBLIC_SENTRY_DSN` out of `.env` and EAS.
+`SENTRY_DSN` / `EXPO_PUBLIC_SENTRY_DSN` out of `.env` and EAS, and set
+`upload_sentry_sourcemaps: false` on every `type: update` job in
+`mobile/.eas/workflows/` (there's nowhere to upload to; `tests/test_eas_workflows.py`
+reads `stack.errors` and expects exactly that).
 
 The Sentry MCP (`create_project`, `find_dsns`) works. The REST fallback, with
 `SENTRY_AUTH_TOKEN` from `.env`:
@@ -168,6 +171,18 @@ The Sentry MCP (`create_project`, `find_dsns`) works. The REST fallback, with
 - DSN: `GET https://sentry.io/api/0/projects/<org>/<project>/keys/` → `dsn.public`.
 Write `SENTRY_DSN` (api) and `EXPO_PUBLIC_SENTRY_DSN` (app) to `.env`. DSNs are
 not secret, but keep them in env for per-environment swaps.
+
+Source maps: every OTA job in the EAS workflows uploads its own and **fails** if it
+can't, so an OTA crash is never unreadable. After step 5's `eas init`, give both EAS
+environments the upload credentials (the token as `sensitive`, never printed):
+
+```
+set -a; . ../.env; set +a; for env in preview production; do
+  eas env:create --environment "$env" --name SENTRY_AUTH_TOKEN --value "$SENTRY_AUTH_TOKEN" --visibility sensitive --non-interactive --force
+  eas env:create --environment "$env" --name SENTRY_ORG --value "<org slug>" --visibility plaintext --non-interactive --force
+  eas env:create --environment "$env" --name SENTRY_PROJECT --value "<slug>-app" --visibility plaintext --non-interactive --force
+done
+```
 
 ## 4. PostHog
 

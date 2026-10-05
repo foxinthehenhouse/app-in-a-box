@@ -6,8 +6,17 @@
 # Per platform, all in the `production` EAS environment:
 #   native changed   -> production build -> EAS Submit (TestFlight / Play internal).
 #                       Store review and phased release stay human steps.
-#   native unchanged -> OTA update to the `production` branch.
-#                       Roll back with scripts/rollback-ota.sh (docs/runbooks/rollback.md).
+#   native unchanged -> OTA update to the `production` branch, staged: it reaches 10%
+#                       of users first. Each platform then waits on a "Roll out to
+#                       100%?" approval in the workflow run on expo.dev. Approve it once
+#                       that update's crash-free sessions in Sentry hold up (the gate is
+#                       in docs/runbooks/release.md); reject it and roll back with
+#                       scripts/rollback-ota.sh (docs/runbooks/rollback.md) if they don't.
+#                       Finish one rollout before the next release: EAS refuses a new
+#                       update on a runtime that still has a rollout in progress.
+#   Every update uploads its source maps to Sentry and fails if that upload fails, so a
+#   crash in an OTA bundle is always readable. Needs SENTRY_AUTH_TOKEN, SENTRY_ORG and
+#   SENTRY_PROJECT in the `production` EAS environment (provision step 3).
 #
 # Submit needs, once per store (provision step 5, owner):
 #   iOS      the app exists in App Store Connect; `eas credentials -p ios` -> App Store
@@ -83,7 +92,7 @@ jobs:
       profile: production
 
   update_android:
-    name: Native unchanged - Android OTA to production
+    name: Native unchanged - Android OTA to 10% of production
     needs: [get_android_build]
     if: ${{ needs.get_android_build.outputs.build_id }}
     type: update
@@ -92,9 +101,24 @@ jobs:
       platform: android
       branch: production
       message: "Release ${{ github.sha }}"
+      rollout_percentage: 10
+      upload_sentry_sourcemaps: true
+
+  approve_android_rollout:
+    name: Android crash-free sessions hold up? Roll out to 100%
+    needs: [update_android]
+    type: require-approval
+
+  promote_android:
+    name: Roll the Android OTA out to 100%
+    needs: [update_android, approve_android_rollout]
+    type: update-rollout
+    params:
+      update_group_id: ${{ needs.update_android.outputs.first_update_group_id }}
+      rollout_percentage: 100
 
   update_ios:
-    name: Native unchanged - iOS OTA to production
+    name: Native unchanged - iOS OTA to 10% of production
     needs: [get_ios_build]
     if: ${{ needs.get_ios_build.outputs.build_id }}
     type: update
@@ -103,3 +127,18 @@ jobs:
       platform: ios
       branch: production
       message: "Release ${{ github.sha }}"
+      rollout_percentage: 10
+      upload_sentry_sourcemaps: true
+
+  approve_ios_rollout:
+    name: iOS crash-free sessions hold up? Roll out to 100%
+    needs: [update_ios]
+    type: require-approval
+
+  promote_ios:
+    name: Roll the iOS OTA out to 100%
+    needs: [update_ios, approve_ios_rollout]
+    type: update-rollout
+    params:
+      update_group_id: ${{ needs.update_ios.outputs.first_update_group_id }}
+      rollout_percentage: 100
