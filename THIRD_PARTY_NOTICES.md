@@ -35,3 +35,24 @@ Impeccable's own notice, which applies to the platform material above:
 - **Licence:** MIT (`licenses/MIT-platform-design-skills.txt`)
 - **What we use:** indirectly, through Impeccable's iOS and Android references (the
   "Platform" section of `TASTE.md`).
+
+## material-color-utilities
+
+- **Project:** https://github.com/material-foundation/material-color-utilities
+  (Copyright 2021 Google LLC)
+- **Licence:** Apache License 2.0 (`licenses/Apache-2.0-material-color-utilities.txt`)
+- **Version used:** commit `5b3618b` (August 2026), TypeScript sources
+- **What we use, and how it was changed:**
+  - `plugins/app-in-a-box/scripts/hct.py` is a Python port of the HCT colour space and
+    tonal palettes: `utils/color_utils.ts`, `utils/math_utils.ts`,
+    `hct/viewing_conditions.ts` (default conditions only), `hct/cam16.ts` (to and
+    from an sRGB colour), `hct/hct_solver.ts`, `hct/hct.ts` and
+    `palettes/tonal_palette.ts`. The maths is unchanged; it is rewritten in Python's
+    idiom, the solver's table of critical planes is computed from its definition
+    rather than listed, and the parts the kit doesn't use (other viewing conditions,
+    UCS, key colours, schemes, quantisation) are left out.
+  - `scripts/tests/test_hct.py` checks the port against expected values copied from
+    upstream's `hct/hct_test.ts` and `palettes/palettes_test.ts`.
+  - `plugins/app-in-a-box/scripts/palette.py` (our own code) builds a design
+    direction's light and dark palettes from those tonal palettes. It runs in the kit
+    only; nothing from material-color-utilities ships inside a generated app.

@@ -159,6 +159,11 @@ the founder's choice (or `default` where they kept the spec's default), then re-
 }
 ```
 
+A direction may give `"palette": {"accent": "#…", "neutralHue": …}` in place of
+`tokens.color`: the renderer derives both modes from it, contrast-safe by construction
+(`skills/design-directions`, colour by construction), and `tokens.color` can still
+override single keys.
+
 A direction's tokens may set its default atmosphere, e.g. `"atmosphere": {"mode":
 "field"}` for a direction whose whole point is a living, lit feel. Without one it's a
 soft glow with grain on solid surfaces. You never pick the glow's colours: the renderer

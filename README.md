@@ -164,6 +164,7 @@ plugins/app-in-a-box/
   scripts/render.py                  deterministic renderer + Claude/Codex adapter generator
   scripts/prototype.py               prototype.json → check / render / freeze
   scripts/check_contrast.py          WCAG gate for design/tokens.json
+  scripts/palette.py                 both palettes from one accent + neutral hue (HCT)
   scripts/doctor.sh                  tools / logins / gates health check
   template/                          everything that lands in your new repo, including
                                      .agents/skills (land drives a PR to merged)
@@ -172,6 +173,7 @@ plugins/app-in-a-box/
 scripts/fixtures/                    test-only inputs for the selftest (not example apps)
 scripts/selftest.sh                  proves the kit works (see below)
 scripts/selftest.d/                  one check file per area, sourced by the selftest
+scripts/tests/                       unittest suites the selftest runs (HCT port, palettes)
 ```
 
 ## Verify it yourself
