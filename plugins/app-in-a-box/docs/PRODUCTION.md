@@ -29,6 +29,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Secrets never in git | Kit | `.githooks/pre-commit` scan; `.env` gitignored |
 | Secret rotation procedure | Kit | `docs/runbooks/secrets-rotation.md` |
 | Supabase security advisors clean | Owner | Supabase → Advisors → Security, before launch and monthly |
+| **Sign-in email through custom SMTP** (Supabase's built-in mailer allows a couple of emails an hour; real users can't sign in without this) | Kit + Owner (domain, key) | provision step 2.7 (`$KIT/scripts/supabase_smtp.py`, Resend recommended: free for 100/day); production `/health` names "email sign-in (custom SMTP)" until `AUTH_SMTP_HOST` is set (`PRODUCTION_FEATURE_CONFIG`, `tests/test_health.py`) |
 | Auth hardening: email confirmations, leaked-password protection, OTP expiry, CAPTCHA on sign-up if abused | Owner | Supabase → Authentication settings |
 
 ## Privacy and store compliance
@@ -51,9 +52,9 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Item | Status | Where |
 |---|---|---|
 | Health check with version and optional deep DB ping | Kit | `/health`, `/health?deep=1` |
-| Env-gated features visible, never silent | Kit | `FEATURE_CONFIG` / `OPTIONAL_FEATURE_CONFIG` → `/health` |
+| Env-gated features visible, never silent | Kit | `FEATURE_CONFIG` / `PRODUCTION_FEATURE_CONFIG` / `OPTIONAL_FEATURE_CONFIG` → `/health` |
 | Error monitoring with a user-visible `error_id` | Kit | global handler + Sentry tag |
-| Request ids across client, logs and Sentry; JSON logs | Kit | `X-Request-ID` on every call from `mobile/lib/api.ts`, echoed + logged + Sentry-tagged by the API; error UI shows a copyable 8-character reference (`<ErrorNotice>`); `LOG_FORMAT=json` |
+| Request ids across client, logs and Sentry; JSON logs | Kit | `X-Request-ID` on every call from `mobile/lib/api.ts`, echoed + logged + Sentry-tagged by the API; error UI shows a copyable 8-character reference (`<ErrorNotice>`); `LOG_FORMAT=json`; a 15s request timeout that fails as offline (Retry) |
 | Zero-downtime deploys + graceful shutdown | Kit | `railway.json` overlap/draining + uvicorn graceful timeout |
 | Scheduled jobs, idempotent | Kit | `/internal/cron/*`, `job_runs`; schedule per `docs/runbooks/release.md` |
 | Push notifications (backend) | Kit | `push_service.py`, receipts cron |
@@ -71,6 +72,8 @@ Run through it before the first TestFlight/Play build, and again before public l
 |---|---|---|
 | PR previews (OTA when native unchanged, else build) | Kit (unverified schema) | `mobile/.eas/workflows/pr-preview.yml` |
 | Production build + submit, or OTA | Kit (unverified schema) | `mobile/.eas/workflows/release.yml` |
+| Staged OTA rollout, promoted on crash-free sessions | Kit (unverified schema) | `release.yml` publishes to 10%, then an approval + `update-rollout` to 100%; the gate is in `docs/runbooks/release.md`, and `scripts/rollback-ota.sh` reverts a rollout in progress |
+| Readable OTA crashes | Kit | every `type: update` job sets `upload_sentry_sourcemaps: true`; `mobile/lib/monitoring.ts` names each update as its own Sentry release and tags the update id |
 | OTA updates in the app | Kit | `expo-updates`, `runtimeVersion: { policy: "fingerprint" }`, a channel per eas.json profile, `UpdateBanner` offers a restart when a fix has downloaded (`mobile/lib/updates.ts`); `eas update:configure` (provision) writes `updates.url` |
 | OTA rollback, backend redeploy, migration rollback | Kit | `docs/runbooks/rollback.md` |
 | Deep links / universal links | Kit + Owner (domain) | custom scheme works out of the box through `mobile/lib/links.ts` + `app/+native-intent.tsx`; universal/app links: `node scripts/set-app-domain.js <domain> --team-id … --sha256 …`, then host the two `.well-known` files it prints and rebuild |

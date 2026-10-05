@@ -2,7 +2,8 @@
 
 Checks that the kit's own skills behave:
 - `new-app` opens as Rae: it plays a seeded idea back and asks product gaps, or invites a ramble when there's no idea yet.
-- `shape` writes `design/brief.json`, `appbox.yaml` and the brief.
+- `shape` writes `design/brief.json` (with its decision ledger), `appbox.yaml` and the brief.
+- On day 0 it asks only what's expensive to change: a one-line idea gets stated defaults and at most 3 questions, and a two-sided idea gets the cold-start question.
 - `prototype` runs the check before rendering and fixes what it flags.
 - `scaffold` never overwrites a hand-edited brief.
 - None of it fires on an unrelated question.

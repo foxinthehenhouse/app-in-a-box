@@ -40,7 +40,7 @@ _SWALLOW = re.compile(r"\|\|\s*(true|:|exit\s+0)\s*$")
 
 def guard_files(root: Path) -> list[str]:
     found = [p.name for p in (root / "scripts").glob("check_*.py")]
-    found += [p.name for p in (root / "scripts").glob("db-test.sh")]
+    found += [p.name for p in (root / "scripts").glob("db-*.sh")]  # db-test.sh, db-lint.sh
     # The mobile guards are wired through `npm run gates` in mobile/package.json, which
     # the scaffold phase creates (create-expo-app). Before that there is no app to gate.
     if (root / "mobile" / "package.json").exists():
@@ -169,6 +169,9 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "tests/harness/test_hook_scripts.py",
         "tests/harness/test_supply_chain.py",
         "supabase/tests/database/rls.test.sql",
+        "supabase/ci/schema_snapshot.sql",
+        "supabase/schema-snapshot.txt",
+        ".squawk.toml",
     ],
 )
 def test_named_guards_still_exist(guard: str) -> None:
@@ -176,7 +179,61 @@ def test_named_guards_still_exist(guard: str) -> None:
     assert (ROOT / guard).exists(), f"{guard} is gone; if retired on purpose, say so here"
 
 
+# Squawk rules a Supabase app must keep: each is a migration that locks or breaks a live
+# database (the expand/contract rule in .agents/rules/db-migrations.md, enforced).
+SQUAWK_MUST_KEEP = {
+    "require-concurrent-index-creation",
+    "adding-required-field",
+    "renaming-column",
+    "ban-drop-column",
+    "ban-drop-table",
+    "changing-column-type",
+    "adding-not-nullable-field",
+}
+
+
+def squawk_problems(text: str) -> list[str]:
+    """What is wrong with a .squawk.toml: a must-keep rule excluded, or an exclusion
+    with no comment saying why."""
+    excluded = tomllib.loads(text).get("excluded_rules", [])
+    problems = [f"{r} must stay on" for r in excluded if r in SQUAWK_MUST_KEEP]
+    comments = "\n".join(ln for ln in text.splitlines() if ln.lstrip().startswith("#"))
+    problems += [f"{r} is excluded with no reason" for r in excluded if r not in comments]
+    return problems
+
+
+def test_db_workflow_lints_migrations_with_pinned_squawk() -> None:
+    # A step must RUN it: the file's header comment names it too, so grep isn't enough.
+    db = yaml.safe_load((ROOT / ".github" / "workflows" / "db.yml").read_text())
+    runs = [str(s.get("run") or "") for j in db["jobs"].values() for s in j.get("steps", [])]
+    assert any("scripts/db-lint.sh" in r for r in runs), (
+        "db.yml no longer runs the migration linter"
+    )
+    lint = (ROOT / "scripts" / "db-lint.sh").read_text()
+    assert re.search(r'^SQUAWK_VERSION="\d+\.\d+\.\d+"$', lint, re.M), "pin squawk"
+    assert "--config .squawk.toml" in lint
+    assert "schema_snapshot.sql" in (ROOT / "scripts" / "db-test.sh").read_text()
+
+
+def test_squawk_config_keeps_the_live_database_rules() -> None:
+    problems = squawk_problems((ROOT / ".squawk.toml").read_text())
+    assert not problems, problems
+
+
 # ---- negative controls -----------------------------------------------------------
+
+
+def test_weakened_squawk_config_is_caught() -> None:
+    assert squawk_problems('excluded_rules = ["renaming-column"]\n# renaming-column: meh\n') == [
+        "renaming-column must stay on"
+    ]
+    assert squawk_problems('excluded_rules = ["prefer-identity"]\n') == [
+        "prefer-identity is excluded with no reason"
+    ]
+    assert (
+        squawk_problems('# prefer-identity: we use uuid\nexcluded_rules = ["prefer-identity"]\n')
+        == []
+    )
 
 
 def test_unwired_guard_is_caught(tmp_path: Path) -> None:
@@ -190,6 +247,9 @@ def test_unwired_guard_is_caught(tmp_path: Path) -> None:
         "run: python3 scripts/check_thing.py\n"
     )
     assert "check_thing.py" in wiring_text(tmp_path)
+    (tmp_path / "scripts" / "db-lint.sh").write_text("squawk\n")
+    assert "db-lint.sh" in guard_files(tmp_path)
+    assert "db-lint.sh" not in wiring_text(tmp_path)
     assert "check-x.js" not in guard_files(tmp_path)
     (tmp_path / "mobile" / "scripts").mkdir(parents=True)
     (tmp_path / "mobile" / "scripts" / "check-x.js").write_text("")

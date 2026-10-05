@@ -8,6 +8,9 @@
  * - Turns non-2xx responses into a typed ApiError carrying the server's error_id
  *   and the request id. `errorReference(e)` is the short code a screen shows
  *   (<ErrorNotice>) and support greps for.
+ * - Gives up after DEFAULT_TIMEOUT_MS (15s; `timeoutMs` per call). A request that
+ *   hangs on a bad network fails as offline (status 0, reason "timeout"), which every
+ *   screen already shows with Retry, instead of spinning forever.
  * - Fires analytics for failures, so a silent failure still leaves a trail.
  * - In demo mode (EXPO_PUBLIC_DEMO=1) the same path answers from lib/demo.ts.
  *
@@ -23,14 +26,25 @@ import { currentUserId, supabase } from "./supabase";
 
 const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
+/** How long a request may take, headers and body, before it fails as offline. */
+export const DEFAULT_TIMEOUT_MS = 15_000;
+
+/** RequestInit plus how long to wait before giving up (default DEFAULT_TIMEOUT_MS). */
+export interface ApiInit extends RequestInit {
+  timeoutMs?: number;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
     public readonly errorId?: string,
     public readonly requestId?: string,
-    /** "misconfigured": the BUILD has no server address (lib/config.ts), not a network problem. */
-    public readonly reason?: "misconfigured",
+    /**
+     * "misconfigured": the BUILD has no server address (lib/config.ts), not a network problem.
+     * "timeout": no answer within the request's timeout; shown as offline, retried like it.
+     */
+    public readonly reason?: "misconfigured" | "timeout",
   ) {
     super(message);
     this.name = "ApiError";
@@ -69,25 +83,74 @@ export interface RawResponse {
   sentAs?: string;
 }
 
-async function send(path: string, init: RequestInit, requestId: string): Promise<RawResponse> {
+/** Thrown inside send() when the request's own timer fires (not the caller's signal). */
+class TimeoutError extends Error {
+  constructor(public readonly ms: number) {
+    super(`Request timed out after ${ms / 1000}s`);
+    this.name = "TimeoutError";
+  }
+}
+
+/**
+ * An abort signal that fires after `ms`, and also when the caller's own signal does.
+ * Like `AbortSignal.timeout(ms)` (combined with the caller's signal via
+ * `AbortSignal.any`), but built on a plain timer: React Native's AbortController is
+ * the `abort-controller` polyfill, which has neither static, and a timer is what tests
+ * can drive with fake time.
+ */
+function timeoutSignal(ms: number, outer: AbortSignal | null | undefined) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, ms);
+  const forward = () => controller.abort();
+  if (outer?.aborted) controller.abort();
+  else outer?.addEventListener("abort", forward);
+  return {
+    signal: controller.signal,
+    timedOut: () => timedOut,
+    done: () => {
+      clearTimeout(timer);
+      outer?.removeEventListener("abort", forward);
+    },
+  };
+}
+
+async function send(path: string, init: ApiInit, requestId: string): Promise<RawResponse> {
   if (DEMO) {
     const res = await demoFetch(path, init);
     return { ...res, requestId };
   }
   if (!API_URL) throw new ApiError("EXPO_PUBLIC_API_URL is not set", 0, undefined, requestId, "misconfigured");
   const auth = await authHeader();
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...request } = init;
   const headers: Record<string, string> = {
     Accept: "application/json",
-    ...(init.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+    ...(request.body && !(request.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
     ...auth.header,
-    ...((init.headers as Record<string, string>) ?? {}),
+    ...((request.headers as Record<string, string>) ?? {}),
     "X-Request-ID": requestId,
   };
-  const res = await fetch(`${API_URL}${path}`, { ...init, headers });
-  const echoed = res.headers?.get?.("x-request-id") ?? requestId;
-  const sentAs = auth.userId;
-  if (res.status === 204) return { status: 204, body: undefined, requestId: echoed, sentAs };
-  return { status: res.status, body: await res.json().catch(() => null), requestId: echoed, sentAs };
+  // The timer covers the body too: a server that sends headers and then stalls is
+  // as stuck as one that never answers.
+  const deadline = timeoutSignal(timeoutMs, request.signal);
+  try {
+    const res = await fetch(`${API_URL}${path}`, { ...request, headers, signal: deadline.signal });
+    const echoed = res.headers?.get?.("x-request-id") ?? requestId;
+    const sentAs = auth.userId;
+    if (res.status === 204) return { status: 204, body: undefined, requestId: echoed, sentAs };
+    const body: unknown = await res.json().catch((e: unknown) => {
+      if (deadline.timedOut()) throw e;
+      return null;
+    });
+    return { status: res.status, body, requestId: echoed, sentAs };
+  } catch (e) {
+    throw deadline.timedOut() ? new TimeoutError(timeoutMs) : e;
+  } finally {
+    deadline.done();
+  }
 }
 
 /**
@@ -106,7 +169,7 @@ async function expireSession(): Promise<void> {
   }
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> {
   const elapsed = startTimer();
   const requestId = newRequestId();
   let res: RawResponse;
@@ -115,6 +178,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   } catch (e) {
     if (e instanceof ApiError) throw e;
     analytics.apiFailed({ path, status: 0, duration_ms: elapsed() });
+    if (e instanceof TimeoutError) throw new ApiError(e.message, 0, undefined, requestId, "timeout");
     throw new ApiError(e instanceof Error ? e.message : "Network error", 0, undefined, requestId);
   }
   if (res.status < 200 || res.status >= 300) {
