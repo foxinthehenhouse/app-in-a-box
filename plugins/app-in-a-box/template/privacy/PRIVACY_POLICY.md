@@ -23,9 +23,10 @@ collects, why, how long it's kept, and the choices you have.
 | Your name | The name the app shows you | Until you delete your account |
 | How you use the app | Skip the welcome steps once you've done them | Until you delete your account |
 | Device information | Deliver the notifications you turned on to this device | Until you delete your account |
-| Account identifiers | Check a notification was delivered | Up to 24 hours |
+| Account identifiers | Check a notification was delivered; Makes sure a retried save from your phone happens once | Up to 24 hours |
 | Device information | Remove a device that no longer accepts notifications | Up to 24 hours |
 | Account identifiers | Count requests per account to stop abuse | Up to 1 day |
+| Content you create | Replay the answer to a save your phone retried, instead of saving twice | Up to 24 hours |
 
 We don't sell your personal information, and we don't use it for advertising. We don't track you across other companies' apps or websites.
 

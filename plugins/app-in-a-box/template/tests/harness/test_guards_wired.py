@@ -10,6 +10,10 @@ three ways, each checked here with a negative control:
    reason (the dict only ratchets down).
 3. **Deselected.** pytest guards are wired by pyproject's `testpaths`; narrowing it or
    adding `--ignore`/`--deselect`/`-k` to `addopts` silently unwires a whole family.
+
+The architecture boundaries (`lint-imports`, contracts in pyproject's `[tool.importlinter]`)
+are checked the same way: CI must run it, and the two contracts must still say what
+AGENTS.md says they do.
 """
 
 from __future__ import annotations
@@ -121,6 +125,28 @@ def collection_problems(pyproject: dict[str, Any]) -> list[str]:
     return problems
 
 
+def boundary_problems(pyproject: dict[str, Any]) -> list[str]:
+    """The import-linter contracts AGENTS.md points at: still present, still meaningful."""
+    cfg = pyproject.get("tool", {}).get("importlinter", {})
+    contracts = cfg.get("contracts", [])
+    problems = []
+    if cfg.get("root_package") != "backend":
+        problems.append(f"root_package is {cfg.get('root_package')!r}, not 'backend'")
+    layers = [c for c in contracts if c.get("type") == "layers"]
+    order = layers[0].get("layers", []) if layers else []
+    wanted = ["routers", "services", "db"]
+    if [x for x in order if x in wanted] != wanted:
+        problems.append(f"no layers contract with routers above services above db: {order}")
+    fence = [c for c in contracts if c.get("type") == "forbidden"]
+    if not fence or not {"anthropic", "openai"} <= set(fence[0].get("forbidden_modules", [])):
+        problems.append("no forbidden contract fencing the anthropic and openai SDKs")
+    elif not cfg.get("include_external_packages"):
+        problems.append("include_external_packages is off, so the SDK fence can never fail")
+    elif fence[0].get("allow_indirect_imports") or fence[0].get("source_modules") != ["backend"]:
+        problems.append(f"the SDK fence was narrowed: {fence[0]}")
+    return problems
+
+
 # ---- the real repo ---------------------------------------------------------------
 
 
@@ -139,6 +165,12 @@ def test_ci_runs_the_mobile_gates_and_the_harness() -> None:
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
     assert "npm run gates" in ci, "ci.yml no longer runs the mobile gates"
     assert "pytest" in ci and "pyright" in ci and "ruff" in ci
+    assert "run: lint-imports" in ci, "ci.yml no longer checks the architecture boundaries"
+
+
+def test_architecture_boundaries_are_still_contracts() -> None:
+    problems = boundary_problems(tomllib.loads((ROOT / "pyproject.toml").read_text()))
+    assert not problems, problems
 
 
 def design_md_wired(root: Path) -> list[str]:
@@ -203,6 +235,8 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "tests/test_wire_contract.py",
         "tests/test_scoping_static.py",
         "tests/test_migrations_static.py",
+        "tests/test_idempotency.py",
+        "tests/test_outbound_http.py",
         "tests/harness/test_workflow_lint.py",
         "tests/harness/test_skills_lint.py",
         "tests/harness/test_hook_scripts.py",
@@ -357,6 +391,24 @@ def test_setup_steps_may_be_lenient() -> None:
         }
     }
     assert advisory_steps(doc) == []
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda c: c.pop("contracts"),
+        lambda c: c["contracts"][0].update(layers=["services", "routers", "db"]),
+        lambda c: c["contracts"][1].update(forbidden_modules=["openai"]),
+        lambda c: c.update(include_external_packages=False),
+        lambda c: c["contracts"][1].update(allow_indirect_imports=True),
+    ],
+    ids=["no-contracts", "layers-inverted", "sdk-unfenced", "externals-off", "indirect-ok"],
+)
+def test_weakened_boundaries_are_caught(edit: Any) -> None:
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert boundary_problems(pyproject) == []
+    edit(pyproject["tool"]["importlinter"])
+    assert boundary_problems(pyproject)
 
 
 def test_collection_narrowing_is_caught() -> None:

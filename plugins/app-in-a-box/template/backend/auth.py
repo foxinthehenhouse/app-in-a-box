@@ -14,11 +14,11 @@ import logging
 from dataclasses import dataclass
 from functools import lru_cache
 
-import httpx
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from backend import http as outbound
 from backend.config import supabase_auth_apikey, supabase_url
 
 logger = logging.getLogger(__name__)
@@ -77,12 +77,13 @@ def _verify_remotely(token: str) -> CurrentUser:
         # a verdict on the token. An empty apikey could only ever come back 401.
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Auth not configured")
     try:
-        resp = httpx.get(
+        resp = outbound.get(
+            "supabase-auth",
             f"{supabase_url()}/auth/v1/user",
             headers={"Authorization": f"Bearer {token}", "apikey": apikey},
             timeout=10,
         )
-    except httpx.HTTPError as exc:
+    except outbound.HTTPError as exc:  # unreachable, or the circuit is open
         logger.warning("Supabase auth unreachable: %s", type(exc).__name__)
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Auth unavailable") from exc
     if resp.status_code != 200:

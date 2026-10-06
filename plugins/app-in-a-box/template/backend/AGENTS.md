@@ -18,12 +18,29 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
 - `db.py`: `get_db` service client (bypasses RLS). **Filter every query by `user.id`.**
   `rpc(db, fn, params)` calls a Postgres function (atomic writes, below).
 - `ratelimit.py`: `rate_limit(bucket, limit, window_seconds)` dependency, counted in
-  Postgres. Put it on every write endpoint.
+  Postgres. Put it on every write endpoint. A 429 carries `Retry-After` plus the IETF
+  `RateLimit` / `RateLimit-Policy` headers.
+- `idempotency.py`: `idempotent()` dependency + `IdempotencyMiddleware`. A write sent
+  again with the same `Idempotency-Key` gets the first response back instead of running
+  twice (`idempotency_keys` table). Every POST under `/api` takes it.
+- `http.py`: the ONLY outbound HTTP client (`outbound.client(name, timeout=...)`):
+  mandatory timeout, jittered retries on connect errors (and on 5xx when repeating is
+  safe), a circuit breaker per upstream. `import httpx` elsewhere in backend/ fails CI.
+- `pagination.py`: `Page[T]` + `keyset()` / `page()` for keyset-paged lists, and the
+  `Cursor` / `Limit` query params.
 - `middleware.py`: request id (`X-Request-ID`) + security headers.
 - `routers/`: I/O only. `me.py` (profile, account deletion), `push.py` (push tokens),
-  `internal.py` (`/internal/cron/*`, shared-secret auth).
+  `internal.py` (`/internal/cron/*`, shared-secret auth; `prune-rate-limits` also
+  prunes expired idempotency keys).
 - `services/`: logic. `push_service.py` (Expo push), `jobs_service.py` (cron jobs).
 - `observability.py`: Sentry with PII scrubbing, request-id logging, `LOG_FORMAT=json`.
+
+**The layering is checked.** `lint-imports` (CI python job; locally
+`scripts/dev-venv.sh lint-imports`) runs the contracts in `pyproject.toml`
+`[tool.importlinter]`: `main` → `routers` → `services` → `db` → `config`, never upward
+(indirect chains count), and no `anthropic` / `openai` import outside the one AI module
+named in the fence's `ignore_imports`. A service that needs something from a router
+takes it as an argument or moves it down; a broken contract prints the import and its line.
 
 ## Conventions
 
@@ -42,6 +59,19 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
   OAuth state, push tickets) goes in a Postgres table. `test_prod_hardening.py` fails on
   a lower-case module-level dict/list/set or a `global`.
 - **Write endpoints are rate limited**: `dependencies=[Depends(rate_limit("thing.create", 30))]`.
+- **POSTs are idempotent**: add `Depends(idempotent())` after the rate limit. The app
+  replays writes it queued offline (even after a restart) with the same key, so a
+  create the server already ran returns its stored response instead of creating twice.
+  `tests/test_idempotency.py` fails a POST under `/api` without it; a POST that is
+  genuinely safe to repeat goes in its `NOT_IDEMPOTENT` with the reason.
+- **Calls to other services go through `backend/http.py`**, never `httpx`/`requests`
+  directly (`tests/test_outbound_http.py` bans the import). Pick a timeout you'd accept
+  a user waiting for; retries on a POST happen only for connect errors unless it sends
+  an `Idempotency-Key` or you pass `idempotent=True`. Catch `outbound.HTTPError`: an open
+  circuit (`CircuitOpen`) is one, so "upstream down" is one code path.
+- **Lists are keyset-paged**: `response_model=Page[Thing]`, `keyset(query, ORDER, cursor=,
+  limit=)` then `page(rows, ORDER, limit, Thing)`, with the last order column unique and
+  an index on `(user_id, *ORDER)`. Never `.range()` offsets for a user-facing list.
 - Errors: raise `HTTPException` with a stable `detail`; unhandled errors get an
   `error_id` the client can show and support can grep.
 - Tests in `/tests`: every endpoint gets a test, and ownership tests use a

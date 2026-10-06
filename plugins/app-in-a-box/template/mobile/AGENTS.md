@@ -43,16 +43,21 @@ template says src/app; this kit doesn't use it).
 - `lib/atmosphere.ts`: the frozen atmosphere as a gradient (`atmosphereGradient`), the
   grain, `useReducedTransparency()`, and `useGlassChrome()` (glass surfaces + iOS 26 +
   Reduce Transparency off; otherwise solid).
-- `lib/api.ts`: the only backend client. `*Wire` types mirror Pydantic models; adapters
+- `lib/api.ts`: the only backend client, and the only file that calls `fetch`. `*Wire` types mirror Pydantic models; adapters
   map wire → UI types. A generic cast is not validation. Every call sends an
   `X-Request-ID`; an `ApiError` carries `requestId` / `errorId`, and
-  `errorReference(e)` is the 8-character code `<ErrorNotice reference>` shows.
+  `errorReference(e)` is the 8-character code `<ErrorNotice reference>` shows. A write
+  adapter takes `{ idempotencyKey }` and sends it as `Idempotency-Key`; `Page<T>`,
+  `toPage` and `pagePath` are the keyset-pagination shapes.
 - `lib/query.ts`: **offline-first data** (TanStack Query + AsyncStorage persister,
   `onlineManager` ← NetInfo). Reads are query hooks (`useMe()`); each write is ONE
   exported option set (`mutationKey`, `scope`, optimistic `onMutate`, rollback in
   `onError`, success + failure analytics) registered with `setMutationDefaults` AND
   spread into its hook, so a paused offline edit replays after a restart with its
-  rollback and events intact. `updateMeOptions` / `useUpdateMe` is the worked example.
+  rollback and events intact. Write variables are `Keyed<T>` (`keyed(input)` mints the
+  Idempotency-Key once; it is persisted with the paused write and sent on every replay);
+  the hook's `mutate` takes the plain input. Lists are `usePagedQuery(key, fetchPage)`
+  + `pageItems(data)`. `updateMeOptions` / `useUpdateMe` is the worked example.
 - `lib/use-load.ts`: `useLoaded(query)` bridges a query to honest `loading` / `error` /
   `errorRef` / `refreshing` (plus the older uncached `useLoad(fn)`).
 - `lib/session.ts`: `signOut()` / `endSession()`: unregister push, clear the cache, sign out.
@@ -176,12 +181,15 @@ template says src/app; this kit doesn't use it).
 - **Offline:** screens read through query hooks, never a bare `apiFetch` in a component.
   Mutations queue offline (`networkMode: "online"` pauses them), so say "saved on this
   device, will sync" instead of spinning. A queued mutation can replay after a restart,
-  possibly twice (the request went out, the app died before the response). The profile
-  PATCH is idempotent by nature. **A POST that creates something is not**: give it a
-  client-generated id (`expo-crypto` `randomUUID()`) in the body, have the backend upsert
-  on it, and put `scope: { id: "<resource>" }` on the option set so queued writes to
-  one resource run in order. Register its option set with `setMutationDefaults` like
-  `updateMeOptions`, or the replay has no rollback and no event.
+  possibly twice (the request went out, the app died before the response). That is
+  what the Idempotency-Key is for: make the option set's variables `Keyed<T>`, pass
+  `idempotencyKey` through to the adapter, and wrap the hook with `withKeys` like
+  `useUpdateMe`; the backend route has `Depends(idempotent())` and answers the replay
+  with the first response. A create that shows optimistically also needs a
+  client-generated id (`expo-crypto` `randomUUID()`) so the screen can key the row
+  before the server answers. Put `scope: { id: "<resource>" }` on the option set so
+  queued writes to one resource run in order, and register it with
+  `setMutationDefaults` like `updateMeOptions`, or the replay has no rollback and no event.
 
 ## Gates
 
@@ -198,6 +206,13 @@ stock AI violet, overshooting curves) on `design/tokens.json` + `jest --coverage
 app/, components/ and lib/: raise it as tests land, never lower it to push).
 Run it before every push. `jest.setup.ts` holds the shared native-module mocks
 (AsyncStorage, NetInfo, SecureStore).
+
+**Architecture boundaries** are eslint errors, in `eslint.boundaries.js` (spread into
+`eslint.config.js`, core rules only): only `lib/api.ts` calls `fetch`; nothing under
+`app/` imports `lib/supabase.ts` or `@supabase/supabase-js` (the session is `lib/auth.tsx`,
+data is `lib/api.ts`); nothing under `components/ui/` imports `lib/api.ts` (components
+take data as props; the screen loads it). Fix the import rather than disabling the rule; moving
+a boundary is a decision-log entry.
 
 ## E2E (Maestro)
 

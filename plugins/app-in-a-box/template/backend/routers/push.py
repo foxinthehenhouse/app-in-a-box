@@ -20,6 +20,7 @@ from pydantic import Field, field_validator
 from backend.auth import CurrentUser, get_current_user
 from backend.config import feature_missing
 from backend.db import get_db, rpc
+from backend.idempotency import idempotent
 from backend.ratelimit import rate_limit
 from backend.routers.me import WireIn
 from backend.services.push_service import FEATURE, is_valid_token
@@ -58,7 +59,11 @@ def _require_push() -> None:
 @router.post(
     "/push-token",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(_require_push), Depends(rate_limit("push_token.write", 20))],
+    dependencies=[
+        Depends(_require_push),
+        Depends(rate_limit("push_token.write", 20)),
+        Depends(idempotent()),
+    ],
 )
 def register_push_token(
     body: PushTokenIn,

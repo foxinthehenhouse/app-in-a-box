@@ -99,6 +99,17 @@ tables:
       key: {category: identifier, purpose: "count requests per account to stop abuse", retention: P1D, uses: [fraud_prevention]}
       window_start: none
       count: none
+  idempotency_keys:
+    owner: user
+    columns:
+      user_id: {category: identifier, purpose: "makes sure a retried save from your phone happens once", retention: PT24H}
+      key: none
+      fingerprint: none
+      created_at: none
+      response_status: none
+      response_body: {category: ugc, purpose: "replay the answer to a save your phone retried, instead of saving twice", retention: PT24H}
+      response_content_type: none
+      completed_at: none
   job_runs:
     owner: system
     columns:
