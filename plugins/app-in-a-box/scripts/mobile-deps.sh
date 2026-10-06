@@ -74,7 +74,7 @@ npm pkg set main=expo-router/entry \
   scripts.check-strings="node scripts/check-hardcoded-strings.js" \
   scripts.check-contrast="python3 ../scripts/check_contrast.py ../design/tokens.json" \
   scripts.test:guards="node --test scripts/__tests__/*.test.js" \
-  scripts.gates="tsc --noEmit && eslint . && knip && node scripts/check-analytics-coverage.js && node scripts/check-eas-shipping-env.js && node scripts/check-maestro-coverage.js && node scripts/check-replay-unmask.js && node scripts/check-hardcoded-strings.js && node scripts/check-design-tells.js && node --test scripts/__tests__/*.test.js && python3 ../scripts/check_contrast.py ../design/tokens.json && python3 ../scripts/check_design.py ../design/tokens.json && node scripts/check-test-presence.js && jest --ci --coverage --coverageReporters=text-summary --passWithNoTests"
+  scripts.gates="tsc --noEmit && eslint . && knip && node scripts/check-analytics-coverage.js && node scripts/check-eas-shipping-env.js && node scripts/check-maestro-coverage.js && node scripts/check-replay-unmask.js && node scripts/check-hardcoded-strings.js && node scripts/check-design-tells.js && node scripts/check-a11y.js && node --test scripts/__tests__/*.test.js && python3 ../scripts/check_contrast.py ../design/tokens.json && python3 ../scripts/check_design.py ../design/tokens.json && node scripts/check-test-presence.js && jest --ci --coverage --coverageReporters=text-summary --passWithNoTests"
 npm pkg set jest.testTimeout=30000 --json  # a number, not the string "30000"
 # The guard self-tests under scripts/__tests__ run on node:test (no node_modules needed);
 # keep jest out of them, or it tries to run them under jest-expo and fails. The same

@@ -47,6 +47,8 @@ def guard_files(root: Path) -> list[str]:
     found += [p.name for p in (root / "scripts").glob("db-*.sh")]  # db-test.sh, db-lint.sh
     # Not named check_*, but a guard all the same: `--check` fails on a drifted DESIGN.md.
     found += [p.name for p in (root / "scripts").glob("design_md.py")]
+    # Same for the Accessibility Nutrition Labels: `--check` fails on a claim without evidence.
+    found += [p.name for p in (root / "scripts").glob("a11y_labels.py")]
     # The mobile guards are wired through `npm run gates` in mobile/package.json, which
     # the scaffold phase creates (create-expo-app). Before that there is no app to gate.
     if (root / "mobile" / "package.json").exists():
@@ -191,6 +193,32 @@ def test_design_md_check_runs_in_ci_and_pre_commit() -> None:
     assert not missing, f"`python3 scripts/design_md.py --check` is not run by: {missing}"
 
 
+def a11y_labels_wired(root: Path) -> list[str]:
+    """Where the accessibility-labels drift check should run but doesn't. CI runs it in
+    the mobile job, after the gates whose passing it cites; a bare run rewrites the file
+    instead of checking it, so only `--check` counts."""
+    if not (root / "scripts" / "a11y_labels.py").exists():
+        return []
+    places = {
+        "ci.yml": (
+            root / ".github" / "workflows" / "ci.yml",
+            "python3 ../scripts/a11y_labels.py --check",
+        ),
+        "pre-commit": (root / ".githooks" / "pre-commit", "python3 scripts/a11y_labels.py --check"),
+    }
+    return [n for n, (p, want) in places.items() if not p.is_file() or want not in p.read_text()]
+
+
+def test_a11y_labels_check_runs_in_ci_and_pre_commit() -> None:
+    missing = a11y_labels_wired(ROOT)
+    assert not missing, f"`scripts/a11y_labels.py --check` is not run by: {missing}"
+    ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())
+    runs = [str(st.get("run") or "") for st in ci["jobs"]["mobile"]["steps"]]
+    gates = next(i for i, r in enumerate(runs) if "npm run gates" in r)
+    labels = next(i for i, r in enumerate(runs) if "a11y_labels.py --check" in r)
+    assert labels > gates, "the labels check must run after the gates it cites as evidence"
+
+
 def data_map_wired(root: Path) -> list[str]:
     """Where the privacy data map check should run but doesn't. `--write` regenerates the
     store answers instead of checking them, so a step running that checks nothing."""
@@ -252,6 +280,9 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "tests/harness/test_code_health.py",
         ".github/CODEOWNERS",
         "mobile/knip.jsonc",
+        "tests/test_a11y_labels.py",
+        "mobile/__tests__/a11y-screens.test.tsx",
+        "mobile/scripts/__tests__/check-a11y.test.js",
     ],
 )
 def test_named_guards_still_exist(guard: str) -> None:
@@ -351,6 +382,23 @@ def test_unwired_design_md_check_is_caught(tmp_path: Path) -> None:
     assert design_md_wired(tmp_path) == ["ci.yml"]
     ci.write_text("run: python3 scripts/design_md.py --check\n")
     assert design_md_wired(tmp_path) == []
+
+
+def test_unwired_a11y_labels_check_is_caught(tmp_path: Path) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "a11y_labels.py").write_text("")
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".githooks").mkdir()
+    ci = tmp_path / ".github" / "workflows" / "ci.yml"
+    hook = tmp_path / ".githooks" / "pre-commit"
+    ci.write_text("run: python3 ../scripts/a11y_labels.py\n")  # rewrites; checks nothing
+    hook.write_text("python3 scripts/a11y_labels.py --check\n")
+    assert "a11y_labels.py" in guard_files(tmp_path)
+    assert a11y_labels_wired(tmp_path) == ["ci.yml"]
+    ci.write_text("run: python3 ../scripts/a11y_labels.py --check\n")
+    assert a11y_labels_wired(tmp_path) == []
+    hook.write_text("echo nothing\n")
+    assert a11y_labels_wired(tmp_path) == ["pre-commit"]
 
 
 def test_unwired_data_map_check_is_caught(tmp_path: Path) -> None:

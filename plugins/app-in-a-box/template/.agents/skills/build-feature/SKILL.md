@@ -38,7 +38,13 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
    `user.id`) → `Wire` response model. `scripts/dev-venv.sh python -m pytest -q`.
 5. **Mobile:** `*Wire` type + adapter in `lib/api.ts` → screen from `components/ui`
    primitives + theme tokens → analytics helpers (view event, success+failure) → honest
-   loading/empty/error states → testIDs. `cd mobile && npm run gates`. Build to
+   loading/empty/error states → testIDs. `cd mobile && npm run gates`, which must pass
+   the accessibility checks too: `mobile/scripts/check-a11y.js` (a role and a label on every control,
+   images labelled or decorative, text that scales, motion through `lib/motion.ts`) and
+   `mobile/__tests__/a11y-screens.test.tsx` (every route at 100% and 200% text). Fix the
+   screen; an `// a11y-ignore: <why>` is for a real exception the reviewer can judge.
+   Then `python3 scripts/a11y_labels.py` and commit `docs/product/ACCESSIBILITY.md` if
+   it changed (CI fails on a stale one). Build to
    `docs/DEFAULTS.md` unless the spec or the ledger overrides it: ask for a permission
    only from the moment it's useful, after the payoff; a notification goes out at most
    once a day, never in quiet hours (9pm to 8am local), and points at the core loop.

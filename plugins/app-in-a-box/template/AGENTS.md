@@ -42,7 +42,7 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
    rename, retype or remove a response field in place.
 6. **Every screen fires an analytics event; every mutation fires success AND failure.**
 7. **Mobile-first. Read `DESIGN.md` before any UI work**; change tokens via the design flow,
-   never by hand. 48px taps, `accessibilityLabel` on every control, never colour alone.
+   never by hand. 48px taps, never colour alone; labels, text size, motion: `mobile/scripts/check-a11y.js`.
 8. **LLM use is fenced.** <!-- appbox:ai-fence: "No LLM calls anywhere." OR "Claude API
    only in backend/services/<module>*." --> `lint-imports` fails an SDK import elsewhere.
 9. **Writes are rate-limited, atomic and idempotent.** `Depends(rate_limit(...))` on every
