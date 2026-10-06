@@ -224,9 +224,25 @@ def client(name: str, *, timeout: float, **kwargs: Any) -> Client:
     return Client(name, timeout=timeout, **kwargs)
 
 
-def get(
-    name: str, url: str, *, timeout: float, transport: Transport | None = None, **kwargs: Any
+def request(
+    name: str,
+    method: str,
+    url: str,
+    *,
+    timeout: float,
+    transport: Transport | None = None,
+    attempts: int = DEFAULT_ATTEMPTS,
+    **kwargs: Any,
 ) -> httpx.Response:
-    """One GET through a short-lived client (same retries and breaker as `client`)."""
-    with client(name, timeout=timeout, transport=transport) as c:
-        return c.get(url, **kwargs)
+    """One call through a short-lived client (same retries and breaker as `client`).
+    `attempts=1` for a fire-and-forget call that must not outlast its timeout."""
+    with client(name, timeout=timeout, transport=transport, attempts=attempts) as c:
+        return c.request(method, url, **kwargs)
+
+
+def get(name: str, url: str, *, timeout: float, **kwargs: Any) -> httpx.Response:
+    return request(name, "GET", url, timeout=timeout, **kwargs)
+
+
+def post(name: str, url: str, *, timeout: float, **kwargs: Any) -> httpx.Response:
+    return request(name, "POST", url, timeout=timeout, **kwargs)

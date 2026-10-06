@@ -274,3 +274,19 @@ def test_module_get_uses_the_same_policy() -> None:
     up = Upstream(503, 200)
     resp = outbound.get("one-shot", "https://up.example/x", timeout=1, transport=httpx.MockTransport(up))
     assert resp.status_code == 200 and len(up.calls) == 2
+
+
+def test_module_post_never_repeats_a_5xx_and_attempts_1_never_retries() -> None:
+    up = Upstream(503)
+    resp = outbound.post("one-shot", "https://up.example/x", timeout=1, transport=httpx.MockTransport(up))
+    assert resp.status_code == 503 and len(up.calls) == 1  # a POST may have run: no repeat
+    up = Upstream(httpx.ConnectError("refused"))
+    with pytest.raises(outbound.HTTPError):
+        outbound.post(
+            "fire-and-forget",
+            "https://up.example/x",
+            timeout=1,
+            attempts=1,
+            transport=httpx.MockTransport(up),
+        )
+    assert len(up.calls) == 1
