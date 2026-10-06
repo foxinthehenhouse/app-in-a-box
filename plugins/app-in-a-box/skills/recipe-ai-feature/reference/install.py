@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -253,6 +254,23 @@ def _read_ai_usage(db: Any, user_id: str, start: int, end: int) -> list[dict[str
         "document EMBEDDINGS_* and the optional AI vars")  # fmt: skip
 
 
+def relock() -> None:
+    """The app installs from hashed lock files, so a new pin in requirements.txt is not
+    installable (and its lock check fails) until the locks are regenerated. Done with the
+    app's own scripts/lock-deps.sh, only when this run changed requirements.txt."""
+    if (APP / "requirements.txt").read_bytes() == reqs:
+        return
+    script = APP / "scripts" / "lock-deps.sh"
+    if not script.is_file():
+        return  # an app from before hashed locks: requirements.txt is what it installs
+    if shutil.which("uv") is None:
+        todo.append(f"requirements.lock: run scripts/lock-deps.sh (needs uv) to lock {SDK_PIN}")
+        return
+    done = subprocess.run([str(script)], cwd=APP, capture_output=True, text=True)
+    if done.returncode != 0:
+        todo.append(f"requirements.lock: scripts/lock-deps.sh failed; run it by hand ({done.stderr.strip()[-200:]})")
+
+
 def _after_last(text: str, prefix: str, line: str) -> str | None:
     i = text.rfind(prefix)
     if i < 0:
@@ -275,10 +293,12 @@ if __name__ == "__main__":
         sys.exit(__doc__)
     APP = Path(args[0]).resolve()
     copy_files()
+    reqs = (APP / "requirements.txt").read_bytes() if (APP / "requirements.txt").is_file() else b""
     wire()
+    relock()
     if todo:
         print("install.py: copied the files, but make these edits by hand:")
         print("\n".join(f"  - {t}" for t in todo))
         sys.exit(1)
-    print("install.py: done. Next: pip install the new pin, run the tests, then fill in the")
+    print("install.py: done. Next: install the relocked deps, run the tests, then fill in the")
     print("  owner decisions (model, cap, providers) and the privacy policy (see SKILL.md).")
