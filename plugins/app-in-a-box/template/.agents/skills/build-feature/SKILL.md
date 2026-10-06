@@ -22,6 +22,14 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
 
 ## Order of work (each step verified before the next)
 
+0. **Re-screen the risk:** `python3 scripts/risk_gate.py rescreen --file <spec path>`.
+   A feature can carry the idea into a category it was never screened for (a map, a
+   chat, a kids mode, a health log). If it reports a new category, the tier may rise and
+   it opens that category's must-answer questions: stop and put them to the owner in one
+   structured round before any code, write each answer back to `design/brief.json` →
+   `risk`, add the misuse case it asks for, and regenerate `docs/product/RISK.md`. The
+   answers usually change the design (who consents, who sees what, how long it's kept),
+   and `ship` refuses while any stays open.
 1. **Branch:** `new-worktree` skill → `feat/<ticket>-<slug>`.
 2. **Tests first where it's cheap:** write the FR→TC tests from the spec's test plan
    (backend pytest; pure mobile logic in jest). Watch them fail.
@@ -60,6 +68,8 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
 - Change a wire field in place (add alongside).
 - Claim done on code you didn't run.
 - Widen scope silently. File a ticket for anything you notice and keep going.
+- Build past a re-screen with open risk questions, or edit `design/brief.json` → `risk`
+  to quiet the gate. The owner answers or accepts them.
 
 ## Ask the owner
 
