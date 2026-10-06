@@ -1,7 +1,7 @@
 ---
 name: provision
-description: Phase 5 of App in a Box. Creates the cloud resources (GitHub repo, Supabase project and its auth email (custom SMTP, Resend recommended), Expo/EAS project, Railway service, PostHog and Sentry projects) idempotently, then wires every secret into .env, GitHub secrets, EAS env and Railway variables. It records IDs in appbox.yaml and never writes secret values to tracked files or chat.
-allowed-tools: "Bash(gh:*), Bash(git:*), Bash(supabase:*), Bash(eas:*), Bash(railway:*), Bash(node:*), Bash(npx:*), Bash(openssl:*), Bash(python3:*), Bash(curl:*), Bash(set:*), Bash(grep:*), Bash(touch:*), Bash(cd:*), Read, Write, Edit, Glob, Grep"
+description: Phase 5 of App in a Box. Creates the cloud resources (GitHub repo, Supabase project and its auth email (custom SMTP, Resend recommended), Expo/EAS project, Railway service, PostHog and Sentry projects, an uptime monitor, nightly encrypted backups) idempotently, then wires every secret into .env, GitHub secrets, EAS env and Railway variables. It records IDs in appbox.yaml and never writes secret values to tracked files or chat.
+allowed-tools: "Bash(gh:*), Bash(git:*), Bash(supabase:*), Bash(eas:*), Bash(railway:*), Bash(node:*), Bash(npx:*), Bash(openssl:*), Bash(age-keygen:*), Bash(mkdir:*), Bash(python3:*), Bash(curl:*), Bash(set:*), Bash(grep:*), Bash(touch:*), Bash(cd:*), Read, Write, Edit, Glob, Grep"
 ---
 
 # Phase 5: Provision
@@ -287,7 +287,98 @@ set -a; . ./.env; set +a; gh secret set CRON_SECRET --body "$CRON_SECRET" && gh 
 Set `CRON_SECRET` on the Railway API service too (step 6's variables). Until both
 sides have it, `/internal/cron/*` answers 503 naming the missing feature.
 
-## 8. Write `.env.example`
+## 8. Ops defaults: uptime monitor, nightly backups, spend caps
+
+Three things that decide whether the first bad night is a blip or a lost week. Each
+takes a few minutes; do them before real users, not after the first outage.
+
+### 8.1 Uptime monitor on `/health`
+
+Ask which, in one line (⚖️ the default is Better Stack, because it reads the body):
+
+> Something should tell you when the API is down. **Better Stack (recommended)**: free,
+> checks `/health` every 3 minutes and alerts when it's down OR degraded. **Sentry
+> Uptime**: no new account if you use Sentry, checks every minute, but only sees "down".
+
+- **Better Stack:** the owner signs up at https://betterstack.com/users/sign-up, then
+  Settings → API tokens → an **Uptime** token, pasted into `.env` as
+  `BETTERSTACK_API_TOKEN` by them.
+- **Sentry Uptime** (only with `stack.errors: sentry`): the `SENTRY_AUTH_TOKEN` from
+  step 3 needs the `alerts:write` scope too.
+
+Confirm with `grep -c '^BETTERSTACK_API_TOKEN=.' .env` (or the Sentry name), never
+printing it. Then, once `API_URL` exists (step 6), create the monitor. The script reads
+the token from the environment, reuses a monitor already watching that URL, and prints
+only `<provider>:<id>`:
+
+```
+set -a; . ./.env; set +a; python3 "$KIT/scripts/uptime_monitor.py" --provider betterstack --api-url "$API_URL" --name "<App name> API"
+```
+
+Sentry: `--provider sentry ... --org <org slug> --project <slug>-api`. Add `--dry-run`
+first to see the request (the token shows as `***`). Better Stack watches
+`/health?deep=1` for `"status":"ok"` (`tests/test_health.py` pins that exact text), so a
+missing env var or an unreachable database pages the owner too, and the database ping
+every 3 minutes keeps a free Supabase project awake. Alerts go to the account's email;
+add the owner's phone in the provider's app if they want calls.
+
+Record `resources.uptime: <provider>:<id>`.
+
+### 8.2 Nightly encrypted backups
+
+`.github/workflows/backup.yml` dumps the database every night (`scripts/backup-db.sh`:
+`supabase db dump` roles + schema + data), encrypts it with age to the owner's PUBLIC
+key, and uploads it to S3-compatible storage. It stays off until
+`BACKUP_AGE_RECIPIENT` is set. Supabase's free plan keeps no backups, and Pro's live in
+the account they'd rescue, so this is on by default. The whole drill:
+`docs/runbooks/backup-restore.md`.
+
+1. **The key pair, outside the repo.** The private key never touches the repo, GitHub,
+   or the transcript; only its public half (`age1...`, not a secret) goes anywhere:
+   ```
+   mkdir -p "$HOME/.config/age" && { [ -f "$HOME/.config/age/<slug>-backup.txt" ] || age-keygen -o "$HOME/.config/age/<slug>-backup.txt" 2>/dev/null; } && age-keygen -y "$HOME/.config/age/<slug>-backup.txt"
+   ```
+   `age-keygen -y` prints only the public key; re-running reuses the existing pair.
+   Then ask the owner to save that file in their password manager now (open it
+   themselves; lose it and every backup is unreadable). No `age`? `brew install age`
+   or `apt install age`.
+2. **The bucket (owner):** Cloudflare R2 (recommended: 10 GB free, no egress fees) →
+   create bucket `<slug>-backups` → Manage API tokens → **Object Read & Write**, scoped
+   to that bucket. They paste the token's access key id and secret into `.env` as
+   `BACKUP_S3_ACCESS_KEY_ID` and `BACKUP_S3_SECRET_ACCESS_KEY`, and tell you the account
+   id. Any S3-compatible store works (Backblaze B2, AWS S3); never Supabase Storage,
+   which would share the database's fate. Also ask them to add a lifecycle rule
+   deleting `db/` objects after 30 days.
+3. **The connection string.** GitHub's runners have no IPv6, so it's the **Session
+   pooler** string (Supabase → Connect → Session pooler), with the password from
+   `.env`:
+   ```
+   set -a; . ./.env; set +a; gh secret set SUPABASE_DB_URL --body "postgresql://postgres.<ref>:${SUPABASE_DB_PASSWORD}@<pooler host>:5432/postgres"
+   ```
+4. **Wire GitHub:**
+   ```
+   set -a; . ./.env; set +a; gh secret set BACKUP_S3_ACCESS_KEY_ID --body "$BACKUP_S3_ACCESS_KEY_ID" && gh secret set BACKUP_S3_SECRET_ACCESS_KEY --body "$BACKUP_S3_SECRET_ACCESS_KEY"
+   ```
+   ```
+   gh variable set BACKUP_S3_BUCKET --body "<slug>-backups" && gh variable set BACKUP_S3_ENDPOINT --body "https://<account id>.r2.cloudflarestorage.com" && gh variable set BACKUP_AGE_RECIPIENT --body "<the age1... public key>"
+   ```
+5. **Prove it:** `gh workflow run backup.yml`, then `gh run watch` until green. The run
+   ends `uploaded s3://<bucket>/db/db-<timestamp>.tar.age`. Then tell the owner the
+   first restore drill is due before launch (`scripts/restore-drill.sh`, runbook above).
+
+Record `resources.backups: {bucket, endpoint, recipient}` (the public key, never the
+private one or its path).
+
+### 8.3 Spend caps and billing alerts (owner)
+
+No agent can set billing limits. Walk the owner through the checklist in the app's
+`COST.md` ("Spend caps and billing alerts"): a hard usage limit on Railway, the spend cap
+on Supabase, a monthly limit on Anthropic if AI is on, a $0 pay-as-you-go budget on
+Sentry and billing limits on PostHog unless they choose otherwise, and one inbox that
+reads every billing email. Ask them to tick each box in `COST.md` as they go, and commit
+it on `chore/appbox-setup`. Record `resources.spend_caps: done` (or the date).
+
+## 9. Write `.env.example`
 
 Same keys as `.env`, empty values, grouped by service with a comment naming where
 each is created. **This file is tracked.** Check it contains no values before
@@ -310,5 +401,7 @@ app's calls were no-ops all along, so no app code changes.
 - `curl -fsS "$API_URL/health"` returns 200 (once deployed), and its
   `features_unavailable` doesn't name "email sign-in (custom SMTP)" unless the owner
   chose to defer it.
+- `resources.uptime` names a monitor, the latest Backup workflow run is green, and the
+  spend-cap boxes in `COST.md` are ticked (or the owner said which to leave).
 
 Set `progress.provision: done`.

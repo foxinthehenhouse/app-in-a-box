@@ -65,11 +65,12 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Outbound calls can't hang a worker or hammer a dead upstream | Kit | `backend/http.py`: mandatory timeout, jittered retries (connect errors; 5xx only when safe to repeat), a circuit breaker per upstream; `tests/test_outbound_http.py` bans bare `httpx`/`requests` in backend/ |
 | Lists page by keyset, not offset | Kit | `backend/pagination.py` `Page[T]` + `keyset()`; `usePagedQuery()` in `mobile/lib/query.ts` |
 | Offline: cached reads, queued writes | Kit | `mobile/lib/query.ts` (persisted TanStack Query, mutations pause offline and replay), `OfflineBanner`; PowerSync tier via `recipe-offline` |
-| Backups | Owner | Free plan: none managed, schedule `supabase db dump`. Pro: daily backups (7 days); add **PITR** for anything with money or irreplaceable user content |
+| **Nightly encrypted backups + a restore drill** | Kit + Owner (bucket, key) | `.github/workflows/backup.yml` runs `scripts/backup-db.sh` (`supabase db dump`, age-encrypted to the owner's public key, to R2/S3), on once provision step 8.2 sets `BACKUP_AGE_RECIPIENT`; `tests/test_backup.py` fails if it could print a secret. Monthly `scripts/restore-drill.sh` per `docs/runbooks/backup-restore.md`. Supabase's free plan keeps none; Pro keeps 7 days; add **PITR** for anything with money or irreplaceable user content |
 | Free-tier pause | Kit | keep-alive workflow + `keep_alive` table |
-| Uptime alert | Owner | Sentry Uptime / Better Stack on `GET /health` every minute, alert on non-200 or `status != ok` |
+| **Uptime alert** | Kit + Owner (account) | provision step 8.1 (`$KIT/scripts/uptime_monitor.py`): Better Stack (recommended, free) watches `/health?deep=1` for `"status":"ok"`, so down and degraded both alert; Sentry Uptime watches `/health` every minute for down. `tests/test_health.py` pins the keyword |
+| **Spend caps and billing alerts** | Owner | the checklist in the app's `COST.md` (provision step 8.3): Railway hard limit, Supabase spend cap, Anthropic monthly limit, Sentry/PostHog budgets, one inbox for billing mail |
 | Alert routing / on-call | Owner | Sentry alert rule: new issue in production + error spike → email/Slack/phone; one named person on call per week, even if it's you |
-| Runbooks | Kit | `docs/runbooks/release.md`, `rollback.md`, `incident.md`, `secrets-rotation.md` |
+| Runbooks | Kit | `docs/runbooks/release.md`, `rollback.md`, `incident.md`, `secrets-rotation.md`, `backup-restore.md` |
 
 ## Release pipeline
 
