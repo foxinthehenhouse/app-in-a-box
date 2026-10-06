@@ -14,7 +14,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Every query scoped by the caller's user id (service key bypasses RLS) | Kit | `backend/AGENTS.md`; filter-honouring fakes in `tests/test_me.py`, `tests/test_prod_fakes.py`; selftest negative controls |
 | RLS on every table; service-only tables revoke anon/authenticated | Kit | `tests/test_prod_migrations.py::test_every_table_enables_rls` |
 | Multi-row writes atomic (Postgres functions, `security definer`, `search_path=''`, service-role only) | Kit | `db.rpc()`, `register_push_token` example, static tests in `test_prod_migrations.py` |
-| Rate limiting on write endpoints, shared across workers | Kit | `backend/ratelimit.py` + `rate_limits` table; `test_rate_limit_holds_across_workers` |
+| Rate limiting on write endpoints, shared across workers | Kit | `backend/ratelimit.py` + `rate_limits` table; `test_rate_limit_holds_across_workers`; a 429 carries `Retry-After` + IETF `RateLimit` / `RateLimit-Policy` |
 | No in-process state (multi-worker) | Kit | `test_backend_keeps_no_in_process_state` |
 | No trailing-slash redirects (RN drops auth on 307) | Kit | `redirect_slashes=False`; `test_trailing_slash_is_not_redirected` |
 | Security headers, HSTS in production, no-store on `/api` | Kit | `backend/middleware.py`; `test_security_headers_on_every_response` |
@@ -59,6 +59,9 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Scheduled jobs, idempotent | Kit | `/internal/cron/*`, `job_runs`; schedule per `docs/runbooks/release.md` |
 | Push notifications (backend) | Kit | `push_service.py`, receipts cron |
 | Push notifications (client) | Kit + Owner (credentials) | `mobile/lib/push.ts` + Settings toggle (contextual ask, register/unregister, tap → route); APNs/FCM credentials per `recipe-push` |
+| Replayed writes run once (idempotency keys) | Kit | `backend/idempotency.py` + `idempotency_keys` (pruned daily); the app mints one `Idempotency-Key` per write and replays it (`mobile/lib/query.ts` `keyed`); `tests/test_idempotency.py` fails any POST under `/api` without `Depends(idempotent())` |
+| Outbound calls can't hang a worker or hammer a dead upstream | Kit | `backend/http.py`: mandatory timeout, jittered retries (connect errors; 5xx only when safe to repeat), a circuit breaker per upstream; `tests/test_outbound_http.py` bans bare `httpx`/`requests` in backend/ |
+| Lists page by keyset, not offset | Kit | `backend/pagination.py` `Page[T]` + `keyset()`; `usePagedQuery()` in `mobile/lib/query.ts` |
 | Offline: cached reads, queued writes | Kit | `mobile/lib/query.ts` (persisted TanStack Query, mutations pause offline and replay), `OfflineBanner`; PowerSync tier via `recipe-offline` |
 | Backups | Owner | Free plan: none managed, schedule `supabase db dump`. Pro: daily backups (7 days); add **PITR** for anything with money or irreplaceable user content |
 | Free-tier pause | Kit | keep-alive workflow + `keep_alive` table |

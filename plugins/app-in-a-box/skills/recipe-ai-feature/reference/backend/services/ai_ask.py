@@ -36,8 +36,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
 
-import httpx
-
+from backend import http as outbound
 from backend.config import FEATURE_CONFIG, env, feature_missing, supabase_url
 from backend.db import rpc
 from backend.observability import current_request_id
@@ -125,16 +124,18 @@ class OpenAICompatibleEmbedder:
         if "voyageai.com" in self.base_url:
             body["input_type"] = kind  # Voyage embeds queries and documents asymmetrically
         try:
-            resp = httpx.post(
+            resp = outbound.post(
+                "embeddings",
                 f"{self.base_url}/embeddings",
                 json=body,
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 timeout=TIMEOUT_S,
+                idempotent=True,  # a pure function of the input: safe to repeat on a 5xx
             )
             resp.raise_for_status()
             rows = sorted(resp.json()["data"], key=lambda r: r["index"])
             vectors = [[float(x) for x in r["embedding"]] for r in rows]
-        except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+        except (outbound.HTTPError, KeyError, TypeError, ValueError) as exc:
             logger.warning("embeddings failed (%s)", type(exc).__name__)
             raise AIUnavailable() from exc
         if len(vectors) != len(texts) or any(len(v) != self.dim for v in vectors):
@@ -195,8 +196,9 @@ class UserDB:
     """PostgREST as the CALLER: their JWT, so RLS applies. The anon/publishable key is
     only the gateway's apikey; the Bearer token decides who is asking."""
 
-    def __init__(self, token: str, transport: httpx.BaseTransport | None = None) -> None:
-        self._client = httpx.Client(
+    def __init__(self, token: str, transport: outbound.Transport | None = None) -> None:
+        self._client = outbound.client(
+            "supabase-rest",
             base_url=f"{supabase_url()}/rest/v1",
             headers={
                 "apikey": env("SUPABASE_ANON_KEY"),
@@ -210,7 +212,7 @@ class UserDB:
         try:
             resp = self._client.post(f"/rpc/{fn}", json=params)
             resp.raise_for_status()
-        except httpx.HTTPError as exc:
+        except outbound.HTTPError as exc:
             logger.warning("retrieval rpc %s failed (%s)", fn, type(exc).__name__)
             raise AIUnavailable() from exc
         return resp.json()
@@ -419,13 +421,15 @@ def send_trace(payload: dict[str, Any]) -> None:
     ).decode()
     host = (env("LANGFUSE_HOST") or "https://cloud.langfuse.com").rstrip("/")
     try:
-        httpx.post(
+        outbound.post(
+            "langfuse",
             f"{host}/api/public/ingestion",
             json=payload,
             headers={"Authorization": f"Basic {auth}"},
             timeout=2.0,
+            attempts=1,  # no retry: a retry's backoff would break the 2 s promise
         )
-    except httpx.HTTPError as exc:
+    except outbound.HTTPError as exc:
         logger.info("trace not sent (%s)", type(exc).__name__)
 
 

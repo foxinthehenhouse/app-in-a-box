@@ -26,6 +26,7 @@ from pydantic import Field
 from backend.auth import CurrentUser, get_current_user
 from backend.config import feature_missing
 from backend.db import get_db
+from backend.idempotency import idempotent
 from backend.ratelimit import rate_limit
 from backend.routers.me import Wire, WireIn
 from backend.services import ai_ask
@@ -126,6 +127,9 @@ def _honest(exc: Exception) -> HTTPException:
         Depends(require_ai),
         Depends(require_retrieval),
         Depends(rate_limit("ai.ask", 10)),
+        # A retried question (same Idempotency-Key) gets the stored answer back instead of
+        # paying for a second model call.
+        Depends(idempotent()),
     ],
 )
 def ask(
