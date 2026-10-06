@@ -64,6 +64,10 @@ jobs:
         # No personal data in analytics payloads or log calls, plus whatever each enabled
         # pack enforces (location, minors, health, ugc, financial, biometric).
         run: python3 scripts/check_guardrails.py
+      - name: Feature flags have an owner and an expiry (mobile/lib/flags.ts, backend/flags.py)
+        # A flag nobody owns, with no date to remove it, lives forever. Expired flags only
+        # warn here (a passing date is not a code change); the `next` skill surfaces them.
+        run: python3 scripts/check_flags.py
       - name: Ruff
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)

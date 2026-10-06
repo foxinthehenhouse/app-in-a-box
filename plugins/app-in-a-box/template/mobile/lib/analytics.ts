@@ -20,6 +20,7 @@
 import * as SecureStore from "expo-secure-store";
 import PostHog from "posthog-react-native";
 
+import { flagDefaults } from "./flags";
 import { packOn } from "./packs";
 import { scrubProps } from "./privacy";
 
@@ -51,6 +52,9 @@ export const posthog: PostHog | null = KEY
       defaultOptIn: !AGE_GATED,
       enableSessionReplay: false,
       sessionReplayConfig: { maskAllTextInputs: true, maskAllImages: true },
+      // Every flag answers with its safe default until PostHog's own answer arrives
+      // (lib/flags.ts); values PostHog sent last session win over these.
+      bootstrap: { featureFlags: flagDefaults() },
     })
   : null;
 

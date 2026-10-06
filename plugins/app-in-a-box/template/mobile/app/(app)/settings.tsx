@@ -7,6 +7,7 @@ import { analytics } from "../../lib/analytics";
 import { changeAnalyticsOptIn, readAnalyticsOptIn } from "../../lib/analytics-optin";
 import { APP } from "../../lib/app";
 import { downloadMyData } from "../../lib/export";
+import { useFlag } from "../../lib/flags";
 import { useT } from "../../lib/i18n";
 import { usePushSetting } from "../../lib/push";
 import { useMe } from "../../lib/query";
@@ -19,6 +20,8 @@ export default function Settings() {
   const toast = useToast();
   const me = useLoaded(useMe());
   const push = usePushSetting();
+  // The kill-push kill switch (lib/flags.ts): the API has stopped sending, so say so.
+  const pushPaused = useFlag("kill-push");
   const { preference, setPreference } = useThemePreference();
   // null until the SDK's persisted choice has been read; the toggle is disabled until then.
   const [optIn, setOptIn] = useState<boolean | null>(null);
@@ -78,8 +81,9 @@ export default function Settings() {
   }
 
   const displayName = me.data?.displayName || t("common.notSet");
-  const pushSubtitle =
-    push.status === "unsupported"
+  const pushSubtitle = pushPaused
+    ? t("settings.pushPaused")
+    : push.status === "unsupported"
       ? t("settings.pushUnsupported")
       : push.status === "denied"
         ? t("settings.pushDenied")
@@ -127,7 +131,7 @@ export default function Settings() {
               <Toggle
                 value={push.status === "enabled"}
                 onValueChange={togglePush}
-                disabled={push.busy || push.status === null || push.status === "unsupported"}
+                disabled={pushPaused || push.busy || push.status === null || push.status === "unsupported"}
                 accessibilityLabel={t("settings.push")}
                 testID="settings-push-switch"
               />
