@@ -41,6 +41,13 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
   and an expiry (`scripts/check_flags.py` fails CI otherwise); kill switches are
   `kill-*`, default off. `FLAG_<NAME>=1` on Railway overrides PostHog.
 
+**The layering is checked.** `lint-imports` (CI python job; locally
+`scripts/dev-venv.sh lint-imports`) runs the contracts in `pyproject.toml`
+`[tool.importlinter]`: `main` → `routers` → `services` → `db` → `config`, never upward
+(indirect chains count), and no `anthropic` / `openai` import outside the one AI module
+named in the fence's `ignore_imports`. A service that needs something from a router
+takes it as an argument or moves it down; a broken contract prints the import and its line.
+
 ## Conventions
 
 - Type hints on every function; Pydantic models at the boundary; Black, line length 100.

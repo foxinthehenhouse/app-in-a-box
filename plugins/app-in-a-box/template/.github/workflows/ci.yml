@@ -1,7 +1,8 @@
 # CI: the merge gate. Required checks for branch protection: `python`, `mobile`.
-#   python: ruff + pyright + pytest with a coverage floor. pytest collects tests/ AND
-#           tests/harness/ (skills, agents, rules, memory, hooks, AGENTS.md, workflows,
-#           JSON/TOML configs), so the agent harness is linted on every PR too.
+#   python: ruff + pyright + lint-imports (architecture boundaries) + pytest with a
+#           coverage floor. pytest collects tests/ AND tests/harness/ (skills, agents,
+#           rules, memory, hooks, AGENTS.md, workflows, JSON/TOML configs), so the
+#           agent harness is linted on every PR too.
 #   mobile: `npm run gates` (tsc + eslint + guard scripts + jest).
 # Sibling workflows: workflow-lint.yml, security.yml, db.yml.
 name: CI
@@ -67,6 +68,9 @@ jobs:
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)
         run: pyright
+      - name: Architecture boundaries (import-linter, contracts in pyproject.toml)
+        # Routers -> services -> db/config, never upward; LLM SDKs only in the AI fence.
+        run: lint-imports
       - name: Pytest (backend + harness lint) with coverage floor
         run: python -m pytest -q --cov --cov-report=term-missing
 
