@@ -130,8 +130,9 @@ The renderer also themes `app.json` from the tokens (splash background per mode,
 `userInterfaceStyle`) and draws a placeholder icon, adaptive icon, splash mark and
 favicon into `mobile/assets/brand/` (the app's initial in `onAccent` on `accent`).
 Drop a real 1024px `design/icon.png` and re-render to use your own.
-`design/tokens.json`, `appbox.yaml`, `BRIEF.md` and the root `README.md` are protected
-and never overwritten. The README is rendered once with a small "Built with App in a
+`design/tokens.json`, `appbox.yaml`, `BRIEF.md`, `privacy/data-map.yaml` and the root
+`README.md` are protected and never overwritten (the renderer only refreshes the map's
+`packs` line and regenerates the privacy answers from it). The README is rendered once with a small "Built with App in a
 Box" badge; it's the owner's to keep or delete. The renderer also generates `mobile/lib/tokens.ts` and the
 Claude/Codex adapters (`.claude/skills`, `.codex/*`).
 
@@ -152,7 +153,13 @@ once that re-running the prototype phase would let them click it first.
 1. **Data model.** Add one migration per BRIEF table, named
    `supabase/migrations/<UTC timestamp>_<name>.sql`, following
    `.agents/rules/db-migrations.md` (RLS, `user_id` FK, rollback comment). If
-   `sensitive_data` includes financial data, money is integer minor units.
+   `sensitive_data` includes financial data, money is integer minor units. Declare
+   every new column in `privacy/data-map.yaml` (category, purpose, retention;
+   `.agents/rules/privacy-data-map.md`), and the new analytics props and permissions
+   from steps 3-4 too, then run `python3 scripts/check_data_map.py --write`: it
+   regenerates the store answers and the policy draft, and CI fails until the map is
+   complete. The renderer already set the map's `packs` from the risk screen
+   (`design/brief.json` → `risk.categories`; `baseline` when there is none).
 2. **Backend.** One router + service per core-loop resource, scoped by `user.id`,
    with `Wire` response models and tests. Copy the pattern in `routers/me.py` and
    `tests/test_me.py`, including the filter-honouring fake.

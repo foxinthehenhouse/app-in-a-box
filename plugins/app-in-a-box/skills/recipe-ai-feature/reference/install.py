@@ -252,6 +252,58 @@ def _read_ai_usage(db: Any, user_id: str, start: int, end: int) -> list[dict[str
         "EMBEDDINGS_API_KEY=\nEMBEDDINGS_BASE_URL=\nEMBEDDINGS_MODEL=\n"
         "# Optional: AI_MODEL, AI_DAILY_TOKEN_CAP; tracing: LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY\n"),
         "document EMBEDDINGS_* and the optional AI vars")  # fmt: skip
+    dm = APP / "privacy" / "data-map.yaml"
+    if dm.is_file():  # an app made before the data map has none to update
+        edit(dm, "  ai_chunks:", data_map, "add the ai_usage / ai_chunks tables and the AI vendors")
+
+
+# privacy/data-map.yaml: the tables the migrations add, and the vendors that now process
+# the user's notes. Each block goes under its top-level section.
+DATA_MAP = {
+    "processors": """  anthropic:
+    role: "answers your questions from your notes (it receives the question and the matching passages)"
+  embeddings:
+    role: "turns your notes into search vectors so the app can find the right passages"
+""",
+    "tables": """  ai_usage:
+    owner: user
+    columns:
+      user_id: {category: identifier, purpose: "counts your daily AI use against the cap", retention: account}
+      day: none
+      input_tokens: {category: usage, purpose: "keep AI costs under the daily cap", retention: account}
+      output_tokens: {category: usage, purpose: "keep AI costs under the daily cap", retention: account}
+  ai_chunks:
+    owner: user
+    columns:
+      id: none
+      user_id: {category: identifier, purpose: "keeps your notes searchable only by you", retention: account}
+      source_id: none
+      title: {category: ugc, purpose: "cite which of your notes an answer came from", retention: account}
+      ord: none
+      content: {category: ugc, purpose: "find the passages of your notes that answer your question", retention: account}
+      embedding: {category: ugc, purpose: "search your notes by meaning (a numeric form of their text)", retention: account}
+      created_at: none
+""",
+}
+
+
+def data_map(t: str) -> str | None:
+    for section, block in DATA_MAP.items():
+        m = re.search(rf"^{section}:[^\n]*\n", t, re.M)
+        if not m:
+            return None
+        line = m.group(0) if m.group(0).strip() == f"{section}:" else f"{section}:\n"
+        t = t[: m.start()] + line + block + t[m.end() :]
+    return t
+
+
+def regenerate_privacy() -> None:
+    gen = APP / "scripts" / "check_data_map.py"
+    if not gen.is_file():
+        return
+    r = subprocess.run([sys.executable, str(gen), "--write"], cwd=APP, capture_output=True, text=True)
+    if r.returncode != 0:
+        todo.append("privacy answers: run `python3 scripts/check_data_map.py --write` and fix what it says")
 
 
 def relock() -> None:
@@ -296,6 +348,7 @@ if __name__ == "__main__":
     reqs = (APP / "requirements.txt").read_bytes() if (APP / "requirements.txt").is_file() else b""
     wire()
     relock()
+    regenerate_privacy()
     if todo:
         print("install.py: copied the files, but make these edits by hand:")
         print("\n".join(f"  - {t}" for t in todo))

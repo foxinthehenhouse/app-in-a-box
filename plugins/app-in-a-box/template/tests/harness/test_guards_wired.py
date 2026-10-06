@@ -191,6 +191,27 @@ def test_design_md_check_runs_in_ci_and_pre_commit() -> None:
     assert not missing, f"`python3 scripts/design_md.py --check` is not run by: {missing}"
 
 
+def data_map_wired(root: Path) -> list[str]:
+    """Where the privacy data map check should run but doesn't. `--write` regenerates the
+    store answers instead of checking them, so a step running that checks nothing."""
+    if not (root / "scripts" / "check_data_map.py").exists():
+        return []
+    places = {"ci.yml": root / ".github" / "workflows" / "ci.yml"}
+    places["pre-commit"] = root / ".githooks" / "pre-commit"
+    missing = []
+    for name, path in places.items():
+        text = path.read_text() if path.is_file() else ""
+        runs = [ln for ln in text.splitlines() if "scripts/check_data_map.py" in ln]
+        if not runs or any("--write" in ln for ln in runs):
+            missing.append(name)
+    return missing
+
+
+def test_data_map_check_runs_in_ci_and_pre_commit() -> None:
+    missing = data_map_wired(ROOT)
+    assert not missing, f"`scripts/check_data_map.py` (the check, not --write) is not run by: {missing}"
+
+
 @pytest.mark.parametrize("wf", WORKFLOWS, ids=lambda p: p.name)
 def test_no_guard_step_is_silently_advisory(wf: Path) -> None:
     found = advisory_steps(yaml.safe_load(wf.read_text()))
@@ -222,6 +243,8 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "tests/harness/test_skills_lint.py",
         "tests/harness/test_hook_scripts.py",
         "tests/harness/test_supply_chain.py",
+        "tests/test_data_map.py",
+        "privacy/data-map.yaml",
         "supabase/tests/database/rls.test.sql",
         "supabase/ci/schema_snapshot.sql",
         "supabase/schema-snapshot.txt",
@@ -328,6 +351,22 @@ def test_unwired_design_md_check_is_caught(tmp_path: Path) -> None:
     assert design_md_wired(tmp_path) == ["ci.yml"]
     ci.write_text("run: python3 scripts/design_md.py --check\n")
     assert design_md_wired(tmp_path) == []
+
+
+def test_unwired_data_map_check_is_caught(tmp_path: Path) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "check_data_map.py").write_text("")
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".githooks").mkdir()
+    ci = tmp_path / ".github" / "workflows" / "ci.yml"
+    hook = tmp_path / ".githooks" / "pre-commit"
+    ci.write_text("run: python scripts/check_data_map.py --write\n")  # regenerates; checks nothing
+    hook.write_text('"$py" scripts/check_data_map.py\n')
+    assert data_map_wired(tmp_path) == ["ci.yml"]
+    ci.write_text("run: python scripts/check_data_map.py\n")
+    assert data_map_wired(tmp_path) == []
+    hook.write_text("echo nothing\n")
+    assert data_map_wired(tmp_path) == ["pre-commit"]
 
 
 @pytest.mark.parametrize(

@@ -73,7 +73,7 @@ option first, and write each answer back (`status: asked`). They always include:
   felt it). Payments themselves are `recipe-payments`.
 - **Store listing**: name, subtitle, keywords and category, written for how the brief's
   `distribution` says the first 100 users will search.
-- **Privacy labels**: the answers drafted in step 3 below, confirmed by the owner.
+- **Privacy labels**: the generated answers in step 3 below, confirmed by the owner.
 - **Support channel**: where users reach a human (an email, a form, a community), which
   becomes the store's support URL.
 
@@ -112,11 +112,13 @@ An unanswered one blocks a store release, not an OTA update.
       `{"confirm":"DELETE"}`); check the app has a Settings screen that calls it. If
       the screen or web URL is missing, this is ❌: file it with `backlog` as `p0` and stop.
 - [ ] **Privacy nutrition label (App Store Connect) / Data safety (Play Console).**
-      Declare what's collected: email (auth), user content (your tables), usage data
-      (PostHog), diagnostics (Sentry), plus whatever `sensitive_data` in `appbox.yaml`
-      lists. Draft the answers from `mobile/lib/analytics.ts`, the migrations and
-      `.env.example`; the owner submits them.
-- [ ] **Privacy policy URL** (required by both stores), and support URL.
+      The answers are generated from `privacy/data-map.yaml`: `privacy/APP_STORE.md`
+      and `privacy/PLAY_DATA_SAFETY.md` (CI fails when they're stale, so they match the
+      code). Walk the owner through them; the owner submits them. The iOS privacy
+      manifest comes from the same map (`expo.ios.privacyManifests` in `mobile/app.json`).
+- [ ] **Privacy policy URL** (required by both stores), and support URL. Start from
+      `privacy/PRIVACY_POLICY.md`, a generated draft: the owner fills in the bracketed
+      parts, has it reviewed (it is not legal advice), and publishes it at a public URL.
 - [ ] **Sign in with Apple** is required on iOS if the app offers any other
       third-party sign-in (e.g. Google).
 - [ ] Listing assets: icon (1024×1024, no transparency), screenshots for each

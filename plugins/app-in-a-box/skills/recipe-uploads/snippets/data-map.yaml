@@ -1,0 +1,16 @@
+# Three blocks for privacy/data-map.yaml, one per section (apply.py splits on the
+# `## <section>` lines and inserts each under that top-level key).
+## tables
+  uploads:
+    owner: user
+    columns:
+      id: none
+      user_id: {category: identifier, purpose: "ties each photo to your account", retention: account}
+      path: {category: ugc, type: photos, purpose: "find the photos you upload (the files live in a private storage bucket)", retention: account}
+      content_type: none
+      size_bytes: none
+      created_at: none
+## analytics
+  image_uploaded: {props: {success: usage, error_code: diagnostics, duration_ms: usage, attempt: usage}}
+## permissions
+  photos: "choose photos from your library to upload"
