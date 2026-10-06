@@ -28,9 +28,10 @@ not against your own preferences.
    labelled button; content that replaces the screen is announced.
 3. **testIDs.** `{screen}-{component}-{qualifier}` on anything a Maestro flow would
    touch.
-4. **States.** Loading is a skeleton, empty is an `EmptyState` with one next step,
-   error says what happened and offers a way forward; no placeholder numbers rendered
-   as if they were the user's data.
+4. **States and craft.** Loading is a skeleton, empty is an `EmptyState` with one next
+   step, error says what happened and offers a way forward; no placeholder numbers
+   rendered as if they were the user's data. Hold each new screen to the rows of
+   `docs/design/CRAFT.md` (the `craft-reviewer` grades its screenshots; you grade the code).
 5. **Copy and taste.** Strings go through `t()` and `locales/en.ts`; buttons are
    verbs; one primary action per screen; no emoji as UI; the Voice section of
    `AGENTS.md`. Run TASTE.md's three diagnostics (squint, delete the icons,

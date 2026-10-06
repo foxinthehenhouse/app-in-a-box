@@ -33,3 +33,6 @@ mobile/android/
 
 # skill eval outputs
 .agents/evals/results/
+
+# review screenshots (scripts/screenshots.sh)
+.appbox/

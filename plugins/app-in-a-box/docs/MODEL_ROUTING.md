@@ -7,7 +7,7 @@ model where a wrong answer is expensive, and the cheap one where the work is sor
 | Tier | Claude Code value | Used for | Roles |
 |---|---|---|---|
 | Fable 5.1 | `model: fable`, `effort: high` | Final ruling on calls that are expensive to reverse (risky merges, migrations, locked specs). One call per decision, never for volume. | `chair` |
-| Opus 5.5 | `model: opus` | Orchestration, judgement, review verdicts, specs | `correctness-reviewer` (high), `lead-engineer` (high), `product-manager` (medium) |
+| Opus 5.5 | `model: opus` | Orchestration, judgement, review verdicts, specs | `correctness-reviewer` (high), `lead-engineer` (high), `product-manager` (medium), `craft-reviewer` (medium: grades screenshots, so it needs vision and taste) |
 | Sonnet 5 | `model: sonnet`, `effort: medium` | Building and focused review | `mobile-engineer`, `qa-engineer`, `ux-designer`, `growth`, `design-a11y-reviewer` |
 | Haiku 4.5 | `model: haiku`, `effort: low` | Cheap sweeps: CI-log and lint triage, dependency PRs, capture summaries, signal gathering for `next` | `triage` |
 

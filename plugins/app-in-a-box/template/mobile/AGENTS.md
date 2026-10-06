@@ -121,6 +121,9 @@ template says src/app; this kit doesn't use it).
   Compiler is ON** (`experiments.reactCompiler` in app.json, `babel-plugin-react-compiler`
   installed by the kit; ⚖️ Kyle 2026-10-02): keep components pure, no mutation of values
   during render, and let the compiler memoise instead of hand-written `useMemo`.
+- **The craft bar is `../docs/design/CRAFT.md`**: what each screen owes the user, and
+  which component delivers it. `../scripts/screenshots.sh [route…]` shoots the real
+  screens in light and dark (web export, demo mode); review grades those against it.
 - **Every tap goes through `PressableScale`** (or a component built on it): press
   scale + tint + a haptic on press-in. Haptic by commitment: `selection` (chips,
   toggles) → `light` (rows, secondary) → `medium` (primary action) → `success`
@@ -209,7 +212,11 @@ template says src/app; this kit doesn't use it).
 `check-hardcoded-strings` + `check-design-tells` (bounce curves, a Card in a Card,
 side-stripe borders, hard shadows, gradient text, emoji as icons: the generic-design
 tells in `docs/design/TASTE.md`; a deliberate exception ends its line with
-`// design-ignore: <why>`) + `check-test-presence` + the guard self-tests
+`// design-ignore: <why>`; also a bare `Pressable`/`Touchable*` outside `components/ui`) +
+`check-screen-states` (a data screen under `app/(app)/` renders `Skeleton`, `ErrorNotice`
+and `EmptyState`, or says why in a `// states: <why>` comment) + `check-copy` (the voice
+rules in TASTE.md's Copy section over `locales/`; waivers go in the locale's `_copyIgnore`
+map with a reason) + `check-test-presence` + the guard self-tests
 (`node --test scripts/__tests__/*.test.js`: each guard passes on the template and fails
 on a planted violation, so a guard that stops firing fails the gate) +
 `check_contrast.py` and `check_design.py` (overused fonts, pure-grey neutrals, the

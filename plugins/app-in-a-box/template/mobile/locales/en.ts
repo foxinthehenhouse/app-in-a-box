@@ -50,7 +50,7 @@ export const en = {
     settings: "Settings",
   },
   errorBoundary: {
-    title: "Something went wrong",
+    title: "This screen couldn't load",
     body: "The app hit a problem it couldn't recover from on its own. Your data is safe.",
     retry: "Try again",
     retryLabel: "Try loading the screen again",
@@ -164,6 +164,18 @@ export const en = {
     deleted: "Your account has been deleted.",
     failed: "Couldn't delete your account. Nothing was removed.",
   },
+} as const;
+
+/**
+ * Waivers for scripts/check-copy.js (the copy voice lint): key path -> why this string
+ * may break a rule. Keep each reason specific; an empty one waives nothing.
+ * @public Read by scripts/check-copy.js, not imported.
+ */
+export const _copyIgnore = {
+  "errors.reference": "a label for the support code; it sits under the error message that carries the next step",
+  "validation.typeDelete": "DELETE is the literal word the user types to confirm",
+  "deleteAccount.confirmLabel": "DELETE is the literal word the user types to confirm",
+  "home.emptyBody": "scaffold placeholder naming the brief's file; the scaffold replaces this screen",
 } as const;
 
 type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };

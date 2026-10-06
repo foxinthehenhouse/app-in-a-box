@@ -2,7 +2,7 @@
 name: build-feature
 description: Implement an approved feature spec end to end on its own branch/worktree. Migration → backend endpoint + tests → mobile adapter + screen + analytics → gates → E2E flow → PR → review. Use after feature-discovery has produced an approved spec, or when asked to build a specced ticket.
 argument-hint: "<spec path or ticket id>"
-allowed-tools: "Bash(git:*), Bash(gh:*), Bash(scripts/dev-venv.sh:*), Bash(npm:*), Bash(npx:*), Bash(maestro:*), Bash(cd:*), Read, Glob, Grep, Edit, Write"
+allowed-tools: "Bash(git:*), Bash(gh:*), Bash(scripts/dev-venv.sh:*), Bash(scripts/screenshots.sh:*), Bash(npm:*), Bash(npx:*), Bash(maestro:*), Bash(cd:*), Read, Glob, Grep, Edit, Write"
 ---
 
 # Build feature
@@ -30,6 +30,13 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
    `risk`, add the misuse case it asks for, and regenerate `docs/product/RISK.md`. The
    answers usually change the design (who consents, who sees what, how long it's kept),
    and `ship` refuses while any stays open.
+0b. **States table, or stop.** Every screen in the spec's UX section needs a states
+   table with all five rows: loading, empty, error, offline, success. A missing table
+   or row is a product call the spec didn't settle, so stop at planning: write no code
+   and put it to the owner in one structured question (per the Ask the owner section
+   below): "Fill the missing states now (Recommended; I'll draft them from
+   `docs/design/CRAFT.md` for your yes)", "Re-run `feature-discovery`", or "you pick".
+   Write the answer into the spec, then go on.
 1. **Branch:** `new-worktree` skill → `feat/<ticket>-<slug>`.
 2. **Tests first where it's cheap:** write the FR→TC tests from the spec's test plan
    (backend pytest; pure mobile logic in jest). Watch them fail.
@@ -37,8 +44,9 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
 4. **Backend:** service (pure logic) → router (I/O, `get_current_user`, scoped by
    `user.id`) → `Wire` response model. `scripts/dev-venv.sh python -m pytest -q`.
 5. **Mobile:** `*Wire` type + adapter in `lib/api.ts` → screen from `components/ui`
-   primitives + theme tokens → analytics helpers (view event, success+failure) → honest
-   loading/empty/error states → testIDs. `cd mobile && npm run gates`. Build to
+   primitives + theme tokens → analytics helpers (view event, success+failure) → the
+   states from the spec's table → testIDs, against `docs/design/CRAFT.md`.
+   `cd mobile && npm run gates`. Build to
    `docs/DEFAULTS.md` unless the spec or the ledger overrides it: ask for a permission
    only from the moment it's useful, after the payoff; a notification goes out at most
    once a day, never in quiet hours (9pm to 8am local), and points at the core loop.
@@ -62,6 +70,14 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
    command output). Then run the `land` skill, which reviews (`pr-review`), fixes, waits on CI
    and merges. After it merges, run `next`.
 
+## Definition of done
+
+Gates green and the E2E flow written (steps 5–6); every row of the spec's states table
+on screen; each row of `docs/design/CRAFT.md` met or its gap named in the PR (one
+primary action, an empty state that teaches, skeletons, press feedback, optimistic +
+undoable, motion that explains, the spacing rhythm, no dead ends, the house voice);
+and you've looked at each new screen in light and dark (`scripts/screenshots.sh`).
+
 ## Never
 
 - Weaken or delete a test to get green.
@@ -73,4 +89,4 @@ Input: an approved spec in `docs/product/specs/`. No spec means you run
 
 ## Ask the owner
 
-Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Anything the spec didn't settle that a user would notice: an extra state or screen, cutting an acceptance criterion, copy, a default value, a limitation you'd ship with. Stop and ask before building it, not in the PR afterwards. Pure implementation choices stay yours.
+Follow `.agents/rules/product-judgement.md`: ask with a structured question (recommended option first), never decide these silently. In this skill that means: Anything the spec didn't settle that a user would notice: a missing states table (step 0b), an extra state or screen, cutting an acceptance criterion, copy, a default value, a limitation you'd ship with. Stop and ask before building it, not in the PR afterwards. Pure implementation choices stay yours.

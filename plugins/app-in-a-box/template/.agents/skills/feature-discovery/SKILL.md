@@ -29,10 +29,17 @@ the three views one after another.
 
 - **Product:** what user problem, which step of the core loop, how we'll know it
   worked (which event moves which metric), what's explicitly out of scope.
-- **Design:** the screens/states (loading, empty, error, success), copy in the
-  project's voice, accessibility notes, judged against `docs/design/TASTE.md` (the
-  rubric the prototype passed). For a real UI fork, render 2 options as HTML mockups
+- **Design:** the screens and a states table for each (loading, empty, error,
+  offline, success), copy in the project's voice, accessibility notes, judged against
+  `docs/design/TASTE.md` (the rubric the prototype passed) and `docs/design/CRAFT.md`
+  (the bar every screen clears). For a real UI fork, render 2 options as HTML mockups
   and ask the owner. Don't pick silently.
+- **References:** 3–5 named reference screens per flow, so "good" is concrete. With
+  the Mobbin MCP connected, search it for the flow (`search_flows`, `search_screens`)
+  and cite each screen's app and link. Without it, name real apps and the screen
+  ("Things 3, the empty Today list") from memory, marked unverified. Either way, say
+  in one line what to take from each (the empty state's single action, the skeleton's
+  shape) and what not to copy.
 - **Engineering:** data model changes (additive migration + RLS), endpoints (wire
   shape, auth, `user_id` scoping), mobile adapter, analytics events (success +
   failure), env vars/feature config, test plan, risks.
@@ -45,7 +52,11 @@ the three views one after another.
 # <Feature>  (<ticket>)
 ## Problem & outcome   (who, what changes for them, metric)
 ## Scope / Out of scope
-## UX                  (screens + states; mockup link if any)
+## UX                  (screens; mockup link if any; per screen a states table:
+                        | State | What the user sees | Copy key |
+                        rows loading, empty, error, offline, success; build-feature
+                        stops at planning without it)
+## References          (3–5 reference screens per flow: app + screen + what to take)
 ## Data & API          (migration, endpoint + request/response shape, Wire type)
 ## Analytics           (event names + props, success+failure pairs)
 ## Requirements        FR-01… each testable

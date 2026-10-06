@@ -26,6 +26,8 @@ function pushSubtitleKey(paused: boolean, status: PushStatus | null) {
 export default function Settings() {
   const t = useT();
   const toast = useToast();
+  // states: a settings list always has rows. The profile row shows a skeleton while it loads and
+  // "Not set" if the load fails or is empty; pull to refresh retries. Every other row is local.
   const me = useLoaded(useMe());
   const push = usePushSetting();
   // The kill-push kill switch (lib/flags.ts): the API has stopped sending, so say so.

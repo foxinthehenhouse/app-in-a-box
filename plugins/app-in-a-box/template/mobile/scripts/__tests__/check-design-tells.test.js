@@ -73,3 +73,17 @@ test("a reasoned design-ignore waives one line; a bare one does not", () => {
   const bare = "const s = { borderLeftWidth: 3 }; // design-ignore:\n";
   assertRefuses(runOnTree(GUARD, { "components/ui/Timeline.tsx": bare }), /side-stripe/, "bare ignore");
 });
+
+test("refuses a raw Pressable or Touchable in a screen (no press feedback)", () => {
+  const code = 'import { Pressable } from "react-native";\n<Pressable onPress={save} accessibilityRole="button">\n  <Body>{t("x")}</Body>\n</Pressable>\n';
+  assertRefuses(runOnTree(GUARD, { "app/(app)/home.tsx": code }), /home.tsx:2: raw-pressable: a bare <Pressable>/, "raw Pressable");
+  const touch = "<TouchableOpacity onPress={open}><Icon sf=\"plus\" md=\"add\" /></TouchableOpacity>\n";
+  assertRefuses(runOnTree(GUARD, { "components/RunCard.tsx": touch }), /raw-pressable: a bare <TouchableOpacity>/, "TouchableOpacity");
+});
+
+test("the ui kit may build on Pressable, and a reasoned design-ignore waives a screen", () => {
+  const kit = "<Pressable onPressIn={pressIn} style={s.base}>{children}</Pressable>\n";
+  assertPasses(runOnTree(GUARD, { "components/ui/PressableScale.tsx": kit }), "ui kit");
+  const waived = "<Pressable onPress={dismiss} accessible={false} style={s.scrim} /> // design-ignore: backdrop, not a control\n";
+  assertPasses(runOnTree(GUARD, { "app/(app)/home.tsx": waived }), "reasoned ignore");
+});

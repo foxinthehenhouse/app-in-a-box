@@ -16,7 +16,7 @@ the app `check_design.py` (tokens) and `check-design-tells.js` (code) in `npm ru
    not by the mechanism ("Analytics").
 5. **Honest states.** Loading shows shape (a skeleton), empty says what to do next,
    errors say what happened and offer a way forward. Never fake data. *(lint: every
-   list has an empty state)*
+   list has an empty state; in the app, every data screen renders all three)*
 6. **Scope is a design tool.** v1 is the core loop done beautifully. Optional features
    stay as toggles until someone can say what they'd measure.
 7. **The screenshot test.** Is there a moment a user would screenshot and send to a
@@ -103,6 +103,19 @@ Android's skin).
 Buttons are verbs. Empty states are one helpful line. The users' words, not the
 founder's internal names. Warm and competent; no guilt, no hype, no jargon. Real
 sample content from their domain, never lorem. *(lint: no lorem, TODO or xxx)*
+
+In the app, `check-copy.js` holds every string in `locales/` to these *(lint)*:
+
+- **No filler or blame:** never "Oops", "Whoops", "Error occurred", "Please note" or
+  "Invalid" (say what a good value looks like). Never "Click": people tap, so name the
+  action. "Something went wrong" only with a next step after it.
+- **Errors say what happened and what to do.** An error string (a key with `error` or
+  `failed` in its path) gives a reason ("couldn't reach the server") or a next step
+  ("Check your connection and try again"), ideally both.
+- **No shouting:** no ALL CAPS word over three letters, except real acronyms (JSON,
+  GDPR). No "!!" anywhere, and no "!" in an error: a failure isn't exciting.
+- A deliberate exception (the word DELETE a user must type) goes in the locale's
+  `_copyIgnore` map with its reason.
 
 ## Three diagnostics (run them on every key screen)
 

@@ -1,7 +1,7 @@
 ---
 name: pr-review
 description: Review a pull request on the owner's behalf and fix what's safe to fix. Runs the deterministic gates first, then correctness/security, design-system, accessibility and analytics review passes, verifies each blocking finding, applies safe fixes, re-checks, and ends with a plain-English verdict. Use when a PR is opened, when asked to review a PR, a branch or a pasted diff, or before merging anything.
-allowed-tools: "Bash(gh:*), Bash(git:*), Bash(scripts/dev-venv.sh:*), Bash(npm:*), Bash(cd:*), Read, Glob, Grep, Edit, Write"
+allowed-tools: "Bash(gh:*), Bash(git:*), Bash(scripts/dev-venv.sh:*), Bash(scripts/screenshots.sh:*), Bash(npm:*), Bash(cd:*), Read, Glob, Grep, Edit, Write"
 ---
 
 # PR review: the gate before main
@@ -61,6 +61,28 @@ breaks · for whom`.
    wrong? (Negative-control one important test mentally: delete the key line, and
    does anything go red?)
 
+## 2b. Screenshot critique (UI PRs; advisory)
+
+When the diff touches `mobile/app/` or `mobile/components/` (both review routes: the
+workflow doesn't take screenshots, so run this after it):
+
+1. `scripts/screenshots.sh --changed origin/<base> --out .appbox/shots/<short sha>`.
+   It exports the app for web in demo mode, signs in, and writes `light-<route>.png`
+   and `dark-<route>.png` at 390x844 for each changed route (a component change
+   reshoots them all). Exit 3 means no Playwright here: take the same shots with your
+   browser tool (a Playwright, DevTools or Chrome MCP, Codex's browser) instead. A
+   route that crashed or never rendered is a finding in itself.
+2. Spawn `craft-reviewer` with the PNG paths and the spec's path. In Codex, follow
+   `.agents/agents/craft-reviewer.md` yourself; you can read images.
+3. Attach the shots: show them to the owner in the session, and list the files under
+   "Craft" in the verdict. A CI review that can't build the app or launch a browser
+   says "Craft: not shot here" rather than grading from code.
+
+⚖️ The craft score and its must-fix items are **advisory**: they go in the verdict under
+"Craft", never count as blockers, and never stop an auto-merge. Only the mechanical
+gates block (`check-screen-states`, `check-copy`, `check-design-tells`). A product call
+the critique raises (copy, a flow, a cut state) is a ⚖️ question like any other.
+
 ## 3. Verify before you believe
 
 For every blocker/major: re-read the code path and try to disprove the finding.
@@ -92,6 +114,7 @@ What I fixed: <bullets or "nothing">
 What's left: <blockers with file:line, or "nothing">
 Risk: low | medium | high, because <reason>
 Chair: <MERGE/ESCALATE + its three reasons, or "not needed (low risk)">
+Craft: <score + must-fix items + screenshot files (advisory), or "no UI change">
 <!-- appbox-verdict sha=<full head sha you reviewed> result=safe|owner|not-ready -->
 ```
 

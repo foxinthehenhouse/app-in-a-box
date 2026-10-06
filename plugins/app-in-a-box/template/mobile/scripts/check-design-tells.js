@@ -16,6 +16,9 @@
  *   gradient-text     text filled with a gradient (MaskedView over a LinearGradient).
  *   emoji-ui          an emoji standing in for an icon, bullet or heading: a string
  *                     that starts with one, or one in an icon/title/label value.
+ *   raw-pressable     a bare <Pressable> or <Touchable*> outside components/ui/: no
+ *                     press scale, no haptic, no pressed tint (docs/design/CRAFT.md).
+ *                     Build taps from PressableScale, Button, IconButton or ListRow.
  *
  * Pragmatic regexes, not a parser: it runs with no node_modules (the kit selftest
  * calls it on a fresh render). Escape hatch, with a reason the reviewer can judge:
@@ -31,6 +34,8 @@ const ROOT = path.resolve(__dirname, "..");
 const DIRS = ["app", "components", "lib", "locales"];
 const EMOJI = "\\p{Extended_Pictographic}";
 const IGNORE = /\/\/\s*design-ignore:\s*\S/;
+// The ui kit is where the press feedback is built, so it may hold the raw primitive.
+const RAW_PRESS = /<(Pressable|Touchable(Opacity|Highlight|WithoutFeedback|NativeFeedback))\b/;
 
 const LINE_RULES = [
   [/\bEasing\.(bounce|elastic|back)\b/, "bounce-easing", "a bounce/elastic/back curve (content decelerates; use lib/motion.ts)"],
@@ -79,7 +84,8 @@ function cardTags(text) {
 
 const hits = [];
 for (const file of DIRS.flatMap((d) => walk(path.join(ROOT, d)))) {
-  const rel = path.relative(ROOT, file);
+  const rel = path.relative(ROOT, file).split(path.sep).join("/");
+  const inKit = rel.startsWith("components/ui/");
   const text = fs.readFileSync(file, "utf8");
   const lines = text.split("\n");
   const ignored = (n) => IGNORE.test(lines[n - 1] || "");
@@ -88,6 +94,8 @@ for (const file of DIRS.flatMap((d) => walk(path.join(ROOT, d)))) {
     for (const [re, rule, why] of LINE_RULES) {
       if (re.test(line)) hits.push(`${rel}:${i + 1}: ${rule}: ${why}`);
     }
+    const raw = !inKit && line.match(RAW_PRESS);
+    if (raw) hits.push(`${rel}:${i + 1}: raw-pressable: a bare <${raw[1]}> has no press feedback (use PressableScale, Button or ListRow)`);
     const bz = line.match(/\bEasing\.bezier\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/);
     if (bz && [bz[2], bz[4]].some((y) => Number(y) < -0.1 || Number(y) > 1.1)) {
       hits.push(`${rel}:${i + 1}: bounce-easing: Easing.bezier(${bz.slice(1).join(", ")}) overshoots its end`);
@@ -109,7 +117,7 @@ for (const file of DIRS.flatMap((d) => walk(path.join(ROOT, d)))) {
 }
 
 if (hits.length) {
-  console.error("check-design-tells FAILED (docs/design/TASTE.md, Anti-slop list):\n  - " + hits.join("\n  - "));
+  console.error("check-design-tells FAILED (docs/design/TASTE.md Anti-slop list, docs/design/CRAFT.md):\n  - " + hits.join("\n  - "));
   console.error("A deliberate exception? End the line with `// design-ignore: <why>`.");
   process.exit(1);
 }

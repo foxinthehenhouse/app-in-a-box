@@ -173,7 +173,7 @@
   "owner_asks": {
     "_comment": "Skills and subagent roles that reach product-judgement calls (.agents/rules/product-judgement.md). tests/harness/test_owner_asks.py fails if a listed skill loses its '## Ask the owner' step or a listed role stops returning ⚖️ QUESTION blocks. Removing an entry is a harness change: say why in the PR.",
     "skills": ["feature-discovery", "build-feature", "pr-review", "land", "backlog", "next", "ship", "north-star-report", "market-watch", "routines", "incident"],
-    "agents": ["product-manager", "ux-designer", "growth", "chair"]
+    "agents": ["product-manager", "ux-designer", "growth", "chair", "craft-reviewer"]
   },
   "complexity_budget": {
     "_comment": "An ACCRETION ALARM, not a dismantle mandate. Over budget means harness-optimize owes a deliberate look for something to retire, never an automatic removal. Protected components are exempt and memory is never auto-pruned. Limits sit above the template baseline so they fire on growth; raising one is fine when it is deliberate and logged in CHANGELOG.md.",
