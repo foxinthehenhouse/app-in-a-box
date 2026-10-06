@@ -22,7 +22,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "check_guardrails.py"
 _spec = importlib.util.spec_from_file_location("check_guardrails", SCRIPT)
-assert _spec and _spec.loader
+assert _spec
+assert _spec.loader
 guard = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(guard)
 
@@ -134,7 +135,7 @@ def test_analytics_helper_with_an_email_is_caught(app: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "args, needle",
+    ("args", "needle"),
     [
         (
             '"home", { lat: pos.coords.latitude }',
@@ -218,7 +219,7 @@ def test_a_removed_scrubber_is_caught(app: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "pack, key, needle",
+    ("pack", "key", "needle"),
     [
         ("health", "heart_rate", "looks like a health value"),
         ("financial", "balance", "looks like a financial value"),
@@ -452,12 +453,14 @@ def test_mobile_scrubber_covers_every_lint_category() -> None:
         assert guard.classify(s, every), s
         assert scrub.search(s), f"lib/privacy.ts SENSITIVE_KEY does not strip `{s}`"
     for s in ["screen", "route", "duration_ms", "error_code", "page"]:
-        assert not guard.classify(s, every) and not scrub.search(s), s
+        assert not guard.classify(s, every), s
+        assert not scrub.search(s), s
     # a measure of the value is not the value (both sides skip it; MEASURE is mirrored)
     for s in ["query_length", "note_count", "has_email"]:
         assert not guard.classify(s, every), s
     measure_ts = re.search(r"const MEASURE = /(.+)/;", ts)
-    assert measure_ts and measure_ts.group(1) == guard.MEASURE.pattern
+    assert measure_ts
+    assert measure_ts.group(1) == guard.MEASURE.pattern
 
 
 # ---- Semgrep is wired, pinned and tested -------------------------------------------
@@ -469,7 +472,8 @@ def test_semgrep_runs_pinned_with_its_own_tests() -> None:
     sec = yaml.safe_load((ROOT / ".github/workflows/security.yml").read_text())
     runs = "\n".join(str(s.get("run") or "") for s in sec["jobs"]["semgrep"]["steps"])
     assert "--require-hashes -r requirements-semgrep.lock" in runs
-    assert "semgrep --test" in runs and ".semgrep/backend.py" in runs
+    assert "semgrep --test" in runs
+    assert ".semgrep/backend.py" in runs
     assert re.search(r"semgrep scan --config \.semgrep/backend\.yml --error .*backend", runs)
 
 

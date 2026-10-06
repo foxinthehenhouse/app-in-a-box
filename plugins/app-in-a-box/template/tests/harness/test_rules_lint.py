@@ -152,7 +152,8 @@ def test_match_rule_stays_quiet_when_the_edit_is_not_about_it(tmp_path: Path) ->
     loud = run_hook(
         target, ROOT, tmp_path / "loud", "create table t (id uuid, contact_email text);"
     )
-    assert "privacy-columns.md" in loud and "`contact_email text`" in loud
+    assert "privacy-columns.md" in loud
+    assert "`contact_email text`" in loud
 
 
 def test_match_rule_without_a_matching_example_is_caught(tmp_path: Path) -> None:

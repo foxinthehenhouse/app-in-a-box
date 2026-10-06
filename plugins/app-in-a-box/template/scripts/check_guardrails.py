@@ -223,13 +223,11 @@ def _strip_js(text: str) -> str:
         return re.sub(r"[^\n]", " ", m.group(0))
 
     def template(m: re.Match[str]) -> str:
-        body = m.group(0)
-        keep = re.sub(
+        return re.sub(
             r"\$\{([^}]*)\}|[^\n]",
             lambda x: x.group(1) or (" " if x.group(0) != "\n" else "\n"),
-            body,
+            m.group(0),
         )
-        return keep
 
     text = re.sub(r"/\*.*?\*/", blank, text, flags=re.S)
     text = re.sub(r"(?<![:\\])//[^\n]*", blank, text)
@@ -324,49 +322,62 @@ def mapped_columns(data_map: dict) -> dict[str, dict[str, str]]:
 # ---- baseline ----------------------------------------------------------------------
 
 
+def _analytics_helper_keys(root: Path, packs: set[str]) -> list[str]:
+    """The object keys inside lib/analytics.ts's `analytics = {...}` (helper names aside)."""
+    problems: list[str] = []
+    src = _read(root, ANALYTICS_TS)
+    if not src:
+        return problems
+    lines = src.splitlines()
+    code = _strip_js(src)
+    m = re.search(r"export\s+const\s+analytics\s*=\s*\{", code)
+    if not m:
+        return problems
+    start = m.end() - 1
+    block = code[start : _balanced(code, start, "{", "}")]
+    helpers = set(re.findall(r"^\s{2}(\w+)\s*:\s*\(", block, re.M))
+    for km in re.finditer(r"(\w+)\s*\??\s*:", block):
+        name = km.group(1)
+        if name in helpers:
+            continue
+        hit = classify(name, packs)
+        lineno = code.count("\n", 0, start + km.start()) + 1
+        if hit and not waived(lines, lineno, hit[0]):
+            problems.append(
+                f"[{hit[0]}] {ANALYTICS_TS}:{lineno}: analytics payload key `{name}` "
+                f"looks like {hit[1]}; send an id, a count or a category instead"
+            )
+    return problems
+
+
+def _analytics_call_args(rel: str, text: str, packs: set[str]) -> list[str]:
+    """The identifiers passed to any `analytics.*(...)` call in one file."""
+    problems: list[str] = []
+    lines, code = text.splitlines(), _strip_js(text)
+    for cm in re.finditer(r"\banalytics\.\w+\s*\(", code):
+        args = code[cm.end() - 1 : _balanced(code, cm.end() - 1)]
+        seen: set[str] = set()
+        for im in re.finditer(r"[A-Za-z_]\w*", args):
+            name = im.group(0)
+            hit = classify(name, packs)
+            lineno = code.count("\n", 0, cm.end() - 1 + im.start()) + 1
+            if hit and name not in seen and not waived(lines, lineno, hit[0]):
+                seen.add(name)
+                problems.append(
+                    f"[{hit[0]}] {rel}:{lineno}: `{name}` passed to analytics looks like "
+                    f"{hit[1]}; analytics gets ids, counts and categories, never the value"
+                )
+    return problems
+
+
 def analytics_pii(root: Path, packs: set[str]) -> list[str]:
     """Personal data in an analytics payload: in a helper's parameters or object keys in
     lib/analytics.ts, or in the arguments of any `analytics.*(...)` call."""
-    problems: list[str] = []
-    src = _read(root, ANALYTICS_TS)
-    if src:
-        lines = src.splitlines()
-        code = _strip_js(src)
-        m = re.search(r"export\s+const\s+analytics\s*=\s*\{", code)
-        if m:
-            start = m.end() - 1
-            block = code[start : _balanced(code, start, "{", "}")]
-            helpers = set(re.findall(r"^\s{2}(\w+)\s*:\s*\(", block, re.M))
-            for km in re.finditer(r"(\w+)\s*\??\s*:", block):
-                name = km.group(1)
-                if name in helpers:
-                    continue
-                hit = classify(name, packs)
-                lineno = code.count("\n", 0, start + km.start()) + 1
-                if hit and not waived(lines, lineno, hit[0]):
-                    problems.append(
-                        f"[{hit[0]}] {ANALYTICS_TS}:{lineno}: analytics payload key `{name}` "
-                        f"looks like {hit[1]}; send an id, a count or a category instead"
-                    )
+    problems = _analytics_helper_keys(root, packs)
     for path in _files(root, MOBILE_DIRS, (".ts", ".tsx")):
         rel = _rel(root, path)
-        if rel == ANALYTICS_TS:
-            continue
-        text = path.read_text(encoding="utf-8")
-        lines, code = text.splitlines(), _strip_js(text)
-        for cm in re.finditer(r"\banalytics\.\w+\s*\(", code):
-            args = code[cm.end() - 1 : _balanced(code, cm.end() - 1)]
-            seen: set[str] = set()
-            for im in re.finditer(r"[A-Za-z_]\w*", args):
-                name = im.group(0)
-                hit = classify(name, packs)
-                lineno = code.count("\n", 0, cm.end() - 1 + im.start()) + 1
-                if hit and name not in seen and not waived(lines, lineno, hit[0]):
-                    seen.add(name)
-                    problems.append(
-                        f"[{hit[0]}] {rel}:{lineno}: `{name}` passed to analytics looks like "
-                        f"{hit[1]}; analytics gets ids, counts and categories, never the value"
-                    )
+        if rel != ANALYTICS_TS:
+            problems += _analytics_call_args(rel, path.read_text(encoding="utf-8"), packs)
     return problems
 
 
@@ -395,48 +406,65 @@ _LOGGERS = {"logger", "log", "logging", "_logger", "_log", "LOGGER", "LOG"}
 _LOG_KWARGS = {"exc_info", "stack_info", "stacklevel"}
 
 
+def _is_log_call(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in _LOG_LEVELS
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id in _LOGGERS
+    )
+
+
+def _node_names(sub: ast.AST) -> list[str]:
+    """The names one AST node contributes: a variable, an attribute, or a dict's str keys."""
+    if isinstance(sub, ast.Name):
+        return [sub.id]
+    if isinstance(sub, ast.Attribute):
+        return [sub.attr]
+    if isinstance(sub, ast.Dict):
+        return [
+            k.value for k in sub.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)
+        ]
+    return []
+
+
+def _logged_names(call: ast.Call) -> list[str]:
+    """Every name in a log call's arguments (exc_info and friends aside), first-seen order."""
+    names: list[str] = []
+    for arg in [*call.args, *(k.value for k in call.keywords if k.arg not in _LOG_KWARGS)]:
+        for sub in ast.walk(arg):
+            names += _node_names(sub)
+    return list(dict.fromkeys(names))
+
+
+def _logs_pii_file(rel: str, text: str, packs: set[str]) -> list[str]:
+    problems: list[str] = []
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return problems
+    lines = text.splitlines()
+    for node in ast.walk(tree):
+        if not _is_log_call(node):
+            continue
+        for name in _logged_names(node):
+            hit = classify(name, packs)
+            if hit and not waived(lines, node.lineno, hit[0]):
+                problems.append(
+                    f"[{hit[0]}] {rel}:{node.lineno}: `{name}` logged; it looks like "
+                    f"{hit[1]}. Log the id or the error type instead"
+                )
+    return problems
+
+
 def logs_pii(root: Path, packs: set[str]) -> list[str]:
     """Personal data handed to the backend logger. Logs land in Railway (and anything it
     ships them to) for weeks, outside the database's RLS and the account deletion."""
     problems: list[str] = []
     base = root / "backend"
     for path in sorted(base.rglob("*.py")) if base.is_dir() else []:
-        rel = _rel(root, path)
-        text = path.read_text(encoding="utf-8")
-        lines = text.splitlines()
-        try:
-            tree = ast.parse(text)
-        except SyntaxError:
-            continue
-        for node in ast.walk(tree):
-            if not (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
-                and node.func.attr in _LOG_LEVELS
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id in _LOGGERS
-            ):
-                continue
-            names: list[str] = []
-            for arg in [*node.args, *(k.value for k in node.keywords if k.arg not in _LOG_KWARGS)]:
-                for sub in ast.walk(arg):
-                    if isinstance(sub, ast.Name):
-                        names.append(sub.id)
-                    elif isinstance(sub, ast.Attribute):
-                        names.append(sub.attr)
-                    elif isinstance(sub, ast.Dict):
-                        names += [
-                            k.value
-                            for k in sub.keys
-                            if isinstance(k, ast.Constant) and isinstance(k.value, str)
-                        ]
-            for name in dict.fromkeys(names):
-                hit = classify(name, packs)
-                if hit and not waived(lines, node.lineno, hit[0]):
-                    problems.append(
-                        f"[{hit[0]}] {rel}:{node.lineno}: `{name}` logged; it looks like "
-                        f"{hit[1]}. Log the id or the error type instead"
-                    )
+        problems += _logs_pii_file(_rel(root, path), path.read_text(encoding="utf-8"), packs)
     return problems
 
 
@@ -519,8 +547,20 @@ def background_location(root: Path, _packs: set[str], data_map: dict | None = No
         expo = json.loads(_read(root, "mobile/app.json") or "{}").get("expo", {})
     except json.JSONDecodeError:
         return []
-    ios = expo.get("ios") or {}
-    plist = ios.get("infoPlist") or {}
+    where, purpose = _background_location_config(expo)
+    where += [
+        _rel(root, path)
+        for path in _files(root, MOBILE_DIRS, (".ts", ".tsx"))
+        if BACKGROUND_API.search(_strip_js(path.read_text(encoding="utf-8")))
+    ]
+    if not where:
+        return []
+    return _background_location_problems(where, purpose, _permission_reasons(data_map))
+
+
+def _background_location_config(expo: dict) -> tuple[list[str], str]:
+    """Where app.json asks for background location, and the purpose string it gives."""
+    plist = (expo.get("ios") or {}).get("infoPlist") or {}
     where: list[str] = []
     if "location" in (plist.get("UIBackgroundModes") or []):
         where.append("ios.infoPlist.UIBackgroundModes")
@@ -528,21 +568,28 @@ def background_location(root: Path, _packs: set[str], data_map: dict | None = No
     if any(p.endswith("ACCESS_BACKGROUND_LOCATION") for p in perms):
         where.append("android.permissions ACCESS_BACKGROUND_LOCATION")
     purpose = str(plist.get("NSLocationAlwaysAndWhenInUseUsageDescription") or "")
+    for opts in _expo_location_options(expo):
+        if opts.get("isAndroidBackgroundLocationEnabled") or opts.get(
+            "isIosBackgroundLocationEnabled"
+        ):
+            where.append("the expo-location plugin's background options")
+        purpose = purpose or str(opts.get("locationAlwaysAndWhenInUsePermission") or "")
+    return where, purpose
+
+
+def _expo_location_options(expo: dict) -> list[dict]:
+    """The options dict of each expo-location plugin entry ({} when it has none)."""
+    out = []
     for plugin in expo.get("plugins") or []:
         if isinstance(plugin, list) and plugin and plugin[0] == "expo-location":
-            opts = plugin[1] if len(plugin) > 1 and isinstance(plugin[1], dict) else {}
-            if opts.get("isAndroidBackgroundLocationEnabled") or opts.get(
-                "isIosBackgroundLocationEnabled"
-            ):
-                where.append("the expo-location plugin's background options")
-            purpose = purpose or str(opts.get("locationAlwaysAndWhenInUsePermission") or "")
-    for path in _files(root, MOBILE_DIRS, (".ts", ".tsx")):
-        if BACKGROUND_API.search(_strip_js(path.read_text(encoding="utf-8"))):
-            where.append(_rel(root, path))
-    if not where:
-        return []
+            out.append(plugin[1] if len(plugin) > 1 and isinstance(plugin[1], dict) else {})
+    return out
+
+
+def _background_location_problems(
+    where: list[str], purpose: str, reasons: dict[str, str]
+) -> list[str]:
     problems = []
-    reasons = _permission_reasons(data_map)
     reason = next(
         (v for k, v in reasons.items() if "location" in k and ("background" in k or "always" in k)),
         "",
