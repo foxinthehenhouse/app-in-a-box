@@ -1,0 +1,139 @@
+{
+  "_note": "A minimal stand-in for plugins/app-in-a-box/scripts/risk/categories.json, used only by selftest.d/launch-gate.sh so the gate is tested against the contract's format without depending on the real data. Not the real categories.",
+  "categories": [
+    {
+      "id": "location",
+      "title": "Location",
+      "tier_floor": "elevated",
+      "triggers": [
+        "location",
+        "gps",
+        "map",
+        "nearby",
+        "geofence"
+      ],
+      "questions": [
+        {
+          "id": "location.consent",
+          "text": "Who agrees to share a location, and can they stop?",
+          "why": "consent"
+        },
+        {
+          "id": "location.visibility",
+          "text": "Who can see it, and how precisely?",
+          "why": "exposure"
+        }
+      ],
+      "guardrails": [
+        "location"
+      ],
+      "regimes": [
+        {
+          "name": "GDPR",
+          "applies_when": "users in the EU or UK",
+          "link": "https://gdpr.eu/"
+        }
+      ],
+      "stop_patterns": [],
+      "abuse_prompts": [
+        "Could an abusive partner use this to find someone?"
+      ]
+    },
+    {
+      "id": "minors",
+      "title": "Children and teens",
+      "tier_floor": "high",
+      "triggers": [
+        "kid",
+        "kids",
+        "child",
+        "children",
+        "teen"
+      ],
+      "questions": [
+        {
+          "id": "minors.consent",
+          "text": "How does a parent or guardian consent?",
+          "why": "consent"
+        }
+      ],
+      "guardrails": [
+        "minors"
+      ],
+      "regimes": [
+        {
+          "name": "COPPA",
+          "applies_when": "children under 13 in the US",
+          "link": "https://www.ftc.gov/legal-library/browse/rules/childrens-online-privacy-protection-rule-coppa"
+        }
+      ],
+      "stop_patterns": [],
+      "abuse_prompts": []
+    },
+    {
+      "id": "ugc",
+      "title": "User-generated content and messaging",
+      "tier_floor": "elevated",
+      "triggers": [
+        "chat",
+        "message",
+        "comment"
+      ],
+      "questions": [
+        {
+          "id": "ugc.moderation",
+          "text": "How is abusive content reported and removed?",
+          "why": "store rule"
+        }
+      ],
+      "guardrails": [
+        "ugc"
+      ],
+      "regimes": [],
+      "stop_patterns": [],
+      "abuse_prompts": []
+    },
+    {
+      "id": "health",
+      "title": "Health",
+      "tier_floor": "elevated",
+      "triggers": [
+        "symptom",
+        "health"
+      ],
+      "questions": [
+        {
+          "id": "health.retention",
+          "text": "How long are health entries kept?",
+          "why": "retention"
+        }
+      ],
+      "guardrails": [
+        "health"
+      ],
+      "regimes": [],
+      "stop_patterns": [],
+      "abuse_prompts": []
+    },
+    {
+      "id": "ai_decisions",
+      "title": "Automated decisions about people",
+      "tier_floor": "elevated",
+      "triggers": [
+        "triage",
+        "risk score"
+      ],
+      "questions": [
+        {
+          "id": "ai_decisions.appeal",
+          "text": "Can a person see and challenge the decision?",
+          "why": "fairness"
+        }
+      ],
+      "guardrails": [],
+      "regimes": [],
+      "stop_patterns": [],
+      "abuse_prompts": []
+    }
+  ]
+}

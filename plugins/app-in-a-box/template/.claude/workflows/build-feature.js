@@ -28,6 +28,7 @@ const PLAN = {
     mobile_tasks: { type: 'array', items: { type: 'string' } },
     wire_contract: { type: 'string', description: 'exact request/response shape both sides must agree on' },
     test_plan: { type: 'array', items: { type: 'string' }, description: 'TC-xx -> FR-xx -> test file' },
+    risk_rescreen: { type: 'string', description: 'output of the risk re-screen if it found a new category, else empty' },
   },
   required: ['ticket', 'branch', 'worktree', 'backend_tasks', 'mobile_tasks', 'wire_contract', 'test_plan'],
 }
@@ -45,13 +46,19 @@ const STEP = {
 
 phase('Plan')
 const plan = await agent(
-  `Read the approved spec at ${spec} and docs/product/BRIEF.md. Find or confirm its ticket (backlog skill). ` +
+  `First run \`python3 scripts/risk_gate.py rescreen --check --file ${spec}\`; if it exits 1, put its output in ` +
+    'risk_rescreen. ' +
+    `Read the approved spec at ${spec} and docs/product/BRIEF.md. Find or confirm its ticket (backlog skill). ` +
     'Create the feature worktree with the new-worktree skill and report its absolute path. Split the work into ' +
     'backend tasks (supabase/migrations, backend/, tests/) and mobile tasks (mobile/), and pin the exact wire ' +
     'contract both sides will code against. Do not write feature code yet.',
   { schema: PLAN, agentType: 'lead-engineer', label: 'plan' },
 )
 if (!plan) return { error: 'Planning failed; run the build-feature skill instead.' }
+if (plan.risk_rescreen) {
+  return { error: `The spec touches a risk category the idea was never screened for: ${plan.risk_rescreen} ` +
+    'Run build-feature step 0 with the owner (re-screen, answer the opened questions), then rerun this workflow.' }
+}
 const where = `Work ONLY inside the worktree ${plan.worktree} (branch ${plan.branch}). Spec: ${spec}. Wire contract: ${plan.wire_contract}. `
 
 phase('Tests')

@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Release checklist for getting a build to testers or the stores. Covers the version bump, EAS build and submit, OTA updates and when they're safe, changelog, store listing, privacy nutrition label / data safety form, and the account-deletion requirement. Guidance-level; it never handles signing secrets. Use when asked to ship, release, submit to TestFlight / App Store / Play, or push an OTA update.
+description: Release checklist for getting a build to testers or the stores. Runs the risk gate first (refuses while a risk item is open) and walks the owner through the compliance checklist. Covers the version bump, EAS build and submit, OTA updates and when they're safe, changelog, store listing, privacy nutrition label / data safety form, and the account-deletion requirement. Guidance-level; it never handles signing secrets. Use when asked to ship, release, submit to TestFlight / App Store / Play, or push an OTA update.
 disable-model-invocation: true
 argument-hint: "[testflight|store|ota]"
 ---
@@ -26,6 +26,40 @@ Apple/Google credentials, keystores or `.p8` keys (EAS stores those).
 native module, permission, config plugin or SDK bump needs a new build. When unsure,
 build. Check with `npx expo install --check` and `git diff <last-release-tag> --
 mobile/app.json mobile/package.json`.
+
+## Risk gate (every release, before anything else)
+
+The idea was screened for privacy, safety and misuse risk at shape (`design/brief.json`
+→ `risk`, readable in `docs/product/RISK.md`). A release waits until that screen has no
+loose ends:
+
+```bash
+python3 scripts/risk_gate.py check
+```
+
+Exit 1 means **stop**: report it as ❌ and list every item it names, word for word. It
+refuses while a risk question is open, while an accepted risk has no owner (`by`) or
+date (`on`), while a high-tier category has nothing answered or accepted, while
+`SCREENS.md` or a spec mentions a category the screen never covered (run the `rescreen`
+it suggests), or when the idea was never screened. Put the open items to the owner in one
+structured round: answer it (written back to `risk.questions`), or accept it as a
+recorded call (`risk.accepted`: `item`, `by`, `on`, a note). Never answer, accept or
+edit an item for them to get past the gate, and never ship around it. The gate holds for
+an OTA update too: a feature that reaches phones over the air carries the same risk.
+
+Once it passes, for a TestFlight or store release, generate the owner's checklist and go
+through it with them:
+
+```bash
+python3 scripts/risk_gate.py checklist   # docs/product/COMPLIANCE.md; ticks are kept
+```
+
+It covers, per category: store guidelines, the age-rating answers, a pointer to the
+privacy labels, the regimes that may apply (with links) and, at tier high, a line to talk
+to counsel before launch. **Never tell the owner the app is compliant**, or that a law
+or store rule is satisfied: you can't know, and it isn't your call. Say which checklist
+items are done and which are theirs, and at tier high repeat that a lawyer should look
+before the first public release. A passing gate means "no open risk items", nothing more.
 
 ## Decisions due before launch (first TestFlight or store release)
 
@@ -90,7 +124,8 @@ An unanswered one blocks a store release, not an OTA update.
 - [ ] Permission strings (`NSCameraUsageDescription` and so on) say *why* in plain
       words, if the app requests any.
 - [ ] Health, financial or children's data: the matching `.agents/rules/` note has
-      extra store rules. Read it.
+      extra store rules. Read it, and work through `docs/product/COMPLIANCE.md` (the
+      risk gate above) with the owner.
 
 ## 4. Build + submit
 

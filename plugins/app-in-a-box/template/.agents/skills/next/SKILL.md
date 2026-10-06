@@ -20,7 +20,10 @@ That returns JSON with setup progress, the current branch and work in progress, 
 PRs with failing checks, failing CI on `main`, open issues, overdue rituals, and
 `decisions_due`: product calls parked on day 0 in `design/brief.json` → `decisions`
 whose phase has now arrived (the first feature, pre-launch, post-launch), and
-`stale_flags`: feature flags past their `expires` date (`scripts/check_flags.py`). If
+`stale_flags`: feature flags past their `expires` date (`scripts/check_flags.py`). It also returns
+`risk_open`: the items the risk gate (`scripts/risk_gate.py`, the same check `ship` runs)
+says are open, such as an unanswered risk question, an accepted risk with no owner or
+date, or a screen that touches a category the idea was never screened for. If
 `gh_available` is false, say so in one line and carry on with local signals.
 
 Then add what the script can't read:
@@ -47,10 +50,11 @@ subagent (Haiku, cheap); in Codex, read them inline.
 | 6 | Ritual overdue by 2× its cadence | Run that ritual (`reflect`, `harness-optimize`, `north-star-report`, `market-watch`) |
 | 7 | Security or major dependency PR | `triage` it, then `pr-review` |
 | 8 | A `p0` ticket, or the ticket at the funnel's worst step | `feature-discovery` on it (or `build-feature` if it's specced) |
-| 9 | A decision is due (`decisions_due`) | Ask it as one structured question, the `docs/DEFAULTS.md` answer recommended, and write the answer back to its ledger entry; `pre-launch` ones go to `ship` |
-| 9b | A flag is past its expiry (`stale_flags`) | Remove it (both registries and every `flag()`/`useFlag()` call, then delete it in PostHog), or extend `expires` if its owner says it must stay: a `backlog` `chore` ticket, then a branch |
-| 10 | Next ticket by priority (`p0` > `p1` > `p2`, `ready` first) | `feature-discovery` / `build-feature` |
-| 11 | Empty backlog | `north-star-report` to find the biggest drop-off, then file tickets |
+| 9 | A risk item is open (`risk_open`) | Ask the open questions as one structured round and write each answer back to `design/brief.json` → `risk`; a new category runs `python3 scripts/risk_gate.py rescreen` first. `ship` refuses until they're answered or accepted |
+| 10 | A decision is due (`decisions_due`) | Ask it as one structured question, the `docs/DEFAULTS.md` answer recommended, and write the answer back to its ledger entry; `pre-launch` ones go to `ship` |
+| 10b | A flag is past its expiry (`stale_flags`) | Remove it (both registries and every `flag()`/`useFlag()` call, then delete it in PostHog), or extend `expires` if its owner says it must stay: a `backlog` `chore` ticket, then a branch |
+| 11 | Next ticket by priority (`p0` > `p1` > `p2`, `ready` first) | `feature-discovery` / `build-feature` |
+| 12 | Empty backlog | `north-star-report` to find the biggest drop-off, then file tickets |
 
 Tie-break: the thing closest to users (a broken build beats a new feature), then the
 cheapest to finish. Never propose starting new work while one of your PRs is red.
@@ -70,7 +74,7 @@ Or:
 2. <alternate>: <one-line why>
 3. <alternate>: <one-line why>
 
-Signals read: setup ✓ · PRs ✓ · CI ✓ · backlog ✓ · rituals ✓ · decisions ✓ · flags ✓ · analytics ✗ (PostHog not connected)
+Signals read: setup ✓ · PRs ✓ · CI ✓ · backlog ✓ · rituals ✓ · decisions ✓ · flags ✓ · risk ✓ · analytics ✗ (PostHog not connected)
 ```
 
 Use a structured question (`AskUserQuestion` in Claude Code, `request_user_input` in
