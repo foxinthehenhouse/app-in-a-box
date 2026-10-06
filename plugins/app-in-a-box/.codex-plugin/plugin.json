@@ -1,14 +1,14 @@
 {
   "name": "app-in-a-box",
-  "version": "0.6.0",
-  "description": "Turn an app idea into a provisioned, instrumented, CI-gated Expo + FastAPI + Supabase repo with a full agent harness.",
-  "keywords": ["scaffold", "expo", "react-native", "fastapi", "supabase", "harness", "starter", "mobile"],
+  "version": "0.7.0",
+  "description": "A free, open-source plugin for Claude Code and Codex. A product advisor shapes your idea, you click through a prototype of every screen, then your agent builds and wires an Expo + FastAPI + Supabase app with auth, analytics, CI, store builds and an agent harness.",
+  "keywords": ["app-builder", "mobile", "ios", "android", "mvp", "prototype", "claude-code", "codex", "ai-agents", "expo", "react-native", "supabase", "fastapi", "startup", "scaffold"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "App in a Box",
-    "shortDescription": "Rambled idea → tuned prototype → production MVP in an afternoon",
-    "longDescription": "A product advisor shapes your idea with you from a ramble, checks the market in the background, and a design team builds a clickable prototype of every screen that you tune (look, layouts, density, motion, features) before anything is built; then it walks you through free-tier accounts, scaffolds Expo + FastAPI + Supabase with auth, analytics and error monitoring, provisions the cloud resources, and installs CI, PR review, skills, subagents, hooks and memory that work in both Codex and Claude Code.",
+    "shortDescription": "Idea to clickable prototype to production iOS and Android app, with Claude Code or Codex",
+    "longDescription": "A free, open-source plugin for Claude Code and Codex. A product advisor shapes your idea, you click through a prototype of every screen, then your agent builds and wires an Expo + FastAPI + Supabase app with auth, analytics, CI, store builds and an agent harness. Rae, the advisor, lets you ramble about the idea and checks the market in the background; a design team builds the prototype, and you tune its look, layouts, density, motion and features before anything is built. Then it walks you through free-tier accounts, provisions the cloud resources and installs CI, PR review, skills, subagents, hooks and memory that work the same in Codex and Claude Code.",
     "developerName": "Kyle Fox",
     "category": "Developer Tools",
     "defaultPrompt": "Use $new-app to build my app idea in this folder."

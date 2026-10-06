@@ -9,6 +9,9 @@
  *   loops/entrances check `useReducedMotion()` and render static instead.
  *   Press feedback that communicates state (tint) still runs.
  * - Loops (skeleton shimmer) use the symmetric `loop` curve; one-shots never do.
+ * - Screens and content arrive on `settle` (the gentle spring damped to at least
+ *   critical): they decelerate onto the mark and never pass it. Overshoot is for
+ *   small elements only (a chip, a thumb, a press), via `snappy` / `bouncy`.
  * - Haptics are an accessibility aid, NOT motion, so reduce-motion doesn't mute
  *   them. Grade them by commitment (below), fire on press-in, never in a loop.
  */
@@ -27,7 +30,7 @@ import {
   type WithTimingConfig,
 } from "react-native-reanimated";
 
-import { motion } from "./tokens";
+import { motion, settle } from "./tokens";
 
 /**
  * The OS "Reduce Motion" setting, reactive: flipping it in Settings re-renders.
@@ -50,7 +53,8 @@ export function useReducedMotion(): boolean {
 }
 export type Duration = keyof typeof motion.duration;
 export type Curve = keyof typeof motion.easing;
-export type SpringName = keyof typeof motion.spring;
+/** A token spring, or `settle`: the one screens and content move on. */
+export type SpringName = keyof typeof motion.spring | "settle";
 
 export function curve(name: Curve) {
   const [x1, y1, x2, y2] = motion.easing[name];
@@ -61,8 +65,18 @@ export function timing(duration: Duration = "standard", easing: Curve = "standar
   return { duration: motion.duration[duration], easing: curve(easing), reduceMotion: ReduceMotion.System };
 }
 
+/**
+ * How far a spring is from critical damping: 1 settles without passing the mark,
+ * below 1 overshoots. `settle` is always >= 1 (render.py computes it from `gentle`).
+ */
+export function dampingRatio(sp: { damping: number; stiffness: number; mass: number }): number {
+  return sp.damping / (2 * Math.sqrt(sp.stiffness * sp.mass));
+}
+
+/** Token springs as Reanimated configs. Only small elements may use one that overshoots. */
 export function spring(name: SpringName = "snappy"): WithSpringConfig {
-  return { ...motion.spring[name], reduceMotion: ReduceMotion.System };
+  const sp = name === "settle" ? settle : motion.spring[name];
+  return { ...sp, reduceMotion: ReduceMotion.System };
 }
 
 export function animateTo(value: number, duration: Duration = "standard", easing: Curve = "standard"): number {
@@ -73,12 +87,28 @@ export function springTo(value: number, name: SpringName = "snappy"): number {
   return withSpring(value, spring(name));
 }
 
-/** Staggered content entrance (fade + rise). Undefined under reduce motion. */
+/** Staggered content entrance (fade + rise) on the settle spring. Undefined under reduce motion. */
 export function entrance(index = 0, reduced = false, step = 45) {
   if (reduced) return undefined;
-  return FadeInDown.duration(motion.duration.deliberate)
-    .easing(curve("enter"))
+  return FadeInDown.springify()
+    .damping(settle.damping)
+    .stiffness(settle.stiffness)
+    .mass(settle.mass)
     .delay(index * step)
+    .reduceMotion(ReduceMotion.System);
+}
+
+/**
+ * A screen's content arriving (components/ui/Screen): a fade on the settle spring,
+ * under the platform's own push or sheet transition, so the two never fight over
+ * position. Undefined under reduce motion.
+ */
+export function screenEntrance(reduced = false) {
+  if (reduced) return undefined;
+  return FadeIn.springify()
+    .damping(settle.damping)
+    .stiffness(settle.stiffness)
+    .mass(settle.mass)
     .reduceMotion(ReduceMotion.System);
 }
 
@@ -130,3 +160,21 @@ export const haptic = {
 } as const;
 
 export type HapticKind = keyof typeof haptic;
+
+/**
+ * The haptic token map: which rung each kind of control fires. Components name
+ * their role (`hapticFor.primary`), not a strength, so the ladder lives here once.
+ */
+export const hapticFor = {
+  chip: "selection",
+  segment: "selection",
+  toggle: "selection",
+  tab: "selection",
+  row: "light",
+  secondary: "light",
+  sheet: "light",
+  primary: "medium",
+  payoff: "success",
+  destructive: "warning",
+  failure: "error",
+} as const satisfies Record<string, HapticKind>;

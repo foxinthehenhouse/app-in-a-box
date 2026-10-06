@@ -12,6 +12,12 @@ mistakes before that job even starts, each with a negative control:
   - a migration with no rollback note in its header
   - a rollback note that drops the tables but leaves a trigger (and its function)
     pointing at them: after that rollback every sign-up fails inside the trigger
+  - embedding tables (a `vector(n)` column: users' own text, embedded for retrieval):
+    no HNSW index, or a function / view that reads one while bypassing RLS (a
+    `security definer` function, a view without `security_invoker`) or without
+    filtering on auth.uid(). Retrieval returns whole chunks of someone's notes, so a
+    reader that skips the caller's filter is a cross-user leak with a search box.
+    Dormant until a migration adds a vector column (the recipe-ai-feature RAG path).
 """
 
 from __future__ import annotations
@@ -100,6 +106,83 @@ def rollback_omissions(sql: str) -> list[str]:
     return problems
 
 
+_VECTOR_TYPE = r"(?:extensions\.)?(?:vector|halfvec|sparsevec)\s*\(\s*\d+\s*\)"
+
+
+def _paren_body(sql: str, open_at: int) -> str:
+    """The text inside the parenthesis that opens at `open_at` (balanced)."""
+    depth = 0
+    for i in range(open_at, len(sql)):
+        depth += {"(": 1, ")": -1}.get(sql[i], 0)
+        if depth == 0:
+            return sql[open_at + 1 : i]
+    return sql[open_at + 1 :]
+
+
+def embedding_tables(sql_texts: list[str]) -> set[str]:
+    """Tables with a pgvector column, created with it or given one later."""
+    sql = "\n".join(_strip_comments(s) for s in sql_texts).lower()
+    found = set()
+    for m in re.finditer(
+        r"create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?\"?(\w+)\"?\s*\(", sql
+    ):
+        if re.search(_VECTOR_TYPE, _paren_body(sql, m.end() - 1)):
+            found.add(m.group(1))
+    found |= set(
+        re.findall(
+            r"alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?(?:public\.)?\"?(\w+)\"?\s+add\s+"
+            rf"(?:column\s+)?(?:if\s+not\s+exists\s+)?\"?\w+\"?\s+{_VECTOR_TYPE}",
+            sql,
+        )
+    )
+    return found
+
+
+def embedding_tables_without_hnsw(sql_texts: list[str]) -> list[str]:
+    sql = "\n".join(_strip_comments(s) for s in sql_texts).lower()
+    indexed = set(
+        re.findall(
+            r"create\s+index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?(?:\"?\w+\"?\s+)?"
+            r"on\s+(?:only\s+)?(?:public\.)?\"?(\w+)\"?\s+using\s+hnsw",
+            sql,
+        )
+    )
+    return sorted(embedding_tables(sql_texts) - indexed)
+
+
+def unsafe_embedding_readers(sql_texts: list[str]) -> list[str]:
+    """Functions and views that read an embedding table without RLS doing the fencing.
+
+    A retrieval function must be `security invoker` (the default) so RLS applies, AND
+    filter on auth.uid() itself, so a service-key caller (which bypasses RLS) gets
+    nothing back instead of everyone's chunks. A view must set security_invoker.
+    """
+    tables = embedding_tables(sql_texts)
+    if not tables:
+        return []
+    sql = "\n".join(_strip_comments(s) for s in sql_texts).lower()
+
+    def reads(body: str) -> list[str]:
+        return sorted(t for t in tables if re.search(rf"(?<![\w.])(?:public\.)?\"?{t}\"?(?!\w)", body))
+
+    bad = []
+    for m in re.finditer(
+        r"create\s+(?:or\s+replace\s+)?function\s+([\w.\"]+)(.*?)(\$\w*\$)(.*?)\3([^;]*);", sql, re.S
+    ):
+        name, attrs, body = m.group(1), m.group(2) + m.group(5), m.group(4)
+        for t in reads(body):
+            if re.search(r"security\s+definer", attrs):
+                bad.append(f"{name} reads {t} as security definer (bypasses RLS)")
+            elif not re.search(r"auth\.uid\(\s*\)", body):
+                bad.append(f"{name} reads {t} without filtering on auth.uid()")
+    for m in re.finditer(r"create\s+(?:or\s+replace\s+)?view\s+([\w.\"]+)([^;]*);", sql, re.S):
+        name, stmt = m.group(1), m.group(2)
+        head = stmt.split(" as ", 1)[0]
+        if reads(stmt) and not re.search(r"security_invoker\s*=\s*(?:true|on)", head):
+            bad.append(f"{name} is a view over {', '.join(reads(stmt))} without security_invoker")
+    return bad
+
+
 def test_there_are_migrations() -> None:
     assert MIGRATIONS, "supabase/migrations/ is empty"
 
@@ -133,6 +216,23 @@ def test_rollback_note_drops_every_trigger_and_function(path: Path) -> None:
     assert rollback_omissions(path.read_text()) == [], (
         f"{path.name}: the rollback note must drop these too (trigger first, then its "
         "function). A trigger left pointing at a dropped table breaks every sign-up."
+    )
+
+
+def test_embedding_tables_have_an_hnsw_index() -> None:
+    missing = embedding_tables_without_hnsw([p.read_text() for p in MIGRATIONS])
+    assert not missing, (
+        f"vector tables with no HNSW index: {missing}. Every retrieval would scan the "
+        "whole table: `create index ... using hnsw (embedding extensions.vector_cosine_ops)`."
+    )
+
+
+def test_embedding_readers_respect_rls() -> None:
+    bad = unsafe_embedding_readers([p.read_text() for p in MIGRATIONS])
+    assert not bad, (
+        "cross-user leak risk in retrieval: " + "; ".join(bad) + ". Make it `security "
+        "invoker`, filter `user_id = (select auth.uid())`, and call it with the caller's "
+        "JWT (see the recipe-ai-feature skill)."
     )
 
 
@@ -199,3 +299,55 @@ def test_mutable_search_path_is_caught() -> None:
     good = "create function public.g() returns int language sql security definer set search_path = '' as $$ select 1 $$;"
     assert definer_without_search_path(bad) == ["public.f"]
     assert definer_without_search_path(good) == []
+
+
+_RAG = """
+create table public.chunks (
+  id bigint primary key,
+  user_id uuid not null default auth.uid(),
+  embedding extensions.vector(1024) not null
+);
+create index chunks_hnsw on public.chunks using hnsw (embedding extensions.vector_cosine_ops);
+create or replace function public.match(p_q extensions.vector(1024)) returns setof public.chunks
+language sql stable security invoker set search_path = '' as $$
+  select * from public.chunks c where c.user_id = (select auth.uid())
+  order by c.embedding operator(extensions.<=>) p_q limit 5;
+$$;
+"""
+
+
+def test_embedding_guards_pass_a_safe_retrieval_migration() -> None:
+    assert embedding_tables([_RAG]) == {"chunks"}
+    assert embedding_tables_without_hnsw([_RAG]) == []
+    assert unsafe_embedding_readers([_RAG]) == []
+
+
+@pytest.mark.parametrize(
+    "edit, expect",
+    [
+        (("security invoker", "security definer"), "public.match reads chunks as security definer"),
+        (("where c.user_id = (select auth.uid())", ""), "public.match reads chunks without filtering on auth.uid()"),
+        (("$$;\n", "$$;\ncreate view public.all_chunks as select * from public.chunks;\n"), "public.all_chunks is a view over chunks without security_invoker"),
+    ],
+    ids=["definer", "no-user-filter", "definer-view"],
+)
+def test_embedding_reader_leaks_are_caught(edit: tuple[str, str], expect: str) -> None:
+    planted = _RAG.replace(*edit)
+    assert planted != _RAG
+    assert any(expect in b for b in unsafe_embedding_readers([planted])), unsafe_embedding_readers([planted])
+
+
+def test_embedding_guards_see_a_later_column_and_a_missing_index() -> None:
+    sql = "create table public.notes (id int);\nalter table public.notes add column embedding vector(384);"
+    assert embedding_tables([sql]) == {"notes"}
+    assert embedding_tables_without_hnsw([sql]) == ["notes"]
+    no_index = _RAG.replace("create index chunks_hnsw", "-- create index chunks_hnsw")
+    assert embedding_tables_without_hnsw([no_index]) == ["chunks"]
+
+
+def test_embedding_guards_allow_an_invoker_view_and_ignore_non_readers() -> None:
+    sql = _RAG + (
+        "create view public.my_chunks with (security_invoker = true) as select id from public.chunks;\n"
+        "create function public.chunks_count_unrelated() returns int language sql as $$ select 1 $$;\n"
+    )
+    assert unsafe_embedding_readers([sql]) == []

@@ -36,6 +36,21 @@ Impeccable's own notice, which applies to the platform material above:
 - **What we use:** indirectly, through Impeccable's iOS and Android references (the
   "Platform" section of `TASTE.md`).
 
+## DESIGN.md format (Google Stitch)
+
+- **Project:** https://github.com/google-labs-code/design.md (Google LLC)
+- **Licence:** Apache License 2.0 (`licenses/Apache-2.0-design-md.txt`)
+- **Version used:** format version `alpha`, commit `9bf8eae` (July 2026)
+- **What we use, and how it was changed:**
+  - `plugins/app-in-a-box/template/scripts/design_md.py` writes every generated app's
+    `DESIGN.md` in this format: the frontmatter schema (`version`, `name`,
+    `description`, `colors`, `typography`, `rounded`, `spacing`, `components`) and the
+    eight body sections in the spec's order. It is our own code, projecting
+    `design/tokens.json`; no Stitch code is copied. We add sections the format leaves
+    out (Dark Mode, Motion, Atmosphere, Iconography, Agent Prompt Guide, Decisions),
+    which the spec tells consumers to preserve, and marker comments that let the file
+    be regenerated without losing hand-written prose.
+
 ## material-color-utilities
 
 - **Project:** https://github.com/material-foundation/material-color-utilities
