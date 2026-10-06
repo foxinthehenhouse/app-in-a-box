@@ -9,11 +9,19 @@ import { APP } from "../../lib/app";
 import { downloadMyData } from "../../lib/export";
 import { useFlag } from "../../lib/flags";
 import { useT } from "../../lib/i18n";
-import { usePushSetting } from "../../lib/push";
+import { type PushStatus, usePushSetting } from "../../lib/push";
 import { useMe } from "../../lib/query";
 import { signOut } from "../../lib/session";
 import { canSwitchScheme, useThemePreference, type ThemePreference } from "../../lib/theme";
 import { useLoaded } from "../../lib/use-load";
+
+// Why the push row can't simply be switched on, most specific first.
+function pushSubtitleKey(paused: boolean, status: PushStatus | null) {
+  if (paused) return "settings.pushPaused";
+  if (status === "unsupported") return "settings.pushUnsupported";
+  if (status === "denied") return "settings.pushDenied";
+  return "settings.pushSubtitle";
+}
 
 export default function Settings() {
   const t = useT();
@@ -81,13 +89,8 @@ export default function Settings() {
   }
 
   const displayName = me.data?.displayName || t("common.notSet");
-  const pushSubtitle = pushPaused
-    ? t("settings.pushPaused")
-    : push.status === "unsupported"
-      ? t("settings.pushUnsupported")
-      : push.status === "denied"
-        ? t("settings.pushDenied")
-        : t("settings.pushSubtitle");
+  const pushSubtitle = t(pushSubtitleKey(pushPaused, push.status));
+  const pushLocked = pushPaused || push.busy || push.status === null || push.status === "unsupported";
 
   return (
     <Screen testID="settings-screen" refreshing={me.refreshing} onRefresh={me.refresh}>
@@ -131,7 +134,7 @@ export default function Settings() {
               <Toggle
                 value={push.status === "enabled"}
                 onValueChange={togglePush}
-                disabled={pushPaused || push.busy || push.status === null || push.status === "unsupported"}
+                disabled={pushLocked}
                 accessibilityLabel={t("settings.push")}
                 testID="settings-push-switch"
               />
