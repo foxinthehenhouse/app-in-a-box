@@ -13,6 +13,11 @@
 #             CycloneDX SBOMs of requirements.lock and mobile/package-lock.json,
 #             uploaded as the `sbom` artifact. The weekly schedule catches advisories
 #             published against code nobody touched.
+#   semgrep   the backend's security rules (.semgrep/backend.yml: eval, shell=True,
+#             verify=False, unsafe YAML/pickle, unverified JWTs, SQL built from strings,
+#             wildcard CORS with credentials, logged request bodies...). Semgrep OSS,
+#             pinned and hashed in requirements-semgrep.lock; the rules' own test cases
+#             (`semgrep --test`) run first, so a rule that stopped matching fails here.
 # Dependency updates: .github/dependabot.yml (pip, npm, github-actions; weekly, grouped,
 # after a cooldown).
 name: Security
@@ -64,6 +69,25 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: ./gitleaks git . --config .gitleaks.toml --redact --no-banner --exit-code 1 --log-opts="${BASE_SHA}..HEAD"
+
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-semgrep.lock
+      - name: Install Semgrep (pinned, every hash checked)
+        run: python -m pip install --require-hashes -r requirements-semgrep.lock
+      - name: The rules still catch what they claim (their own test cases)
+        run: semgrep --test --metrics=off --config .semgrep/backend.yml .semgrep/backend.py
+      - name: Scan the backend
+        run: semgrep scan --config .semgrep/backend.yml --error --metrics=off --disable-version-check backend
 
   codeql:
     if: ${{ !github.event.repository.private || vars.ENABLE_CODEQL == 'true' }}
@@ -135,7 +159,9 @@ jobs:
       - name: pip-audit (known vulnerabilities in the locked Python deps)
         # A finding with no fix yet: add `--ignore-vuln <ID>` here with a comment saying
         # why it is safe to ship, and take it out when the fix lands.
-        run: pip-audit --disable-pip --require-hashes -r requirements-dev.lock
+        run: |
+          pip-audit --disable-pip --require-hashes -r requirements-dev.lock
+          pip-audit --disable-pip --require-hashes -r requirements-semgrep.lock
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         if: ${{ !cancelled() && steps.app.outputs.present == 'true' }}
         with:

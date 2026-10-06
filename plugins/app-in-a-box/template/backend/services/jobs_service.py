@@ -144,13 +144,30 @@ def weekly_digest(
     return {"job": "weekly_digest", "run_key": run_key, "skipped": False, **stats}
 
 
+# Rows that expire: table -> (timestamp column, how long a row is kept). The daily
+# prune cron deletes everything older. A table that stores location must be listed
+# here (scripts/check_guardrails.py, the `location` pack): a location history kept
+# forever is the most revealing thing an app can hold. Keep it as short as the feature
+# allows, and say the number in the privacy policy.
+RETENTION: dict[str, tuple[str, timedelta]] = {
+    "rate_limits": ("window_start", timedelta(days=1)),  # the longest window we use
+    "idempotency_keys": ("created_at", timedelta(seconds=idempotency.TTL_SECONDS)),
+}
+
+
 def prune_rate_limits(db: Any, *, now: datetime | None = None) -> dict[str, Any]:
-    """Delete rate-limit windows older than a day (the longest window we use), and
-    idempotency keys past their TTL (backend/idempotency.py). Both are short-lived
-    request bookkeeping, so one daily job prunes both."""
+    """Delete expired rows from every table in RETENTION: rate-limit windows, idempotency
+    keys past their TTL (backend/idempotency.py), and whatever a feature adds. The job
+    keeps its first name so existing schedulers keep calling it."""
     now = now or datetime.now(UTC)
-    cutoff = (now - timedelta(days=1)).isoformat()
-    db.table("rate_limits").delete().lt("window_start", cutoff).execute()
-    keys_cutoff = (now - timedelta(seconds=idempotency.TTL_SECONDS)).isoformat()
-    db.table("idempotency_keys").delete().lt("created_at", keys_cutoff).execute()
-    return {"job": "prune_rate_limits", "before": cutoff, "idempotency_keys_before": keys_cutoff}
+    pruned: dict[str, str] = {}
+    for table, (column, keep) in RETENTION.items():
+        cutoff = (now - keep).isoformat()
+        db.table(table).delete().lt(column, cutoff).execute()
+        pruned[table] = cutoff
+    return {
+        "job": "prune_rate_limits",
+        "before": pruned["rate_limits"],
+        "idempotency_keys_before": pruned["idempotency_keys"],
+        "pruned": pruned,
+    }

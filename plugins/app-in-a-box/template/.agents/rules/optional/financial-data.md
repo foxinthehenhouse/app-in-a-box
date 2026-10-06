@@ -8,3 +8,5 @@ globs: backend/**, mobile/lib/**, mobile/app/**, supabase/migrations/**
   updated-in-place number.
 - No amounts, account numbers or merchant names in analytics props, logs or Sentry.
 - Copy never implies investment, lending or financial advice.
+- The `financial` guardrail pack lints analytics payloads and log calls, and fails a
+  floating-point money column (docs/privacy/GUARDRAILS.md).

@@ -30,14 +30,18 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
   `Cursor` / `Limit` query params.
 - `middleware.py`: request id (`X-Request-ID`) + security headers.
 - `routers/`: I/O only. `me.py` (profile, account deletion), `push.py` (push tokens),
-  `internal.py` (`/internal/cron/*`, shared-secret auth; `prune-rate-limits` also
-  prunes expired idempotency keys).
-- `services/`: logic. `push_service.py` (Expo push), `jobs_service.py` (cron jobs),
-  `audit_service.py` (the append-only audit trail), `erasure_service.py` (account
-  deletion beyond Postgres: Storage, PostHog, Sentry).
+  `internal.py` (`/internal/cron/*`, shared-secret auth; `prune-rate-limits` prunes
+  every table in `RETENTION`, idempotency keys included).
+- `services/`: logic. `push_service.py` (Expo push), `jobs_service.py` (cron jobs, and
+  `RETENTION`: what the daily prune deletes, and after how long), `audit_service.py`
+  (the append-only audit trail), `erasure_service.py` (account deletion beyond
+  Postgres: Storage, PostHog, Sentry).
 - `observability.py`: Sentry with PII scrubbing, request-id logging, `LOG_FORMAT=json`,
   and tracing at a low sample (`SENTRY_TRACES_SAMPLE_RATE`, 5% default, 25% cap) that
   continues the app's trace (its `traceparent` trace id is the request id).
+  Log ids and error types, never an email, a name or a body: `scripts/check_guardrails.py`
+  fails CI on a log call that passes one, and Semgrep (`.semgrep/backend.yml`) scans for
+  the rest of the usual security mistakes.
 - `flags.py`: `flag("name", user_id)` / `enabled(...)`, the same PostHog flags as
   `mobile/lib/flags.ts`. Register every flag in `FLAGS` with a safe default, an owner
   and an expiry (`scripts/check_flags.py` fails CI otherwise); kill switches are

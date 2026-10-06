@@ -322,7 +322,26 @@ def privacy_outputs(target: Path) -> list[str]:
                 f" ({(r.stdout + r.stderr).strip().splitlines()[-1:]}). In the app, run:"
                 " python3 scripts/check_data_map.py --write"
             )
-    return made
+    return made + guardrail_packs_ts(target)
+
+
+def guardrail_packs_ts(target: Path) -> list[str]:
+    """mobile/lib/packs.ts (the app's copy of the packs) from the map's `packs` line, with
+    the app's own check_guardrails.py --write, so a render never leaves the two disagreeing."""
+    gen, ts = target / "scripts" / "check_guardrails.py", target / "mobile" / "lib" / "packs.ts"
+    if not gen.is_file():
+        return []
+    before = ts.read_text() if ts.is_file() else None
+    r = subprocess.run(
+        [sys.executable, str(gen), "--write"], cwd=target, capture_output=True, text=True
+    )
+    if r.returncode != 0:
+        print(
+            "Note: couldn't regenerate mobile/lib/packs.ts from privacy/data-map.yaml. In the"
+            " app, run: python3 scripts/check_guardrails.py --write"
+        )
+        return []
+    return [] if ts.read_text() == before else ["mobile/lib/packs.ts (from the map's packs)"]
 
 
 def _link(target: Path, link: str, to: str) -> str:

@@ -1,0 +1,7 @@
+# Semgrep (the backend security scan, .github/workflows/security.yml → `semgrep`),
+# in its own lock because its dependencies conflict with the API's (Semgrep pins an
+# older OpenTelemetry than FastAPI needs), so it can't share requirements-dev.lock.
+# Pinned exactly, not a range: a new Semgrep can change what a rule matches, so moving
+# it is a deliberate PR (Dependabot proposes it), with `semgrep --test` re-run on it.
+# scripts/lock-deps.sh compiles this into requirements-semgrep.lock (hashed).
+semgrep==1.179.0

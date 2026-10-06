@@ -88,6 +88,12 @@ template says src/app; this kit doesn't use it).
   bootstrapped with them; no key = defaults), an `owner` and an `expires` date
   (`scripts/check_flags.py`). Kill switches are `kill-*`, default `false`.
 - `lib/monitoring.ts`: Sentry (no-op in dev / without DSN).
+- `lib/privacy.ts`: the scrubbers every PostHog and Sentry event passes through. Payloads
+  carry ids, counts and categories, never an email, name, location or what someone typed
+  (`scripts/check_guardrails.py` fails CI otherwise; `docs/privacy/GUARDRAILS.md`).
+- `lib/packs.ts`: the guardrail packs this app has on (generated from the data map).
+  `lib/age.ts` + `components/ui/AgeGate.tsx` (minors) and `lib/location.ts` +
+  `components/ui/WhoCanSeeMe.tsx` (location) cost nothing until their pack is on.
 
 ## Design system rules
 

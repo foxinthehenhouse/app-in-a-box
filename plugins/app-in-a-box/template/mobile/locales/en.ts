@@ -80,6 +80,23 @@ export const en = {
       generic: "Something went wrong signing in. Try again.",
     },
   },
+  age: {
+    title: "First, when were you born?",
+    body: "We ask everyone. We keep only whether you're old enough, never your birthday.",
+    month: "Birth month (1 to 12)",
+    year: "Birth year",
+    continue: "Continue",
+    continueLabel: "Continue with this birth month and year",
+    invalid: "Enter the month and year you were born.",
+    underAgeTitle: "Ask a parent or guardian",
+    underAgeBody: "You need a parent or guardian's permission to use {{app}}. Ask them to help you set it up.",
+  },
+  location: {
+    visibleTo: "Who can see your location",
+    manage: "Change who can see it",
+    manageLabel: "Change who can see your location",
+    summary: "Who can see your location: {{audience}}",
+  },
   home: {
     demoSuffix: "{{name}} · demo",
     greeting: "Hi, {{name}}",

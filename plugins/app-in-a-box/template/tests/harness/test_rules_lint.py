@@ -51,6 +51,8 @@ def lint_rule(path: Path) -> list[str]:
         problems.append("`globs:` has no include patterns")
     if not re.search(r"^description:\s*\S", text.split("---")[1], re.M):
         problems.append("`description:` missing")
+    if parsed.get("match") and not parsed["match"].search(parsed.get("example") or ""):
+        problems.append("`match:` rule needs an `example:` line that its regex matches")
     return problems
 
 
@@ -78,8 +80,9 @@ def example_path(glob: str) -> str:
     return p.replace("?", "q")
 
 
-def run_hook(file_path: str, root: Path, tmp: Path) -> str:
-    event = {"tool_input": {"file_path": file_path}, "session_id": f"t{os.getpid()}{tmp.name}"}
+def run_hook(file_path: str, root: Path, tmp: Path, content: str = "") -> str:
+    tool_input = {"file_path": file_path, **({"content": content} if content else {})}
+    event = {"tool_input": tool_input, "session_id": f"t{os.getpid()}{tmp.name}"}
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(root), "TMPDIR": str(tmp)}
     out = subprocess.run(
         [sys.executable, str(HOOK)],
@@ -122,12 +125,14 @@ def test_rule_is_listed_for_codex(rule: Path) -> None:
 
 @pytest.mark.parametrize("rule", TOP_RULES, ids=lambda p: p.name)
 def test_hook_injects_rule_for_each_glob(rule: Path, tmp_path: Path) -> None:
-    """Drive the REAL hook with a path each glob must match."""
-    for i, glob in enumerate(hook.parse_rule(str(rule))["globs"]):
+    """Drive the REAL hook with a path each glob must match (and, for a `match:` rule,
+    the edit text its `example:` gives)."""
+    parsed = hook.parse_rule(str(rule))
+    for i, glob in enumerate(parsed["globs"]):
         sub = tmp_path / str(i)
         sub.mkdir()
         target = str(ROOT / example_path(glob))
-        out = run_hook(target, ROOT, sub)
+        out = run_hook(target, ROOT, sub, parsed.get("example") or "")
         assert rule.name in out, f"{rule.name} not injected for {example_path(glob)} ({glob})"
 
 
@@ -136,6 +141,27 @@ def test_hook_injects_rule_for_each_glob(rule: Path, tmp_path: Path) -> None:
 
 def test_hook_injects_nothing_for_an_unrelated_path(tmp_path: Path) -> None:
     assert run_hook(str(ROOT / "LICENSE-nothing.txt"), ROOT, tmp_path) == ""
+
+
+def test_match_rule_stays_quiet_when_the_edit_is_not_about_it(tmp_path: Path) -> None:
+    target = str(ROOT / "supabase" / "migrations" / "x.sql")
+    (tmp_path / "quiet").mkdir()
+    (tmp_path / "loud").mkdir()
+    quiet = run_hook(target, ROOT, tmp_path / "quiet", "alter table t add column visit_count int;")
+    assert "privacy-columns.md" not in quiet
+    loud = run_hook(
+        target, ROOT, tmp_path / "loud", "create table t (id uuid, contact_email text);"
+    )
+    assert "privacy-columns.md" in loud
+    assert "`contact_email text`" in loud
+
+
+def test_match_rule_without_a_matching_example_is_caught(tmp_path: Path) -> None:
+    p = tmp_path / "r.md"
+    p.write_text(
+        "---\ndescription: d\nglobs: a/**\nmatch: \\bemail\\b\nexample: phone\n---\nbody\n"
+    )
+    assert any("example" in x for x in lint_rule(p)), lint_rule(p)
 
 
 def test_hook_fires_once_per_session(tmp_path: Path) -> None:

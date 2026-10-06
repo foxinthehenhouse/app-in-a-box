@@ -27,9 +27,13 @@ if (typeof globalThis.WebSocket === "undefined") {
 }
 // expo-secure-store has no JS fallback. This in-memory stand-in enforces the real
 // 2048-byte value limit, so a test that stores an unchunked session fails here too.
+// Seeded with one answer: the age gate's outcome (lib/age.ts, the `minors` guardrail
+// pack). Every test runs as a user who is of age, so flows written before the pack was
+// turned on still reach sign-in; lib/__tests__/age.test.ts clears it to test the gate.
 jest.mock("expo-secure-store", () => {
-  const items = new Map<string, string>();
+  const items = new Map<string, string>([["age_policy", "ofAge"]]);
   return {
+    getItem: jest.fn((key: string) => items.get(key) ?? null),
     getItemAsync: jest.fn(async (key: string) => items.get(key) ?? null),
     setItemAsync: jest.fn(async (key: string, value: string) => {
       if (new TextEncoder().encode(value).length > 2048) throw new Error(`expo-secure-store: value for ${key} exceeds 2048 bytes`);

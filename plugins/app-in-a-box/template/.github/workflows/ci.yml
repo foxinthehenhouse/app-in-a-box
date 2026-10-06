@@ -65,6 +65,10 @@ jobs:
         # the App Store / Play answers, PrivacyInfo and the policy draft are generated from
         # it. A migration or event nobody mapped is data the store answers don't disclose.
         run: python scripts/check_data_map.py
+      - name: Guardrail packs (privacy/data-map.yaml → packs; docs/privacy/GUARDRAILS.md)
+        # No personal data in analytics payloads or log calls, plus whatever each enabled
+        # pack enforces (location, minors, health, ugc, financial, biometric).
+        run: python3 scripts/check_guardrails.py
       - name: Generated files match their sources (tokens.ts, Codex adapters)
         # Rebuilt in memory with the renderer's own code; a hand edit or a source edited
         # without regenerating fails here. Fix: python3 scripts/check_generated.py --fix

@@ -54,7 +54,7 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 - `mobile/AGENTS.md`: React Native conventions, tokens, analytics, testIDs
 - `backend/AGENTS.md`: FastAPI conventions, auth, feature config, Supabase
 - `docs/decision-log.md`: architectural decisions (append-only)
-- `docs/runbooks/`, `docs/postmortems/`, `docs/slo.yaml`; `COST.md`: spend caps; `docs/product/`: brief, PRDs, specs
+- `docs/runbooks/`, `docs/postmortems/`, `docs/slo.yaml`; `COST.md`: spend caps; `docs/product/`: brief, PRDs, specs; `docs/privacy/GUARDRAILS.md`: privacy packs
 
 ## Where things live
 
@@ -81,7 +81,7 @@ The source → adapter table and how to regenerate: `.agents/README.md`.
 | Editing | Read first |
 |---|---|
 | `backend/routers/**`, `mobile/lib/api.ts` | `.agents/rules/api-contract.md` |
-| `supabase/migrations/**` | `.agents/rules/db-migrations.md` |
+| `supabase/migrations/**` | `.agents/rules/db-migrations.md`; `.agents/rules/privacy-columns.md` when it adds a personal-looking column |
 | `mobile/app/**`, `mobile/components/**`, `mobile/lib/analytics.ts` | `.agents/rules/mobile-a11y.md`, `.agents/rules/analytics-coverage.md` |
 | `mobile/lib/**`, `mobile/app.json`, `mobile/eas.json`, `backend/config.py`, `backend/main.py` | `.agents/rules/env-var-wiring.md` |
 | `docs/product/**`, `mobile/app/**`, `mobile/locales/**`, `mobile/components/**`, and any product call anywhere | `.agents/rules/product-judgement.md` |
