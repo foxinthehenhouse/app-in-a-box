@@ -143,7 +143,8 @@ def atmosphere_tokens(tokens: dict, pals: dict[str, dict], lights: LightsFn | No
     if bad:
         raise ValueError("; ".join("atmosphere" + e for e in bad))
     a = {**ATMO_DEFAULT, **{k: raw[k] for k in ATMO_DEFAULT if k in raw}}
-    color = raw.get("color") if isinstance(raw.get("color"), dict) else {}
+    frozen = raw.get("color")
+    color: dict = frozen if isinstance(frozen, dict) else {}
     a["lights"] = raw.get("lights") or [list(x) for x in ATMO_LIGHTS]
 
     def lit(m: str) -> dict:
