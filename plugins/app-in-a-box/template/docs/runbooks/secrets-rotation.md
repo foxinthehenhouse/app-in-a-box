@@ -21,6 +21,8 @@ system supports two active keys, that gives zero downtime.
 | `BETTERSTACK_API_TOKEN` (provisioning only) | `.env` | Better Stack → Settings → API tokens: revoke, create. | Edit or delete your monitors |
 | `SENTRY_DSN` | Railway, EAS env | Sentry → Client Keys: add key, switch, disable old. DSNs are semi-public (they ship in the app); rotate only if abused. | Junk events |
 | `SENTRY_AUTH_TOKEN` | EAS env (source maps) | Sentry → Auth Tokens. | Read your Sentry data |
+| `POSTHOG_ERASURE_KEY` (if account erasure is on) | Railway | PostHog → Personal API keys: create one scoped to `person:write` on this project only, set it, redeploy, delete the old one. | Delete people and their events in that project |
+| `SENTRY_ERASURE_TOKEN` (if account erasure is on) | Railway | Sentry → Auth Tokens: create one with only `event:admin`, set it, redeploy, revoke the old one. | Delete issues in your Sentry org |
 | `ANTHROPIC_API_KEY` (if AI enabled) | Railway | console.anthropic.com → create key, set, redeploy, delete old. | Spend on your account |
 | RevenueCat webhook secret (if payments) | Railway + RevenueCat | RevenueCat → Integrations → Webhooks: change the Authorization header value, then Railway. | Forged entitlement grants |
 | Store credentials (ASC API key, Play service account) | EAS credentials | `eas credentials` → remove + re-add. | Ship binaries as you |

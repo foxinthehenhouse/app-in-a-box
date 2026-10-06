@@ -13,9 +13,10 @@ The bytes never pass through this API. The flow:
    `public.uploads`. An object that fails the check is removed.
 
 Reads hand out short-lived signed download URLs; the bucket is private, so a URL is
-the only way to see a file. Every path is built from the caller's verified id, and
-`delete_user_files()` empties the caller's folder when the account is deleted
-(Storage objects do NOT cascade from auth.users).
+the only way to see a file. Every path is built from the caller's verified id. Storage
+objects do NOT cascade from auth.users: the bucket is listed in
+`erasure_service.USER_FILE_BUCKETS`, so account deletion empties the caller's folder
+(completed uploads or not) before the auth user goes.
 
 The limits live here and in the migration's bucket row; tests/test_uploads.py fails
 if the two disagree.
@@ -23,7 +24,6 @@ if the two disagree.
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any
 
@@ -31,16 +31,12 @@ from fastapi import HTTPException, status
 
 from backend.db import rpc
 
-logger = logging.getLogger(__name__)
-
 BUCKET = "uploads"
 MAX_BYTES = 10 * 1024 * 1024  # 10 MB: a phone photo at quality 0.8 is 1-4 MB
 # iOS hands over HEIC unless the picker re-encodes (lib/uploads.ts asks for JPEG).
 ALLOWED_TYPES = ("image/jpeg", "image/png", "image/webp", "image/heic")
 DOWNLOAD_URL_TTL = 60 * 60  # an hour: long enough to render a screen, short if leaked
 EXPORT_URL_TTL = 7 * 24 * 60 * 60  # a week to download the files named in a data export
-LIST_PAGE = 100  # Storage's list() page size when emptying a folder
-MAX_DELETE_ROUNDS = 1000  # 100k files; a safety stop, not a quota
 
 
 def object_path(user_id: str, upload_id: str) -> str:
@@ -132,22 +128,3 @@ def with_download_urls(
     by_path = {s.get("path"): s.get("signedURL") or s.get("signedUrl") for s in signed}
     return [{**r, "download_url": by_path.get(r["path"]) or ""} for r in rows]
 
-
-def delete_user_files(db: Any, user_id: str) -> int:
-    """Empty the caller's folder (account deletion). Lists from Storage, not from
-    `public.uploads`, so an upload that was never completed goes too. Raises on a
-    Storage error: the account must not be deleted with its files left behind."""
-    removed, previous = 0, None
-    for _ in range(MAX_DELETE_ROUNDS):
-        entries = _bucket(db).list(user_id, {"limit": LIST_PAGE, "offset": 0}) or []
-        names = sorted(e["name"] for e in entries if e.get("name"))
-        if not names:
-            return removed
-        if names == previous:  # the last remove() deleted nothing: don't spin
-            raise RuntimeError("Storage did not remove the user's files")
-        _bucket(db).remove([object_path(user_id, n) for n in names])
-        removed, previous = removed + len(names), names
-    logger.warning(
-        "delete_user_files: stopped after %d rounds for %s", MAX_DELETE_ROUNDS, user_id
-    )
-    raise RuntimeError("too many files to delete in one request")
