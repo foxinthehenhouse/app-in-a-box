@@ -202,21 +202,29 @@ def test_sentry_refusal_raises(monkeypatch: pytest.MonkeyPatch) -> None:
 # ---- Storage ------------------------------------------------------------------------
 
 
+def _files(*paths: str) -> dict[str, dict[str, int]]:
+    return {p: {"size": 1} for p in paths}
+
+
 @pytest.fixture
 def buckets(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeDB]:
     monkeypatch.setattr(es, "USER_FILE_BUCKETS", ("avatars", "uploads"))
     db = FakeDB()
     db.storage.objects = {
-        "avatars": {"u1/me.png", "u2/me.png", "u10/me.png"},
-        "uploads": {"u1/a.pdf", "u1/2026/b.pdf", "u1/2026/09/c.pdf", "u2/z.pdf"},
-        "public-assets": {"u1/not-ours-to-touch.png"},
+        "avatars": _files("u1/me.png", "u2/me.png", "u10/me.png"),
+        "uploads": _files("u1/a.pdf", "u1/2026/b.pdf", "u1/2026/09/c.pdf", "u2/z.pdf"),
+        "public-assets": _files("u1/not-ours-to-touch.png"),
     }
     yield db
 
 
+def _paths(db: FakeDB) -> dict[str, set[str]]:
+    return {bucket: set(objects) for bucket, objects in db.storage.objects.items()}
+
+
 def test_storage_removes_every_file_of_the_user_and_nothing_else(buckets: FakeDB) -> None:
     assert es.purge_storage(buckets, "u1") == 4
-    assert buckets.storage.objects == {
+    assert _paths(buckets) == {
         "avatars": {"u2/me.png", "u10/me.png"},
         "uploads": {"u2/z.pdf"},
         "public-assets": {"u1/not-ours-to-touch.png"},  # not a user bucket
@@ -227,9 +235,9 @@ def test_storage_pages_through_large_folders(
     buckets: FakeDB, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(es, "STORAGE_PAGE", 2)
-    buckets.storage.objects["uploads"] |= {f"u1/f{i}.txt" for i in range(5)}
+    buckets.storage.objects["uploads"].update(_files(*(f"u1/f{i}.txt" for i in range(5))))
     assert es.purge_storage(buckets, "u1") == 9
-    assert buckets.storage.objects["uploads"] == {"u2/z.pdf"}
+    assert _paths(buckets)["uploads"] == {"u2/z.pdf"}
 
 
 def test_storage_no_buckets_is_a_no_op(monkeypatch: pytest.MonkeyPatch) -> None:

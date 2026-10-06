@@ -55,4 +55,9 @@ if grep -qx 'design/tokens.json' <<<"$staged" && [ -f scripts/check_design.py ];
   python3 scripts/check_design.py design/tokens.json >&2 || {
     echo "pre-commit: design/tokens.json has a generic-design tell (see above, docs/design/TASTE.md)." >&2; exit 1; }
 fi
+# DESIGN.md is generated from tokens.json: a staged change to either must leave them agreeing.
+if grep -Eqx 'design/tokens.json|DESIGN.md' <<<"$staged" && [ -f scripts/design_md.py ]; then
+  python3 scripts/design_md.py --check >&2 || {
+    echo "pre-commit: DESIGN.md has drifted from design/tokens.json (see above). Run: python3 scripts/design_md.py" >&2; exit 1; }
+fi
 exit 0

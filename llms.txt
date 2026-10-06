@@ -1,0 +1,64 @@
+# App in a Box
+
+> A free, open-source plugin for Claude Code and Codex. A product advisor shapes your idea, you click through a prototype of every screen, then your agent builds and wires an Expo + FastAPI + Supabase app with auth, analytics, CI, store builds and an agent harness.
+
+App in a Box is MIT-licensed and in alpha. It installs as a plugin in Claude Code or Codex, or runs from a pasted prompt in any agent that can read files and run a shell. It never creates accounts for you: you sign up for the free tiers (GitHub, Supabase, Expo, a backend host, PostHog, Sentry), and it automates everything after that. The stack is fixed on purpose (Expo + FastAPI + Supabase) so every guard and skill can be specific. Device runs, EAS builds and store submission are checked by people with real accounts before each release, not by CI.
+
+## Start here
+
+- [README](README.md): what the kit is, the quickstart for both agents, what you get, status and FAQ
+- [START_HERE.md](START_HERE.md): the full walkthrough, phase by phase, with times, accounts and permission modes
+- [Troubleshooting](plugins/app-in-a-box/docs/TROUBLESHOOTING.md): fixes for the common setup failures
+
+## Guides
+
+- [Build an iPhone and Android app with Claude Code](docs/guides/build-an-app-with-claude-code.md): install the plugin, run new-app, what happens and what you click
+- [Build an iPhone and Android app with Codex](docs/guides/build-an-app-with-codex.md): the same flow in Codex, including the network flag and hook trust
+- [Turn an app idea into a clickable prototype before writing code](docs/guides/idea-to-clickable-prototype.md): shape, idea check and prototype, with no accounts and no code
+- [What's in the generated repo, and why](docs/guides/what-you-get.md): the Expo app, FastAPI backend, Supabase database and agent harness, and the reason for each piece
+- [Ship to TestFlight and Google Play](docs/guides/ship-to-testflight-and-google-play.md): store accounts, the release branch, OTA versus a new build, and store requirements
+- [Add payments, AI, push, offline and social sign-in](docs/guides/add-payments-ai-push-offline-social-sign-in.md): what is built in and which recipe skill adds the rest
+
+## Skills (the phases, in order)
+
+- [new-app](plugins/app-in-a-box/skills/new-app/SKILL.md): runs every phase end to end and resumes from appbox.yaml
+- [shape](plugins/app-in-a-box/skills/shape/SKILL.md): the product advisor turns a ramble into a v1 brief
+- [validate-idea](plugins/app-in-a-box/skills/validate-idea/SKILL.md): a cited Go / Sharpen / Rethink market check
+- [prototype](plugins/app-in-a-box/skills/prototype/SKILL.md): a clickable HTML prototype of every screen, frozen into tokens and a screen map
+- [accounts](plugins/app-in-a-box/skills/accounts/SKILL.md): opens each signup and logs in the CLIs
+- [scaffold](plugins/app-in-a-box/skills/scaffold/SKILL.md): renders the template and shapes it to the brief
+- [provision](plugins/app-in-a-box/skills/provision/SKILL.md): creates the cloud resources and wires every secret
+- [harness](plugins/app-in-a-box/skills/harness/SKILL.md): turns on git guards, branch protection and AI review, then proves each guard fires
+- [first-feature](plugins/app-in-a-box/skills/first-feature/SKILL.md): seeds a backlog and builds feature one through the spec, PR and review loop
+- [doctor](plugins/app-in-a-box/skills/doctor/SKILL.md): checks tools, logins and gates
+
+## Recipes (add-ons for a generated app)
+
+- [recipe-payments](plugins/app-in-a-box/skills/recipe-payments/SKILL.md): subscriptions and in-app purchases with RevenueCat, entitlements decided server-side
+- [recipe-ai-feature](plugins/app-in-a-box/skills/recipe-ai-feature/SKILL.md): one fenced backend module with a per-user cost cap and an eval set
+- [recipe-push](plugins/app-in-a-box/skills/recipe-push/SKILL.md): store credentials, asking at the right moment, and send sites
+- [recipe-offline](plugins/app-in-a-box/skills/recipe-offline/SKILL.md): extend the built-in offline cache to new resources, or upgrade to PowerSync
+- [recipe-social-auth](plugins/app-in-a-box/skills/recipe-social-auth/SKILL.md): Sign in with Apple and Google with Supabase Auth
+
+## Reference
+
+- [Production checklist](plugins/app-in-a-box/docs/PRODUCTION.md): security, privacy, store compliance and release pipeline, built in versus owner steps
+- [Permissions](plugins/app-in-a-box/docs/PERMISSIONS.md): running with fewer approval prompts in each agent
+- [Cost](plugins/app-in-a-box/docs/COST.md): how setup keeps token use down, and a budget per phase
+- [Model routing](plugins/app-in-a-box/docs/MODEL_ROUTING.md): which model and effort each agent role in the generated repo runs on
+- [Taste rubric](plugins/app-in-a-box/docs/TASTE.md): what the prototype and the app are judged against
+- [Social auth setup](plugins/app-in-a-box/docs/SOCIAL_AUTH.md): Apple and Google provider configuration
+
+## Project
+
+- [CHANGELOG.md](CHANGELOG.md): what changed in each release
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, the selftest and its negative controls, evals
+- [RELEASING.md](RELEASING.md): the real-cloud check anyone can run before a release
+- [SECURITY.md](SECURITY.md): how to report a vulnerability privately
+- [SHOWCASE.md](SHOWCASE.md): apps built with the kit, and how to add yours
+
+## Optional
+
+- [Renderer](plugins/app-in-a-box/scripts/render.py): the deterministic template renderer and Claude/Codex adapter generator
+- [Generated repo's agent instructions](plugins/app-in-a-box/template/AGENTS.md): the AGENTS.md every new app starts with (placeholders filled at render)
+- [Third-party notices](THIRD_PARTY_NOTICES.md): adapted content and its licences

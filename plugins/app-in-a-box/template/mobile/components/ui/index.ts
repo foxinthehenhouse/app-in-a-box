@@ -18,6 +18,7 @@ export { Media, aspect, type MediaProps } from "./Media";
 export { OfflineBanner } from "./OfflineBanner";
 export { PressableScale } from "./PressableScale";
 export { Card, Screen, Section } from "./Screen";
+export { ScreenAtmosphere } from "./ScreenAtmosphere";
 export { SheetHeader, closeSheet } from "./Sheet";
 export { StatCard, type StatCardProps } from "./Stat";
 export { Skeleton, SkeletonCard } from "./Skeleton";

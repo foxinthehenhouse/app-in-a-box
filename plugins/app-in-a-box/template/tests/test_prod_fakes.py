@@ -3,7 +3,9 @@
 Every filter really filters, so a handler that forgets `.eq("user_id", ...)` touches
 other users' rows and the test fails. `rpc()` dispatches to Python stand-ins for the
 Postgres functions (the SQL itself is exercised by test_prod_migrations.py's
-integration test against a real Postgres).
+integration test against a real Postgres). `storage` is an in-memory Storage whose
+`list()` returns only the folder asked for (files, plus sub-folders with `id: None`, as
+the real API does), so a path built from the wrong id misses.
 """
 
 from __future__ import annotations
@@ -187,36 +189,59 @@ class FakeAuth:
 
 
 class FakeBucket:
-    """Supabase Storage, one bucket: `list(folder, {limit, offset})` returns the folder's
-    direct children (sub-folders with `id: None`, like the real API), `remove(paths)`."""
+    """One Storage bucket: `db.storage.from_("x")`. Objects are `{path: metadata}`."""
 
-    def __init__(self, storage: FakeStorage, name: str) -> None:
+    def __init__(self, storage: FakeStorage, bucket: str) -> None:
         self.storage = storage
-        self.name = name
+        self.bucket = bucket
+        self.objects = storage.objects.setdefault(bucket, {})
 
-    def list(self, folder: str, options: dict[str, int]) -> list[dict[str, Any]]:
+    def create_signed_upload_url(self, path: str) -> dict[str, str]:
+        self.storage.calls.append((self.bucket, "sign_upload", path))
+        base = "https://example.supabase.co/storage/v1/object/upload/sign"
+        url = f"{base}/{self.bucket}/{path}?token=t"
+        return {"signed_url": url, "signedUrl": url, "token": "t", "path": path}
+
+    def create_signed_urls(self, paths: list[str], expires_in: int) -> list[dict[str, Any]]:
+        self.storage.calls.extend((self.bucket, "sign", p) for p in paths)
+        return [
+            {"path": p, "signedURL": f"https://cdn.example/{p}?ttl={expires_in}", "error": None}
+            for p in paths
+        ]
+
+    def list(
+        self, path: str | None = None, options: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """The folder's direct children, sorted by name like the real API: files with
+        their metadata, and each sub-folder once as `{"name": ..., "id": None}`."""
         if self.storage.error:
             raise self.storage.error
-        prefix = f"{folder}/"
+        opts = options or {}
+        prefix = f"{path}/" if path else ""
         children: dict[str, dict[str, Any]] = {}
-        for path in sorted(self.storage.objects.get(self.name, set())):
-            if not path.startswith(prefix):
+        for key in self.objects:
+            if not key.startswith(prefix):
                 continue
-            head, _, rest = path[len(prefix) :].partition("/")
-            children[head] = {"name": head, "id": None if rest else f"obj-{head}"}
-        page = list(children.values())
-        return page[options["offset"] : options["offset"] + options["limit"]]
+            head, sep, _ = key[len(prefix) :].partition("/")
+            if sep:
+                children[head] = {"name": head, "id": None, "metadata": None}
+            else:
+                children[head] = {"name": head, "id": head, "metadata": self.objects[key]}
+        start = int(opts.get("offset", 0))
+        page = [children[n] for n in sorted(children)]
+        return page[start : start + int(opts.get("limit", 100))]
 
     def remove(self, paths: list[str]) -> list[dict[str, Any]]:
-        self.storage.removed.append((self.name, list(paths)))
-        self.storage.objects[self.name] = self.storage.objects.get(self.name, set()) - set(paths)
-        return [{"name": p} for p in paths]
+        if self.storage.error:
+            raise self.storage.error
+        self.storage.calls.extend((self.bucket, "remove", p) for p in paths)
+        return [{"name": p} for p in paths if self.objects.pop(p, None) is not None]
 
 
 class FakeStorage:
     def __init__(self) -> None:
-        self.objects: dict[str, set[str]] = {}  # bucket -> object paths
-        self.removed: list[tuple[str, list[str]]] = []
+        self.objects: dict[str, dict[str, dict[str, Any]]] = {}  # bucket -> path -> metadata
+        self.calls: list[tuple[str, str, str]] = []  # (bucket, op, path)
         self.error: Exception | None = None
 
     def from_(self, bucket: str) -> FakeBucket:
@@ -302,13 +327,15 @@ def test_fake_enforces_job_runs_primary_key() -> None:
         db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
 
 
-def test_fake_storage_lists_folders_and_removes_only_named_paths() -> None:
-    db = FakeDB()
-    db.storage.objects["b"] = {"u/a.png", "u/sub/b.png", "other/c.png"}
-    listing = db.storage.from_("b").list("u", {"limit": 100, "offset": 0})
-    assert listing == [{"name": "a.png", "id": "obj-a.png"}, {"name": "sub", "id": None}]
-    db.storage.from_("b").remove(["u/a.png"])
-    assert db.storage.objects["b"] == {"u/sub/b.png", "other/c.png"}
+def test_fake_storage_lists_only_the_folder_asked_for() -> None:
+    bucket = FakeDB().storage.from_("files")
+    bucket.objects.update({"a/1": {"size": 1}, "b/2": {}, "a/sub/3": {}, "a/sub/4": {}})
+    sub = {"name": "sub", "id": None, "metadata": None}  # a folder, listed once
+    assert bucket.list("a") == [{"name": "1", "id": "1", "metadata": {"size": 1}}, sub]
+    assert bucket.list("a", {"limit": 1, "offset": 1}) == [sub]
+    assert [e["name"] for e in bucket.list("a/sub")] == ["3", "4"]
+    assert bucket.remove(["b/2", "a/missing"]) == [{"name": "b/2"}]
+    assert set(bucket.objects) == {"a/1", "a/sub/3", "a/sub/4"}
 
 
 def test_fake_order_breaks_ties_with_later_keys() -> None:
