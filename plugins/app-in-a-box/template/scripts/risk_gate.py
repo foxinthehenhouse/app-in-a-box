@@ -442,6 +442,38 @@ def apply_rescreen(brief: dict, new: dict[str, str], categories: dict[str, dict]
     return before, after, opened
 
 
+def rescreen_text(a: argparse.Namespace, root: Path) -> tuple[str, str]:
+    """The text to screen and a label for it: --text, else --file(s), else the scanned docs."""
+    if a.text:
+        return a.text, "the feature"
+    files = [root / f for f in a.file] if a.file else scanned_docs(root)
+    text = "\n".join(f.read_text(encoding="utf-8") for f in files if f.is_file())
+    src = ", ".join(f.relative_to(root).as_posix() if f.is_relative_to(root) else str(f)
+                    for f in files) or "nothing"  # fmt: skip
+    return text, src
+
+
+def run_full_screen(script: Path, text: str, uncovered: set[str]) -> dict[str, str]:
+    """Categories the kit's full screen (`risk_screen.py screen --idea`) finds in the text
+    that the screen doesn't cover yet. It reads more than trigger words, so it can catch
+    what the backstop misses; if it fails, the backstop's matches stand on their own."""
+    try:
+        r = subprocess.run([sys.executable, str(script), "screen", "--idea", text],
+                           capture_output=True, text=True, timeout=120)  # fmt: skip
+        found = json.loads(r.stdout).get("categories", []) if r.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError) as e:
+        print(f"({script.name} didn't run: {e}; using the backstop)")
+        return {}
+    if not isinstance(found, list):
+        print(f"({script.name} exited {r.returncode}; using the backstop)")
+        return {}
+    return {
+        c["id"]: str(c.get("why") or c["id"])
+        for c in found
+        if isinstance(c, dict) and c.get("id") in uncovered
+    }
+
+
 def cmd_rescreen(a: argparse.Namespace) -> int:
     root = Path(a.app)
     categories = load_categories(a.categories)
@@ -455,16 +487,13 @@ def cmd_rescreen(a: argparse.Namespace) -> int:
         print(f"risk rescreen: {err or 'the idea was never screened (no risk block)'}: "
               "run the risk step of the App in a Box shape skill first")  # fmt: skip
         return 3
-    if a.text:
-        text, src = a.text, "the feature"
-    else:
-        files = [root / f for f in a.file] if a.file else scanned_docs(root)
-        text = "\n".join(f.read_text(encoding="utf-8") for f in files if f.is_file())
-        src = ", ".join(f.relative_to(root).as_posix() if f.is_relative_to(root) else str(f)
-                        for f in files) or "nothing"  # fmt: skip
+    text, src = rescreen_text(a, root)
     _, valid = bad_accepted(brief["risk"])
-    new = {c: w for c, w in matches(text, categories).items()
-           if c not in covered(brief["risk"], valid)}  # fmt: skip
+    uncovered = set(categories) - covered(brief["risk"], valid)
+    new = {c: w for c, w in matches(text, categories).items() if c in uncovered}
+    script = screen_script(root)
+    if script:  # the kit's full screen adds what the trigger words miss
+        new = {**run_full_screen(script, text, uncovered), **new}
     if not new:
         print(f"risk rescreen: no new category in {src}. The screen still holds.")
         return 0
@@ -473,19 +502,6 @@ def cmd_rescreen(a: argparse.Namespace) -> int:
         print(f"risk rescreen: {src} touches a category the screen never covered: {names}. "
               "Run `python3 scripts/risk_gate.py rescreen` without --check")  # fmt: skip
         return 1
-    script = screen_script(root)
-    if script:  # the full screen first; whatever it leaves uncovered, the backstop adds
-        try:
-            r = subprocess.run([sys.executable, str(script), "rescreen", "--app", str(root),
-                                "--text", text], capture_output=True, text=True, timeout=120)  # fmt: skip
-            print(r.stdout.strip() or f"({script.name} exited {r.returncode})")
-        except (OSError, subprocess.SubprocessError) as e:
-            print(f"({script.name} didn't run: {e}; using the backstop)")
-        brief, _ = load_brief(root)
-        if brief is None or not isinstance(brief.get("risk"), dict):
-            return 1
-        _, valid = bad_accepted(brief["risk"])
-        new = {c: w for c, w in new.items() if c not in covered(brief["risk"], valid)}
     if new:
         before, after, opened = apply_rescreen(brief, new, categories, src)
         (root / BRIEF).write_text(

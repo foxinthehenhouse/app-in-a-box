@@ -18,7 +18,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location("risk_gate", ROOT / "scripts" / "risk_gate.py")
-assert _spec is not None and _spec.loader is not None
+assert _spec is not None
+assert _spec.loader is not None
 rg = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(rg)
 
@@ -159,5 +160,6 @@ def test_ticks_and_owner_notes_survive_a_regeneration(tmp_path: Path) -> None:
     line = next(ln for ln in first.splitlines() if ln.startswith("- [ ] A privacy policy URL"))
     edited = first.replace(line, "- [x]" + line[5:]) + "\nMy own note.\n"
     again = rg.render_checklist(app, screened(), CATEGORIES, edited)
-    assert "- [x] A privacy policy URL" in again and "My own note." in again
+    assert "- [x] A privacy policy URL" in again
+    assert "My own note." in again
     assert again == edited

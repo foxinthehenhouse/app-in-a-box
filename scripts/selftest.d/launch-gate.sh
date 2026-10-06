@@ -109,14 +109,32 @@ _lg_rescreen_combo() {  # health and ai_decisions are each elevated; together th
   [ "$(_lg_tier "$d")" = high ] || { echo "combination: $(_lg_tier "$d")"; return 1; }
 }
 check "re-screen: a risky combination (health + automated decisions) raises one more tier" "_lg_rescreen_combo"
-_lg_rescreen_delegates() {  # a kit screen that is present but doesn't do the job: the backstop still holds
+_lg_cats_of() { python3 -c "import json;print(' '.join(sorted(c['id'] for c in json.load(open('$1/design/brief.json'))['risk']['categories'])))"; }
+_lg_rescreen_broken_screen() {  # a kit screen that is present but fails: the backstop still holds
   local d="$T/lg-rsd" fake="$T/lg-fake-screen.py"; _lg_app "$d" "$LG_STANDARD"
-  printf 'import sys\nprint("fake screen ran with", sys.argv[1])\nsys.exit(2)\n' > "$fake"
+  printf 'import sys\nprint("not json")\nsys.exit(2)\n' > "$fake"
   local out; out=$(env -u CLAUDE_PLUGIN_ROOT APPBOX_RISK_SCREEN="$fake" python3 "$LG_PY" rescreen --app "$d" \
     --categories "$LG_CATS" --text "a GPS run tracker") || return 1
-  grep -q 'fake screen ran with rescreen' <<<"$out" && [ "$(_lg_tier "$d")" = elevated ]
+  grep -q 'using the backstop' <<<"$out" && [ "$(_lg_tier "$d")" = elevated ]
 }
-check "re-screen: calls the kit's risk_screen.py when present, and backstops whatever it leaves uncovered" "_lg_rescreen_delegates"
+check "re-screen: a kit screen that fails leaves the backstop's matches standing" "_lg_rescreen_broken_screen"
+_lg_rescreen_full_screen_adds() {  # the full screen finds a category no trigger word names
+  local d="$T/lg-rsf" fake="$T/lg-fake-screen2.py"; _lg_app "$d" "$LG_STANDARD"
+  printf 'import json, sys\nassert sys.argv[1:3] == ["screen", "--idea"], sys.argv\nprint(json.dumps({"categories": [{"id": "minors", "why": "runners under 13"}]}))\n' > "$fake"
+  env -u CLAUDE_PLUGIN_ROOT APPBOX_RISK_SCREEN="$fake" python3 "$LG_PY" rescreen --app "$d" --categories "$LG_CATS" --text "a GPS run tracker" >/dev/null || return 1
+  local cats; cats=$(_lg_cats_of "$d")
+  [[ " $cats " == *" minors "* && " $cats " == *" location "* ]] || { echo "categories: $cats"; return 1; }
+}
+check "re-screen: calls the kit's risk_screen.py (screen --idea) and adds what it finds beyond the trigger words" "_lg_rescreen_full_screen_adds"
+_lg_rescreen_real_kit() {  # end to end against the real kit screen and categories
+  local d="$T/lg-rsk"; _lg_app "$d" "$LG_STANDARD"
+  env -u CLAUDE_PLUGIN_ROOT APPBOX_RISK_SCREEN="$KIT/scripts/risk_screen.py" python3 "$LG_PY" rescreen --app "$d" \
+    --categories "$KIT/scripts/risk/categories.json" --text "a map so parents can see where their kids are" >/dev/null || return 1
+  local cats; cats=$(_lg_cats_of "$d")
+  [[ " $cats " == *" minors "* && " $cats " == *" location "* ]] || { echo "categories: $cats"; return 1; }
+  [ "$(_lg_tier "$d")" = high ] || { echo "tier: $(_lg_tier "$d")"; return 1; }
+}
+check "re-screen: with the real kit screen, a kid tracker added to a standard app lands at high with minors + location" "_lg_rescreen_real_kit"
 _lg_app "$T/lg-nocat" "$LG_STANDARD"
 refuses "re-screen: with no category data it says so and tells the agent to run the shape risk step" \
   "cd '$T/lg-nocat' && env -u CLAUDE_PLUGIN_ROOT -u APPBOX_RISK_CATEGORIES APPBOX_RISK_SCREEN=none python3 '$LG_PY' rescreen --text 'a map'" \
