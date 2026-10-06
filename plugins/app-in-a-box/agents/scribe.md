@@ -23,6 +23,9 @@ Rules:
   answer. Anything else is `deferred`, `answer: null`, with the phase that will ask it
   (`ask_at`, from the list in `docs/COST.md`). Never mark your own guess as a default:
   only the advisor states defaults.
+- Keep the `risk` block exactly as the advisor and `risk-reviewer` wrote it (tier,
+  categories, questions, abuse cases, acknowledgments). Never lower a tier or drop a
+  category; if the founder's words add a sensitive topic, say so in `open_questions`.
 - Fill the day-0 sections (`context`, `payoff`, `social`, `distribution`, `money`) from
   their words or the advisor's stated defaults; leave a key `null` rather than guess.
 - Keep the file under ~1.5k tokens: it's what the whole team reads instead of the
