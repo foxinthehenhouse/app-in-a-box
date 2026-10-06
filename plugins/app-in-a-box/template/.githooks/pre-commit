@@ -68,4 +68,10 @@ if grep -Eq '^(privacy/|supabase/migrations/|mobile/lib/analytics\.ts$|mobile/ap
   "$py" scripts/check_data_map.py >&2 || {
     echo "pre-commit: privacy/data-map.yaml is incomplete or its generated answers are stale (see above)." >&2; exit 1; }
 fi
+# Accessibility Nutrition Labels: a staged screen, component, motion, token, flow or
+# SCREENS.md change must leave docs/product/ACCESSIBILITY.md claiming only what it proves.
+if grep -Eq '^(mobile/(app|components|lib|\.maestro)/|design/tokens\.json$|docs/product/(SCREENS|ACCESSIBILITY)\.md$)' <<<"$staged" && [ -f scripts/a11y_labels.py ]; then
+  python3 scripts/a11y_labels.py --check >&2 || {
+    echo "pre-commit: docs/product/ACCESSIBILITY.md no longer matches the evidence (see above). Run: python3 scripts/a11y_labels.py" >&2; exit 1; }
+fi
 exit 0

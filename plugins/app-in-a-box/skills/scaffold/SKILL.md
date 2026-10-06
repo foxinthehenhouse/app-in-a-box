@@ -242,7 +242,10 @@ scripts/dev-venv.sh python -m pytest -q
 cd mobile && npm run gates
 ```
 
-Both must be green. Then boot the app with no accounts: `cd mobile && npm run demo`
+Both must be green. Then regenerate the Accessibility Nutrition Labels, now that
+SCREENS.md lists the common tasks and each screen has its flow:
+`python3 scripts/a11y_labels.py` (CI's `--check` fails on a stale
+`docs/product/ACCESSIBILITY.md`; it claims only what the checks prove). Then boot the app with no accounts: `cd mobile && npm run demo`
 (or `EXPO_PUBLIC_DEMO=1 npx expo start --web`); any email and any 6-digit code sign
 you in. Without demo mode and before phase 5, sign-in renders but sending a code
 fails, which is expected. Never put `EXPO_PUBLIC_DEMO` in `eas.json`: the env guard

@@ -83,7 +83,9 @@ const [backend, mobile] = await parallel([
     agent(
       where + 'Mobile half of build-feature steps 5-6: *Wire type + adapter in lib/api.ts, screen from components/ui ' +
         'primitives and tokens, view + success/failure analytics, loading/empty/error states, testIDs, Maestro ' +
-        'happy-path flow. Touch only mobile/. Gate: `cd mobile && npm run gates`. Commit when green. ' +
+        'happy-path flow. Touch only mobile/. Gate: `cd mobile && npm run gates` (it includes check-a11y.js and ' +
+        'the a11y screen test), then `python3 scripts/a11y_labels.py`, whose docs/product/ACCESSIBILITY.md is ' +
+        'the one file outside mobile/ you may commit. Commit when green. ' +
         `Tasks: ${JSON.stringify(plan.mobile_tasks)}`,
       { schema: STEP, agentType: 'mobile-engineer', phase: 'Build', label: 'mobile' },
     ),

@@ -3,7 +3,8 @@
 #           boundaries) + pytest with a coverage floor. pytest collects tests/ AND
 #           tests/harness/ (skills, agents, rules, memory, hooks, AGENTS.md, workflows,
 #           JSON/TOML configs), so the agent harness is linted on every PR too.
-#   mobile: `npm run gates` (tsc + eslint + knip + guard scripts + jest).
+#   mobile: `npm run gates` (tsc + eslint + knip + guard scripts + jest), then the
+#           Accessibility Nutrition Labels drift check (scripts/a11y_labels.py --check).
 # Sibling workflows: workflow-lint.yml, security.yml, db.yml, ticket.yml, pr-title.yml.
 name: CI
 on:
@@ -128,6 +129,12 @@ jobs:
       - name: Gates (tsc + eslint + knip + guard scripts + jest)
         if: steps.app.outputs.present == 'true'
         run: npm run gates
+      - name: Accessibility Nutrition Labels match the evidence (docs/product/ACCESSIBILITY.md)
+        if: steps.app.outputs.present == 'true'
+        # After the gates on purpose: check-a11y.js and a11y-screens.test.tsx just passed,
+        # and these answers claim only what they (plus contrast, motion, dark mode and the
+        # Maestro flows) prove. A claim nobody can back fails here. Fix: python3 scripts/a11y_labels.py
+        run: python3 ../scripts/a11y_labels.py --check
 
   # A PR is graded against main as it was when its run started; main then moves. So a
   # red push/nightly/manual run on main's CURRENT head opens ONE issue labelled

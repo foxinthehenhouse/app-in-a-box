@@ -209,7 +209,9 @@ template says src/app; this kit doesn't use it).
 `check-hardcoded-strings` + `check-design-tells` (bounce curves, a Card in a Card,
 side-stripe borders, hard shadows, gradient text, emoji as icons: the generic-design
 tells in `docs/design/TASTE.md`; a deliberate exception ends its line with
-`// design-ignore: <why>`) + `check-test-presence` + the guard self-tests
+`// design-ignore: <why>`) + `check-a11y` (unlabelled controls and images, labels
+that restate their role, text that can't scale, motion that ignores Reduce Motion;
+`// a11y-ignore: <why>` for a real exception) + `check-test-presence` + the guard self-tests
 (`node --test scripts/__tests__/*.test.js`: each guard passes on the template and fails
 on a planted violation, so a guard that stops firing fails the gate) +
 `check_contrast.py` and `check_design.py` (overused fonts, pure-grey neutrals, the

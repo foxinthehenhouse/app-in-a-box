@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Release checklist for getting a build to testers or the stores. Runs the risk gate first (refuses while a risk item is open) and walks the owner through the compliance checklist. Covers the version bump, EAS build and submit, OTA updates and when they're safe, changelog, store listing, privacy nutrition label / data safety form, and the account-deletion requirement. Guidance-level; it never handles signing secrets. Use when asked to ship, release, submit to TestFlight / App Store / Play, or push an OTA update.
+description: Release checklist for getting a build to testers or the stores. Runs the risk gate first (refuses while a risk item is open) and walks the owner through the compliance checklist. Covers the version bump, EAS build and submit, OTA updates and when they're safe, changelog, store listing, privacy nutrition label / data safety form, the Accessibility Nutrition Labels, and the account-deletion requirement. Guidance-level; it never handles signing secrets. Use when asked to ship, release, submit to TestFlight / App Store / Play, or push an OTA update.
 disable-model-invocation: true
 argument-hint: "[testflight|store|ota]"
 ---
@@ -73,7 +73,7 @@ option first, and write each answer back (`status: asked`). They always include:
   felt it). Payments themselves are `recipe-payments`.
 - **Store listing**: name, subtitle, keywords and category, written for how the brief's
   `distribution` says the first 100 users will search.
-- **Privacy labels**: the generated answers in step 3 below, confirmed by the owner.
+- **Privacy and accessibility labels**: the generated answers in step 3 below, confirmed by the owner.
 - **Support channel**: where users reach a human (an email, a form, a community), which
   becomes the store's support URL.
 
@@ -116,6 +116,15 @@ An unanswered one blocks a store release, not an OTA update.
       and `privacy/PLAY_DATA_SAFETY.md` (CI fails when they're stale, so they match the
       code). Walk the owner through them; the owner submits them. The iOS privacy
       manifest comes from the same map (`expo.ios.privacyManifests` in `mobile/app.json`).
+- [ ] **Accessibility Nutrition Labels (App Store Connect → App Accessibility).** Run
+      `python3 scripts/a11y_labels.py --check` (CI runs it too), then list for the owner one
+      line per feature from `docs/product/ACCESSIBILITY.md`: VoiceOver, Voice Control,
+      Larger Text, Sufficient Contrast, Reduced Motion, Dark Interface, Differentiate
+      Without Color Alone, Captions, Audio Descriptions. Tell them to claim **only** the
+      lines that say "supported", word for word with the evidence named; "not yet
+      claimed" stays unclaimed, and "not applicable" is answered as such. Never claim a
+      feature the file doesn't, even if the owner believes it works: make the missing
+      evidence true (a check, a Maestro flow), regenerate, then claim it.
 - [ ] **Privacy policy URL** (required by both stores), and support URL. Start from
       `privacy/PRIVACY_POLICY.md`, a generated draft: the owner fills in the bracketed
       parts, has it reviewed (it is not legal advice), and publishes it at a public URL.
