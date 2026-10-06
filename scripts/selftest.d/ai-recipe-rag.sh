@@ -63,6 +63,9 @@ _rag_install() {  # fresh copy + install, then snapshot for the idempotency chec
 check "ai recipe: install.py wires a rendered app and exits 0" "_rag_install"
 check "ai recipe: install.py is idempotent (a second run changes nothing)" \
   "python3 '$RAG_REF/install.py' '$RAG' && diff -r --no-dereference '$T/rag-snap' '$RAG'"
+check "ai recipe: install.py relocks the hashed deps with its SDK pin (the app installs from the lock)" \
+  "grep -q '^anthropic==' '$RAG/requirements.lock' && grep -q '^anthropic==' '$RAG/requirements-dev.lock' \
+   && (cd '$RAG' && python3 scripts/check_lock.py)"
 check "ai recipe: the installed app's whole suite is green (fence, cap, grounding, evals, wire contract, export, map, migration guards) and ruff-clean" \
   "cd '$RAG' && $RAG_PT && '$APP/.venv/bin/ruff' check backend tests"
 check "ai recipe: the installed migrations hold the RAG shape (vector column, HNSW, RLS, invoker + auth.uid() retrieval, service-only cap)" \
