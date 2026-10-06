@@ -75,10 +75,8 @@ def _top_level_mixed_and_or(expr: str) -> bool:
     return ands and ors
 
 
-def lint(doc: dict[str, Any], name: str = "workflow", raw: str = "") -> list[str]:
+def _workflow_problems(doc: dict[str, Any], trig: dict[str, Any], name: str) -> list[str]:
     problems: list[str] = []
-    trig = _on(doc)
-    raw = raw or json.dumps(doc)
     if "schedule" in trig and "workflow_dispatch" not in trig:
         problems.append(f"{name}: scheduled but no workflow_dispatch (cannot be re-run by hand)")
     if "permissions" not in doc:
@@ -89,74 +87,106 @@ def lint(doc: dict[str, Any], name: str = "workflow", raw: str = "") -> list[str
         )
     if "pull_request" in trig and "concurrency" not in doc:
         problems.append(f"{name}: PR workflow without `concurrency` (stale runs burn minutes)")
+    return problems
+
+
+def _unpinned(uses: str) -> bool:
+    third_party = uses and not uses.startswith(("./", "docker://", *FIRST_PARTY))
+    return bool(third_party) and not SHA_PIN.search(uses)
+
+
+def _job_problems(doc: dict[str, Any], job: dict[str, Any], where: str) -> list[str]:
+    problems: list[str] = []
+    perms = _perms(doc, job)
+    if doc.get("permissions") in ("write-all",) or job.get("permissions") == "write-all":
+        problems.append(f"{where}: permissions write-all")
+    if "uses" not in job and "timeout-minutes" not in job:
+        problems.append(f"{where}: no timeout-minutes (a hung job burns 6 hours)")
+    cond = job.get("if")
+    if isinstance(cond, str) and _top_level_mixed_and_or(cond):
+        problems.append(
+            f"{where}: `if:` mixes && and || at top level; parenthesise the || branches"
+        )
+    steps = job.get("steps") or []
+    runs = " ".join(str(s.get("run", "")) for s in steps)
+    if "gh workflow run" in runs and perms.get("actions") != "write":
+        problems.append(f"{where}: runs `gh workflow run` without `actions: write` (403)")
+    if re.search(r"\bgh\s+pr\s+merge\b", runs):
+        problems.append(f"{where}: a workflow runs `gh pr merge`; only the review gate merges")
+    problems += [
+        f"{where}: third-party action `{uses}` is not pinned to a full SHA"
+        for uses in (str(st.get("uses", "")) for st in steps)
+        if _unpinned(uses)
+    ]
+    return problems
+
+
+def _review_verify_problems(steps: list[dict[str, Any]], where: str) -> list[str]:
+    """A PR-gate Claude review must be followed by a step that checks it actually ran."""
+    problems: list[str] = []
+    later = " ".join(str(s.get("run", "")) + json.dumps(s.get("env") or {}) for s in steps)
+    if "execution_file" not in later:
+        problems.append(
+            f"{where}: PR-gate claude-code-action with no step checking "
+            "outputs.execution_file; a skipped review reads as a pass"
+        )
+    for st in steps:
+        blob = str(st.get("run", "")) + json.dumps(st.get("env") or {})
+        if "execution_file" in blob and "always()" in str(st.get("if", "")):
+            problems.append(
+                f"{where}: review-verify step runs on `always()`, so a CANCELLED review "
+                "is reported as never-run; use `!cancelled()`"
+            )
+    return problems
+
+
+def _claude_step_problems(st: dict[str, Any], trig: dict[str, Any], where: str) -> list[str]:
+    problems: list[str] = []
+    w = st.get("with") or {}
+    args = str(w.get("claude_args", ""))
+    if re.search(r"--allowed-?tools", args, re.I):
+        problems.append(f"{where}: claude_args sets --allowedTools (killed every run)")
+    m = re.search(r"--max-turns\s+(\d+)", args)
+    if m and int(m.group(1)) < MIN_TURNS:
+        problems.append(f"{where}: --max-turns {m.group(1)} < {MIN_TURNS}")
+    if "anthropic_api_key" in w:
+        problems.append(f"{where}: uses anthropic_api_key; use claude_code_oauth_token")
+    if "pull_request" in trig and not w.get("allowed_bots"):
+        problems.append(
+            f"{where}: claude-code-action on pull_request without `allowed_bots`"
+        )
+    return problems
+
+
+def _claude_job_problems(
+    doc: dict[str, Any], job: dict[str, Any], trig: dict[str, Any], where: str, raw: str
+) -> list[str]:
+    steps = job.get("steps") or []
+    claude_steps = [s for s in steps if str(s.get("uses", "")).startswith(CLAUDE_ACTION)]
+    if not claude_steps:
+        return []
+    problems = _review_verify_problems(steps, where) if "pull_request" in trig else []
+    if "secrets.CLAUDE_CODE_OAUTH_TOKEN" not in raw and "secrets.ANTHROPIC_API_KEY" not in raw:
+        problems.append(f"{where}: claude-code-action with no auth secret")
+    if "vars.ENABLE_" not in str(job.get("if", "")):
+        problems.append(
+            f"{where}: claude-code-action not gated on a vars.ENABLE_* variable (billing)"
+        )
+    if _perms(doc, job).get("id-token") != "write":
+        problems.append(f"{where}: claude-code-action without `id-token: write` (OIDC failure)")
+    for st in claude_steps:
+        problems += _claude_step_problems(st, trig, where)
+    return problems
+
+
+def lint(doc: dict[str, Any], name: str = "workflow", raw: str = "") -> list[str]:
+    trig = _on(doc)
+    raw = raw or json.dumps(doc)
+    problems = _workflow_problems(doc, trig, name)
     for jid, job in (doc.get("jobs") or {}).items():
         where = f"{name}:{jid}"
-        perms = _perms(doc, job)
-        if doc.get("permissions") in ("write-all",) or job.get("permissions") == "write-all":
-            problems.append(f"{where}: permissions write-all")
-        if "uses" not in job and "timeout-minutes" not in job:
-            problems.append(f"{where}: no timeout-minutes (a hung job burns 6 hours)")
-        cond = job.get("if")
-        if isinstance(cond, str) and _top_level_mixed_and_or(cond):
-            problems.append(
-                f"{where}: `if:` mixes && and || at top level; parenthesise the || branches"
-            )
-        steps = job.get("steps") or []
-        runs = " ".join(str(s.get("run", "")) for s in steps)
-        if "gh workflow run" in runs and perms.get("actions") != "write":
-            problems.append(f"{where}: runs `gh workflow run` without `actions: write` (403)")
-        if re.search(r"\bgh\s+pr\s+merge\b", runs):
-            problems.append(f"{where}: a workflow runs `gh pr merge`; only the review gate merges")
-        for st in steps:
-            uses = str(st.get("uses", ""))
-            if (
-                uses
-                and not uses.startswith(("./", "docker://"))
-                and not uses.startswith(FIRST_PARTY)
-            ):
-                if not SHA_PIN.search(uses):
-                    problems.append(
-                        f"{where}: third-party action `{uses}` is not pinned to a full SHA"
-                    )
-        claude_steps = [s for s in steps if str(s.get("uses", "")).startswith(CLAUDE_ACTION)]
-        if not claude_steps:
-            continue
-        if "pull_request" in trig:
-            later = " ".join(str(s.get("run", "")) + json.dumps(s.get("env") or {}) for s in steps)
-            if "execution_file" not in later:
-                problems.append(
-                    f"{where}: PR-gate claude-code-action with no step checking "
-                    "outputs.execution_file; a skipped review reads as a pass"
-                )
-            for st in steps:
-                blob = str(st.get("run", "")) + json.dumps(st.get("env") or {})
-                if "execution_file" in blob and "always()" in str(st.get("if", "")):
-                    problems.append(
-                        f"{where}: review-verify step runs on `always()`, so a CANCELLED review "
-                        "is reported as never-run; use `!cancelled()`"
-                    )
-        if "secrets.CLAUDE_CODE_OAUTH_TOKEN" not in raw and "secrets.ANTHROPIC_API_KEY" not in raw:
-            problems.append(f"{where}: claude-code-action with no auth secret")
-        if "vars.ENABLE_" not in str(job.get("if", "")):
-            problems.append(
-                f"{where}: claude-code-action not gated on a vars.ENABLE_* variable (billing)"
-            )
-        if perms.get("id-token") != "write":
-            problems.append(f"{where}: claude-code-action without `id-token: write` (OIDC failure)")
-        for st in claude_steps:
-            w = st.get("with") or {}
-            args = str(w.get("claude_args", ""))
-            if re.search(r"--allowed-?tools", args, re.I):
-                problems.append(f"{where}: claude_args sets --allowedTools (killed every run)")
-            m = re.search(r"--max-turns\s+(\d+)", args)
-            if m and int(m.group(1)) < MIN_TURNS:
-                problems.append(f"{where}: --max-turns {m.group(1)} < {MIN_TURNS}")
-            if "anthropic_api_key" in w:
-                problems.append(f"{where}: uses anthropic_api_key; use claude_code_oauth_token")
-            if "pull_request" in trig and not w.get("allowed_bots"):
-                problems.append(
-                    f"{where}: claude-code-action on pull_request without `allowed_bots`"
-                )
+        problems += _job_problems(doc, job, where)
+        problems += _claude_job_problems(doc, job, trig, where, raw)
     return problems
 
 
@@ -234,7 +264,7 @@ CASES: list[tuple[dict[Any, Any], str]] = [
 
 
 @pytest.mark.parametrize(
-    "doc, needle",
+    ("doc", "needle"),
     CASES,
     ids=[
         "allowedTools", "max-turns", "api-key", "id-token", "enable-var", "auth-secret",

@@ -88,6 +88,32 @@ function normalise(path: string): string {
   return `/${clean}`.replace(/\/index$/, "/").replace(/^\/$/, "/");
 }
 
+/** `proto://rest` -> the in-app path it points at, or null for a link that isn't ours. */
+function schemePath(proto: string, rest: string, domain: string): string | null {
+  if (proto === "https" || proto === "http") {
+    const slash = rest.indexOf("/");
+    const host = (slash === -1 ? rest : rest.slice(0, slash)).toLowerCase();
+    if (!domain || host !== domain) return null;
+    return slash === -1 ? "/" : rest.slice(slash);
+  }
+  if ((proto === "exp" || proto === "exps") && rest.includes("/--/")) {
+    // Expo Go / dev server: exp://192.168.1.5:8081/--/settings
+    return `/${rest.slice(rest.indexOf("/--/") + 4)}`;
+  }
+  if (proto === SCHEME.toLowerCase()) {
+    // scheme://settings -> host is the first path segment
+    return `/${rest.replace(/^\/+/, "")}`;
+  }
+  return null; // javascript:, another app's scheme, etc.
+}
+
+/** A raw link -> its path (query still attached), or null when it can't be one of ours. */
+function linkPath(raw: string, domain: string): string | null {
+  const scheme = raw.match(/^([a-z][a-z0-9+.-]*):\/\/(.*)$/i);
+  if (scheme) return schemePath((scheme[1] ?? "").toLowerCase(), scheme[2] ?? "", domain);
+  return raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
+}
+
 /**
  * URL or path -> a safe internal route (with its query string), or null.
  * `domain` defaults to the configured app domain.
@@ -95,31 +121,9 @@ function normalise(path: string): string {
 export function resolveDeepLink(input: string, domain: string = appDomain()): string | null {
   const raw = (input ?? "").trim();
   if (!raw) return null;
-  let path: string;
+  let path = linkPath(raw, domain);
+  if (path === null) return null;
   let query = "";
-  const scheme = raw.match(/^([a-z][a-z0-9+.-]*):\/\/(.*)$/i);
-  if (scheme) {
-    const proto = (scheme[1] ?? "").toLowerCase();
-    const rest = scheme[2] ?? "";
-    if (proto === "https" || proto === "http") {
-      const slash = rest.indexOf("/");
-      const host = (slash === -1 ? rest : rest.slice(0, slash)).toLowerCase();
-      if (!domain || host !== domain) return null;
-      path = slash === -1 ? "/" : rest.slice(slash);
-    } else if ((proto === "exp" || proto === "exps") && rest.includes("/--/")) {
-      // Expo Go / dev server: exp://192.168.1.5:8081/--/settings
-      path = `/${rest.slice(rest.indexOf("/--/") + 4)}`;
-    } else if (proto === SCHEME.toLowerCase()) {
-      // scheme://settings -> host is the first path segment
-      path = `/${rest.replace(/^\/+/, "")}`;
-    } else {
-      return null; // javascript:, another app's scheme, etc.
-    }
-  } else if (raw.startsWith("/") && !raw.startsWith("//")) {
-    path = raw;
-  } else {
-    return null;
-  }
   const q = path.search(/[?#]/);
   if (q !== -1) {
     query = path[q] === "?" ? path.slice(q).split("#")[0] ?? "" : "";

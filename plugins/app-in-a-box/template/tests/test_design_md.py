@@ -17,7 +17,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location("design_md", ROOT / "scripts" / "design_md.py")
-assert _spec is not None and _spec.loader is not None
+assert _spec is not None
+assert _spec.loader is not None
 dm = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(dm)
 TOKENS = json.loads((ROOT / "design" / "tokens.json").read_text())
@@ -60,6 +61,7 @@ def test_regeneration_keeps_prose_and_restores_a_deleted_block() -> None:
     changed = copy.deepcopy(TOKENS)
     changed["radius"]["md"] = 14
     out = dm.update(gone, changed)
-    assert mine in out and "warmer accent" in out
+    assert mine in out
+    assert "warmer accent" in out
     assert dm.drift(out, changed) == []
     assert out.count("## Motion") == 1

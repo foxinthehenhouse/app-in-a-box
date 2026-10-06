@@ -32,7 +32,7 @@ the summary lists every skip. Standard library only.
 from __future__ import annotations
 
 import argparse
-import base64
+import importlib.util
 import json
 import os
 import re
@@ -105,182 +105,31 @@ def is_text(path: Path) -> bool:
 
 
 # ---- Tokens v2 -> mobile/lib/tokens.ts, app.json theming, brand icons -----------
-# Defaults fill any group a (v1 or hand-written) tokens.json leaves out, so older
-# token files keep rendering. They mirror template/design/tokens.json.
-DEFAULT_MOTION = {
-    "duration": {
-        "instant": 90,
-        "fast": 140,
-        "standard": 220,
-        "screen": 320,
-        "deliberate": 480,
-        "ambient": 1400,
-    },
-    "easing": {
-        "standard": [0.2, 0, 0, 1],
-        "enter": [0.05, 0.7, 0.1, 1],
-        "exit": [0.3, 0, 0.8, 0.15],
-        "loop": [0.45, 0, 0.55, 1],
-    },
-    "spring": {
-        "snappy": {"damping": 22, "stiffness": 320, "mass": 1},
-        "gentle": {"damping": 20, "stiffness": 180, "mass": 1},
-        "bouncy": {"damping": 12, "stiffness": 220, "mass": 1},
-    },
-    "pressScale": 0.97,
-}
-DEFAULT_ELEVATION = {
-    "none": {"elevation": 0, "shadowOpacity": 0, "shadowRadius": 0, "shadowOffsetY": 0},
-    "card": {"elevation": 2, "shadowOpacity": 0.08, "shadowRadius": 12, "shadowOffsetY": 4},
-    "raised": {"elevation": 6, "shadowOpacity": 0.12, "shadowRadius": 20, "shadowOffsetY": 8},
-    "overlay": {"elevation": 12, "shadowOpacity": 0.2, "shadowRadius": 32, "shadowOffsetY": 12},
-}
-DEFAULT_OPACITY = {"disabled": 0.45, "pressed": 0.12, "scrim": 0.45, "muted": 0.7}
-# A token file from before atmospheres existed never chose a light, so it gets none.
-DEFAULT_ATMOSPHERE = {"mode": "none", "intensity": "medium", "grain": False, "surface": "solid"}
-MODES = ("light", "dark")
-
-
-def _default_type(size: dict) -> dict:
-    s = {"xs": 12, "sm": 14, "md": 16, "lg": 20, "xl": 28, "xxl": 40, **size}
-    role = lambda font, px, lh, w, ls, cap, **kw: {  # noqa: E731
-        "font": font,
-        "size": px,
-        "lineHeight": round(px * lh),
-        "weight": w,
-        "letterSpacing": ls,
-        "maxScale": cap,
-        **kw,
-    }
-    return {
-        "display": role("display", s["xxl"], 1.15, "700", -0.8, 1.3),
-        "title": role("display", s["xl"], 1.2, "700", -0.4, 1.4),
-        "heading": role("display", s["lg"], 1.3, "600", -0.2, 1.6),
-        "body": role("body", s["md"], 1.45, "400", 0, 2.0),
-        "secondary": role("body", s["sm"], 1.45, "400", 0, 2.0),
-        "meta": role("body", s["xs"], 1.35, "600", 0.6, 1.6, uppercase=True),
-        "mono": role("mono", s["sm"], 1.45, "500", 0, 1.6),
-    }
-
-
-def theme_palettes(tokens: dict) -> tuple[dict[str, dict], list[str]]:
-    """({light, dark} palettes, supported modes). v1 single palette -> same map in both
-    slots and only its own mode supported, so the app locks to it instead of crashing."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from check_contrast import palettes  # one shape reader for the gate and the renderer
-
-    pals = palettes(tokens)
-    supported = [m for m in MODES if m in pals]
-    if not supported:
-        raise ValueError("design/tokens.json has no colour palette")
-    fallback = pals[supported[0]]
-    return {m: pals.get(m, fallback) for m in MODES}, supported
-
-
-def atmosphere_tokens(tokens: dict, pals: dict[str, dict]) -> dict:
-    """design/tokens.json -> `atmosphere` as the app paints it. `freeze` writes the light
-    colours and their contrast-capped alpha; a hand-written block without them gets them
-    from the same function the prototype uses, so the app never paints an unchecked
-    colour. Mode none paints nothing (alpha 0)."""
-    from prototype import ATMO_DEFAULT, ATMO_LIGHTS, atmo_errors, atmo_lights
-
-    raw = tokens.get("atmosphere")
-    if not isinstance(raw, dict):
-        raw = DEFAULT_ATMOSPHERE
-    bad = atmo_errors({k: v for k, v in raw.items() if k in ATMO_DEFAULT})
-    if bad:
-        raise ValueError("; ".join("atmosphere" + e for e in bad))
-    a = {**ATMO_DEFAULT, **{k: raw[k] for k in ATMO_DEFAULT if k in raw}}
-    color = raw.get("color") if isinstance(raw.get("color"), dict) else {}
-    a["lights"] = raw.get("lights") or [list(x) for x in ATMO_LIGHTS]
-
-    def lit(m: str) -> dict:
-        if a["mode"] == "none":  # never painted; the ground colour keeps the shape honest
-            c = color.get(m) or {"light1": pals[m]["bg"], "light2": pals[m]["bg"]}
-            return {**c, "alpha": 0}
-        return color.get(m) or atmo_lights(pals[m], m, a["intensity"])
-
-    a["color"] = {m: lit(m) for m in MODES}
-    return a
+# The generators themselves (tokens.ts and the Codex adapters) live in the template's
+# scripts/check_generated.py, so the generated repo's CI rebuilds those files with
+# exactly this code and fails on a hand edit. One implementation, imported here.
+_GEN_PATH = TEMPLATE / "scripts" / "check_generated.py"
+_gen_spec = importlib.util.spec_from_file_location("check_generated", _GEN_PATH)
+if _gen_spec is None or _gen_spec.loader is None:
+    raise ImportError(f"generators not found at {_GEN_PATH}")
+_gen = importlib.util.module_from_spec(_gen_spec)
+_gen_spec.loader.exec_module(_gen)
+theme_palettes = _gen.theme_palettes
 
 
 def tokens_ts(tokens: dict) -> str:
-    """design/tokens.json -> mobile/lib/tokens.ts (import-free, plain data)."""
-    pals, supported = theme_palettes(tokens)
-    default_mode = tokens.get("mode", supported[0])
-    if default_mode not in supported:
-        default_mode = supported[0]
-    names = sorted(pals["dark"], key=list(pals["dark"]).index)
-    type_ = tokens.get("type") or _default_type(tokens.get("size", {}))
+    """design/tokens.json -> mobile/lib/tokens.ts. A hand-written atmosphere without
+    frozen light colours gets them from the prototype's contrast search (kit-only)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from prototype import atmo_lights
 
-    def js(value: object) -> str:
-        return json.dumps(value, indent=2)
+    return _gen.tokens_ts(tokens, lights=atmo_lights)
 
-    lines = [
-        "// GENERATED from design/tokens.json by the App in a Box renderer.",
-        "// Edit design/tokens.json, then re-run the contrast check and the renderer.",
-        "// Import-free on purpose so Node tooling (tests, codegen) can load it.",
-        "// Screens never import this directly: use useTheme() from lib/theme.ts.",
-        "",
-        'export type ColorScheme = "light" | "dark";',
-        "export type ColorName = " + (" | ".join(json.dumps(n) for n in names) or "never") + ";",
-        "export type Palette = Readonly<Record<ColorName, string>>;",
-        "",
-        f"export const palettes: Readonly<Record<ColorScheme, Palette>> = {js(pals)};\n",
-        "/** Modes this theme was designed (and contrast-checked) for. One entry = locked. */",
-        f"export const schemes: readonly ColorScheme[] = {json.dumps(supported)};",
-        # Typed as the union, not the literal: `mode === "dark"` must typecheck in light themes.
-        "/** The mode used when the OS reports none (and the icon's palette). */",
-        f'export const mode: "light" | "dark" = {json.dumps(default_mode)};',
-        "/** Default-mode palette for Node tooling. Screens use useTheme().color. */",
-        "export const color: Palette = palettes[mode];\n",
-    ]
-    for group in ("font", "size", "space", "radius"):
-        lines.append(f"export const {group} = {js(tokens.get(group, {}))} as const;\n")
-    lines.append(f"export const typeRoles = {js(type_)} as const;\n")
-    lines.append(
-        f"export const motion = {js({**DEFAULT_MOTION, **tokens.get('motion', {})})} as const;\n"
-    )
-    lines.append(
-        f"export const elevation = {js(tokens.get('elevation') or DEFAULT_ELEVATION)} as const;\n"
-    )
-    lines.append(
-        f"export const opacity = {js({**DEFAULT_OPACITY, **tokens.get('opacity', {})})} as const;\n"
-    )
-    from make_icon import grain_png
-    from prototype import settle_spring
 
-    motion = {**DEFAULT_MOTION, **tokens.get("motion", {})}
-    gentle = (motion.get("spring") or {}).get("gentle") or DEFAULT_MOTION["spring"]["gentle"]
-    lines.append(
-        "/** The settle spring: `gentle` damped to at least critical, so screens and content"
-        " arrive without passing the mark (the prototype's settle_spring). */"
-    )
-    lines.append(f"export const settle = {js(settle_spring(gentle))} as const;\n")
-    lines += [
-        "export interface AtmosphereLight {",
-        "  light1: string;",
-        "  light2: string;",
-        "  /** Peak alpha of both lights, capped so every ink keeps AA on the lit ground. */",
-        "  alpha: number;",
-        "}",
-        "export interface Atmosphere {",
-        '  mode: "none" | "glow" | "field";',
-        '  intensity: "low" | "medium" | "high";',
-        "  grain: boolean;",
-        '  surface: "solid" | "glass";',
-        "  /** Each light as fractions of the screen: [centre x, centre y, radius x, radius y]. */",
-        "  lights: readonly (readonly [number, number, number, number])[];",
-        "  color: Readonly<Record<ColorScheme, AtmosphereLight>>;",
-        "}",
-        "/** The light the app sits in, frozen from the prototype (components/ui/ScreenAtmosphere). */",
-        f"export const atmosphere: Atmosphere = {js(atmosphere_tokens(tokens, pals))};\n",
-        "/** A tileable film-grain square, laid over the atmosphere when `grain` is on. */",
-        f'export const grainTile = "data:image/png;base64,{base64.b64encode(grain_png()).decode()}";\n',
-    ]
-    lines.append(f"export const minTapTarget = {int(tokens.get('minTapTarget', 48))};")
-    lines.append(f"export const themeName = {json.dumps(tokens.get('name', 'custom'))};\n")
-    return "\n".join(lines)
+codex_agent_toml = _gen.codex_agent_toml
+codex_skill_yaml = _gen.codex_skill_yaml
+codex_config_toml = _gen.codex_config_toml
+codex_hooks_json = _gen.codex_hooks_json
 
 
 BRAND = "./assets/brand"
@@ -405,22 +254,6 @@ def design_doc(target: Path, tokens_file: Path, dry_run: bool) -> list[str]:
     return ["DESIGN.md (from design/tokens.json)"] if changed else []
 
 
-def _frontmatter(text: str) -> tuple[dict[str, str], str]:
-    m = re.match(r"^---\n(.*?)\n---\n?(.*)$", text, re.S)
-    if not m:
-        return {}, text
-    meta = {}
-    for line in m.group(1).splitlines():
-        if ":" in line:
-            k, v = line.split(":", 1)
-            meta[k.strip()] = v.strip()
-    return meta, m.group(2).strip()
-
-
-def _toml_str(s: str) -> str:
-    return json.dumps(s)  # a JSON string literal is a valid TOML basic string
-
-
 def _link(target: Path, link: str, to: str) -> str:
     """Symlink target/link -> to (relative); fall back to a copy where symlinks fail."""
     path = target / link
@@ -435,96 +268,6 @@ def _link(target: Path, link: str, to: str) -> str:
     except OSError:
         shutil.copytree(path.parent / to, path)
         return f"{link} (copy of {to}; symlinks unavailable)"
-
-
-def codex_agent_toml(md: str) -> str:
-    """Claude agent .md -> Codex agent role TOML.
-
-    Model routing (see KIT/docs/MODEL_ROUTING.md): Claude `effort` maps onto Codex
-    `model_reasoning_effort` (Codex has no `max` on every model, so max -> xhigh).
-    Claude's `model` alias (opus/sonnet/haiku/fable) has no stable Codex equivalent,
-    so the role inherits the session's model unless the .md pins one with
-    `codex_model:`. The Claude tier is kept as a comment so the intent survives.
-    A role whose `tools:` can't write files becomes `sandbox_mode = "read-only"`.
-    """
-    meta, body = _frontmatter(md)
-    effort = {"low": "low", "medium": "medium", "high": "high", "max": "xhigh"}.get(
-        meta.get("effort", "").lower()
-    )
-    out = [
-        "# GENERATED from .agents/agents/*.md by the App in a Box renderer. Edit the .md.",
-        f"name = {_toml_str(meta.get('name', ''))}",
-        f"description = {_toml_str(meta.get('description', ''))}",
-    ]
-    if meta.get("model"):
-        out.insert(1, f"# Claude tier: model={meta['model']} effort={meta.get('effort', '-')}")
-    if meta.get("codex_model"):
-        out.append(f"model = {_toml_str(meta['codex_model'])}")
-    if effort:
-        out.append(f"model_reasoning_effort = {_toml_str(effort)}")
-    # A Claude role whose tools can't write files (no Edit/Write/MultiEdit/NotebookEdit)
-    # is a read-only role; Codex enforces that with its sandbox, not a tool list.
-    tools = {x.strip() for x in meta.get("tools", "").split(",") if x.strip()}
-    if tools and not tools & {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
-        out.append('sandbox_mode = "read-only"')
-    out.append(f"developer_instructions = {_toml_str(body)}")
-    return "\n".join(out) + "\n"
-
-
-def codex_skill_yaml(skill_md: str) -> str | None:
-    """Codex reads per-skill policy from <skill>/agents/openai.yaml. Mirror Claude's
-    `disable-model-invocation: true` (explicit-only skills) as
-    `policy.allow_implicit_invocation: false`; other skills need no file."""
-    meta, _ = _frontmatter(skill_md)
-    if meta.get("disable-model-invocation", "").lower() != "true":
-        return None
-    return (
-        "# GENERATED from SKILL.md (disable-model-invocation) by the App in a Box renderer.\n"
-        "policy:\n"
-        "  allow_implicit_invocation: false\n"
-    )
-
-
-def codex_config_toml(mcp: dict) -> str:
-    out = [
-        "# GENERATED from .mcp.json by the App in a Box renderer. Project config is only",
-        "# read when this project is trusted in Codex.",
-        "",
-        "[sandbox_workspace_write]",
-        "network_access = true  # CLIs (supabase, eas, gh, npm) need the network",
-        "",
-    ]
-    for name, cfg in mcp.get("mcpServers", {}).items():
-        out.append(f"[mcp_servers.{name}]")
-        if "url" in cfg:
-            out.append(f"url = {_toml_str(cfg['url'])}")
-            auth = cfg.get("headers", {}).get("Authorization", "")
-            m = re.match(r"Bearer \$\{(\w+)\}", auth)
-            if m:
-                out.append(f"bearer_token_env_var = {_toml_str(m.group(1))}")
-        else:
-            out.append(f"command = {_toml_str(cfg['command'])}")
-            out.append("args = [" + ", ".join(_toml_str(x) for x in cfg.get("args", [])) + "]")
-        out.append("")
-    return "\n".join(out)
-
-
-def codex_hooks_json(claude_settings: dict) -> str:
-    """Same hook scripts, same event names; Codex has no $CLAUDE_PROJECT_DIR, so
-    resolve the repo root with git. Codex asks you to trust each hook once."""
-    root = '"$(git rev-parse --show-toplevel)'
-    hooks = {}
-    for event, groups in claude_settings.get("hooks", {}).items():
-        new_groups = []
-        for g in groups:
-            g2 = dict(g)
-            g2["hooks"] = [
-                {**h, "command": h["command"].replace('"$CLAUDE_PROJECT_DIR', root)}
-                for h in g.get("hooks", [])
-            ]
-            new_groups.append(g2)
-        hooks[event] = new_groups
-    return json.dumps({"hooks": hooks}, indent=2) + "\n"
 
 
 # An MCP server that only serves an opt-in service. It's dropped from the generated

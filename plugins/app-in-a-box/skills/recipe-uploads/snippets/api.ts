@@ -54,11 +54,13 @@ export async function completeUpload(uploadId: string): Promise<Upload> {
   return toUpload(await apiFetch<UploadWire>(`/api/v1/uploads/${encodeURIComponent(uploadId)}/complete`, { method: "POST" }));
 }
 
+/** @public The screen that shows the caller's images calls it (SKILL.md); the recipe ships no screen. */
 export async function listUploads(): Promise<Upload[]> {
   const w = await apiFetch<UploadListWire>("/api/v1/uploads");
   return (w.items ?? []).map(toUpload);
 }
 
+/** @public For the delete control on that screen; the recipe ships no screen. */
 export async function deleteUpload(uploadId: string): Promise<void> {
   await apiFetch<void>(`/api/v1/uploads/${encodeURIComponent(uploadId)}`, { method: "DELETE" });
 }

@@ -109,20 +109,28 @@ interface AuthErrorLike {
   message?: string;
 }
 
+// First match wins, so the order is the precedence (an expired code that also mentions
+// the network is "expired").
+const AUTH_ERROR_RULES: readonly [AuthErrorCode, (code: string, msg: string, err: AuthErrorLike) => boolean][] = [
+  ["expired", (code, msg) => code === "otp_expired" || msg.includes("expired")],
+  ["rateLimited", (code, msg, err) => code.startsWith("over_") || err.status === 429 || msg.includes("rate limit")],
+  [
+    "invalidEmail",
+    (code, msg) => code === "email_address_invalid" || code === "email_address_not_authorized" || msg.includes("invalid email"),
+  ],
+  [
+    "network",
+    (_code, msg, err) =>
+      err.name === "AuthRetryableFetchError" || err.status === 0 || msg.includes("failed to fetch") || msg.includes("network"),
+  ],
+];
+
 /** Supabase AuthError (`code`, `status`, `name`) -> AuthErrorCode. `fallback` for anything unrecognised. */
 export function authErrorCode(err: AuthErrorLike | null | undefined, fallback: AuthErrorCode = "generic"): AuthErrorCode | null {
   if (!err) return null;
   const code = err.code ?? "";
   const msg = (err.message ?? "").toLowerCase();
-  if (code === "otp_expired" || msg.includes("expired")) return "expired";
-  if (code.startsWith("over_") || err.status === 429 || msg.includes("rate limit")) return "rateLimited";
-  if (code === "email_address_invalid" || code === "email_address_not_authorized" || msg.includes("invalid email")) {
-    return "invalidEmail";
-  }
-  if (err.name === "AuthRetryableFetchError" || err.status === 0 || msg.includes("failed to fetch") || msg.includes("network")) {
-    return "network";
-  }
-  return fallback;
+  return AUTH_ERROR_RULES.find(([, test]) => test(code, msg, err))?.[0] ?? fallback;
 }
 
 /** Email one-time code: works in Expo Go with no deep-link setup. */

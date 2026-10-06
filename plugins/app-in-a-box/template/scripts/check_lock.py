@@ -94,6 +94,26 @@ def parse_lock(text: str) -> tuple[str | None, dict[str, str], list[str]]:
     return stamp, pins, problems
 
 
+def _check_lock(root: Path, lock: str, inputs: tuple[str, ...], pins: dict[str, str]) -> list[str]:
+    """One lock against its inputs. Fills `pins` with the lock's pins."""
+    texts = [(root / p).read_text(encoding="utf-8") for p in inputs]
+    stamp, parsed, bad = parse_lock((root / lock).read_text(encoding="utf-8"))
+    pins.update(parsed)
+    problems = [f"{lock}: {b}" for b in bad]
+    if stamp is None:
+        problems.append(f"{lock}: no `{STAMP.strip()}` line; {FIX}")
+    elif stamp != inputs_digest(texts):
+        problems.append(
+            f"{lock} is stale: {' / '.join(inputs)} changed since it was generated; {FIX}"
+        )
+    for text in texts:
+        for line in requirement_lines(text):
+            m = _NAME.match(line)
+            if m and normalize(m.group(1)) not in pins:
+                problems.append(f"{lock}: `{line}` is not in the lock; {FIX}")
+    return problems
+
+
 def check(root: Path) -> list[str]:
     """One problem string per violation; empty means clean."""
     problems: list[str] = []
@@ -105,21 +125,8 @@ def check(root: Path) -> list[str]:
         if missing:
             problems.append(f"{lock}: missing {', '.join(missing)}; {FIX}")
             continue
-        texts = [(root / p).read_text(encoding="utf-8") for p in inputs]
-        stamp, pins, bad = parse_lock((root / lock).read_text(encoding="utf-8"))
-        all_pins[lock] = pins
-        problems += [f"{lock}: {b}" for b in bad]
-        if stamp is None:
-            problems.append(f"{lock}: no `{STAMP.strip()}` line; {FIX}")
-        elif stamp != inputs_digest(texts):
-            problems.append(
-                f"{lock} is stale: {' / '.join(inputs)} changed since it was generated; {FIX}"
-            )
-        for text in texts:
-            for line in requirement_lines(text):
-                m = _NAME.match(line)
-                if m and normalize(m.group(1)) not in pins:
-                    problems.append(f"{lock}: `{line}` is not in the lock; {FIX}")
+        all_pins[lock] = {}
+        problems += _check_lock(root, lock, tuple(inputs), all_pins[lock])
     if "requirements.lock" in all_pins and "requirements-dev.lock" in all_pins:
         run, dev = all_pins["requirements.lock"], all_pins["requirements-dev.lock"]
         for name in sorted(run.keys() & dev.keys()):

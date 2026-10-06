@@ -72,7 +72,8 @@ export function useLoaded<T>(q: UseQueryResult<T>): Loaded<T> {
   return { ...loadedState(q, refreshing), reload, refresh };
 }
 
-/** Uncached load-on-focus. Pass a STABLE function (module-level adapter or useCallback). */
+/** Uncached load-on-focus. Pass a STABLE function (module-level adapter or useCallback).
+ * @public Kept for one-off reads (mobile/AGENTS.md); no template screen needs it yet. */
 export function useLoad<T>(load: () => Promise<T>): Loaded<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<unknown>(null);

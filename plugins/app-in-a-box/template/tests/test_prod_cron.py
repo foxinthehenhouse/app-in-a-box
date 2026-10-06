@@ -72,7 +72,8 @@ def test_cron_secret_uses_constant_time_compare() -> None:
     from backend.routers import internal
 
     src = inspect.getsource(internal.require_cron_secret)
-    assert "hmac.compare_digest" in src and "==" not in src
+    assert "hmac.compare_digest" in src
+    assert "==" not in src
 
 
 _RealClient = ps.ExpoPushClient
@@ -104,7 +105,9 @@ def test_weekly_digest_endpoint_runs_once_per_week(monkeypatch: pytest.MonkeyPat
     first = client.post(JOBS[0], headers={"X-Cron-Secret": SECRET})
     assert first.status_code == 200
     body = first.json()
-    assert body["skipped"] is False and body["users"] == 1 and body["sent"] == 1
+    assert body["skipped"] is False
+    assert body["users"] == 1
+    assert body["sent"] == 1
     second = client.post(JOBS[0], headers={"X-Cron-Secret": SECRET}).json()
     assert second["skipped"] is True  # a retried/overlapping cron call sends nothing twice
     assert len(db.tables["push_tickets"]) == 1
@@ -115,7 +118,8 @@ def test_weekly_digest_pages_through_users(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(jobs_service, "PAGE_SIZE", 2)
     db = FakeDB({"profiles": [{"id": f"u{i}", "onboarded": True} for i in range(5)]})
     out = jobs_service.weekly_digest(db, now=datetime(2026, 9, 30, tzinfo=UTC), client=_expo_ok())
-    assert out["users"] == 5 and out["run_key"] == "2026-W40"
+    assert out["users"] == 5
+    assert out["run_key"] == "2026-W40"
 
 
 def test_a_crash_mid_run_releases_the_claim_so_the_retry_runs() -> None:
@@ -136,7 +140,8 @@ def test_a_crash_mid_run_releases_the_claim_so_the_retry_runs() -> None:
         jobs_service.weekly_digest(db, now=when, client=_expo_ok())
     assert db.tables.get("job_runs", []) == [], "the crashed run must give its claim back"
     retry = jobs_service.weekly_digest(db, now=when, client=_expo_ok())
-    assert retry["skipped"] is False and retry["users"] == 1
+    assert retry["skipped"] is False
+    assert retry["users"] == 1
     again = jobs_service.weekly_digest(db, now=when, client=_expo_ok())
     assert again["skipped"] is True, "a finished run still holds the week"
 
@@ -148,7 +153,8 @@ def test_one_users_unexpected_error_is_counted_not_fatal(monkeypatch: pytest.Mon
     monkeypatch.setattr(ps, "send_to_user", boom)
     db = FakeDB({"profiles": [{"id": "u1", "onboarded": True}, {"id": "u2", "onboarded": True}]})
     out = jobs_service.weekly_digest(db, now=datetime(2026, 9, 30, tzinfo=UTC), client=_expo_ok())
-    assert out["failed"] == 2 and out["skipped"] is False
+    assert out["failed"] == 2
+    assert out["skipped"] is False
 
 
 NOW = datetime(2026, 9, 30, 12, tzinfo=UTC)
@@ -189,7 +195,8 @@ def test_weekly_digest_reruns_after_a_killed_worker() -> None:
              "run_key": jobs_service.iso_week(NOW)}
     db = FakeDB({"job_runs": [stale], "profiles": [{"id": "u1", "onboarded": True}]})
     out = jobs_service.weekly_digest(db, now=NOW, client=_expo_ok())
-    assert out["skipped"] is False and out["users"] == 1
+    assert out["skipped"] is False
+    assert out["users"] == 1
 
 
 def test_claim_run_propagates_unexpected_errors() -> None:

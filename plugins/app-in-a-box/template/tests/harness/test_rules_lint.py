@@ -31,7 +31,8 @@ ALL_RULES = sorted(p for p in (AGENTS_DIR / "rules").rglob("*.md") if p.name != 
 
 def _load_hook():
     spec = importlib.util.spec_from_file_location("inject_path_rules", HOOK)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -169,7 +170,7 @@ def test_hook_fires_once_per_session(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "text, needle",
+    ("text", "needle"),
     [
         ("---\ndescription: d\n---\nbody\n", "cannot parse"),
         ("---\ndescription: d\nglobs: a/**\n---\n\n", "cannot parse"),

@@ -82,7 +82,8 @@ def test_memory_body_is_bounded(repo: Path) -> None:
 def test_no_memory_file_is_fine(repo: Path) -> None:
     (repo / ".agents" / "memory" / "MEMORY.md").unlink()
     out = run_hook(repo)
-    assert "## Session start" in out and "Memory:" not in out
+    assert "## Session start" in out
+    assert "Memory:" not in out
 
 
 @pytest.mark.parametrize("branch", ["feat/login", "fix-redirect", "alex/polish"])
@@ -101,7 +102,8 @@ def test_branch_with_a_ticket_id_does_not_warn(repo: Path, branch: str) -> None:
 
 def test_main_gets_the_branch_hint_not_the_ticket_warning(repo: Path) -> None:
     out = run_hook(repo)
-    assert "create a branch before editing" in out and "no ticket id" not in out
+    assert "create a branch before editing" in out
+    assert "no ticket id" not in out
 
 
 def test_git_hooks_off_is_called_out(repo: Path) -> None:
