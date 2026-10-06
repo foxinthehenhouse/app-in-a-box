@@ -135,6 +135,12 @@ if [ "$MOBILE" = 1 ]; then
     refuses "analytics guard catches uninstrumented screen" "node scripts/check-analytics-coverage.js"
     refuses "env guard catches unwired EXPO_PUBLIC var" "node scripts/check-eas-shipping-env.js"
     rm "app/(app)/planted.tsx"
+    # Mobile area checks: each scripts/selftest.d/mobile/<area>.sh is sourced here, cwd
+    # = the real Expo app (node_modules installed, gates green), with $KIT and $T.
+    for extra in "$HERE"/selftest.d/mobile/*.sh; do
+      [ -f "$extra" ] || continue
+      cd "$M/mobile" && . "$extra"
+    done
   else
     bad "mobile scaffold (create-expo-app / expo install; needs registry access)"
   fi

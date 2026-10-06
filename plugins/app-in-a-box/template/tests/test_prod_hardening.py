@@ -171,7 +171,8 @@ def test_health_deep_pings_db_and_lists_optional_features(
 
     monkeypatch.setattr(backend.db, "_client", lambda: FakeDB({"keep_alive": [{"id": 1}]}))
     shallow = TestClient(create_app()).get("/health").json()
-    assert "db" not in shallow and shallow["status"] == "ok"
+    assert "db" not in shallow
+    assert shallow["status"] == "ok"
     deep = TestClient(create_app()).get("/health?deep=1").json()
     assert deep["db"] == "ok"
     assert deep["status"] == "ok"
@@ -263,7 +264,8 @@ def test_every_requirement_has_an_upper_bound() -> None:
     ]
     assert lines
     for line in lines:
-        assert ">=" in line and "<" in line.replace("<=", ""), f"unbounded: {line}"
+        assert ">=" in line, f"unbounded: {line}"
+        assert "<" in line.replace("<=", ""), f"unbounded: {line}"
         upper = line.split("<", 1)[1]
         if line.split(">=", 1)[1].startswith("0."):
             assert upper.startswith("0."), f"0.x package capped at a major: {line}"
@@ -358,9 +360,11 @@ def test_in_process_state_guard_catches_a_planted_memo() -> None:
     assert _cached_functions("@functools.lru_cache\nasync def y():\n    pass\n") == ["y"]
     assert _cached_functions("@router.get('/x')\ndef z():\n    pass\n") == []
     state = _in_process_state("backend/x.py", "@lru_cache\ndef _session_store():\n    pass\n")
-    assert state and "named like cross-request state" in state[0]
+    assert state
+    assert "named like cross-request state" in state[0]
     unlisted = _in_process_state("backend/x.py", "@lru_cache\ndef _settings():\n    pass\n")
-    assert unlisted and "allowlist" in unlisted[0]
+    assert unlisted
+    assert "allowlist" in unlisted[0]
     assert _in_process_state("backend/db.py", "@lru_cache(maxsize=1)\ndef _client():\n    pass\n") == []
 
 

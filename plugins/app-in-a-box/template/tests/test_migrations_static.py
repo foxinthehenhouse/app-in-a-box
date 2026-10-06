@@ -30,7 +30,8 @@ def _load_checker():
     spec = importlib.util.spec_from_file_location(
         "check_migration_versions", ROOT / "scripts" / "check_migration_versions.py"
     )
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -146,7 +147,7 @@ create trigger on_thing after insert on public.things for each row execute funct
 
 
 @pytest.mark.parametrize(
-    "note, expect",
+    ("note", "expect"),
     [
         ("drop table public.things;", ["do_thing", "on_thing"]),
         ("drop trigger on_thing on public.things; drop table public.things;", ["do_thing"]),
@@ -166,7 +167,7 @@ def test_rollback_omissions_ignores_commented_out_sql() -> None:
 
 
 @pytest.mark.parametrize(
-    "names, needle",
+    ("names", "needle"),
     [
         (["20260101000000_a.sql", "20260101000000_b.sql"], "duplicate migration version"),
         (["20260101_a.sql"], "not 14 digits"),

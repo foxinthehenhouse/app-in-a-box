@@ -83,7 +83,9 @@ def test_another_users_data_is_never_included() -> None:
     assert "SECRET-A" not in dumped
     # and the reverse: a's export holds none of b's rows
     other = json.dumps(client_for(_two_users(), "a").get("/api/v1/me/export").json())
-    assert "bbbb" not in other and "Bea" not in other and "t-b" not in other
+    assert "bbbb" not in other
+    assert "Bea" not in other
+    assert "t-b" not in other
 
 
 def test_every_read_is_filtered_by_the_caller() -> None:

@@ -38,7 +38,8 @@ def test_scrub_removes_identity_and_payloads() -> None:
         "type": "ValueError",
         "value": "Details removed by privacy policy",
     }
-    assert "a@example.com" not in repr(out) and "hunter2" not in repr(out)
+    assert "a@example.com" not in repr(out)
+    assert "hunter2" not in repr(out)
 
 
 def test_scrub_without_error_id_drops_all_tags() -> None:
@@ -46,7 +47,8 @@ def test_scrub_without_error_id_drops_all_tags() -> None:
     event["tags"] = {"email": "a@example.com"}
     event["request"] = {"url": "https://x/y?email=a@example.com"}
     out = observability.scrub_event(event, {})
-    assert "tags" not in out and out["request"] == {}
+    assert "tags" not in out
+    assert out["request"] == {}
 
 
 def test_sentry_is_off_in_dev_and_without_a_dsn(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -126,25 +126,31 @@ class FakeQuery:
                 return False
         return True
 
+    def _insert(self, rows: list[dict]) -> Result:
+        new = self.payload if isinstance(self.payload, list) else [self.payload]
+        key = self.db.unique.get(self.table)
+        for r in new:
+            if key and any(all(e.get(k) == r.get(k) for k in key) for e in rows):
+                raise FakeAPIError("23505", "duplicate key")
+        rows.extend(dict(r) for r in new)
+        return Result([dict(r) for r in new])
+
+    def _upsert(self, rows: list[dict]) -> Result:
+        row, conflict = self.payload
+        existing = next((r for r in rows if r.get(conflict) == row.get(conflict)), None)
+        if existing:
+            existing.update(row)
+            return Result([existing])
+        rows.append(dict(row))
+        return Result([dict(row)])
+
     def execute(self) -> Result:
         rows = self.db.tables.setdefault(self.table, [])
         self.db.calls.append((self.table, self.op, list(self.filters)))
         if self.op == "insert":
-            new = self.payload if isinstance(self.payload, list) else [self.payload]
-            key = self.db.unique.get(self.table)
-            for r in new:
-                if key and any(all(e.get(k) == r.get(k) for k in key) for e in rows):
-                    raise FakeAPIError("23505", "duplicate key")
-            rows.extend(dict(r) for r in new)
-            return Result([dict(r) for r in new])
+            return self._insert(rows)
         if self.op == "upsert":
-            row, conflict = self.payload
-            existing = next((r for r in rows if r.get(conflict) == row.get(conflict)), None)
-            if existing:
-                existing.update(row)
-                return Result([existing])
-            rows.append(dict(row))
-            return Result([dict(row)])
+            return self._upsert(rows)
         matched = [r for r in rows if self._match(r)]
         if self.op == "delete":
             self.db.tables[self.table] = [r for r in rows if r not in matched]

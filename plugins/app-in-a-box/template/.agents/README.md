@@ -27,10 +27,11 @@ anything else that reads `AGENTS.md` or the Agent Skills format).
   explicit-only skills). Don't edit; the renderer rewrites it.
 
 After adding or editing an agent role, or changing `.mcp.json` or
-`.claude/settings.json` hooks, regenerate the Codex adapters:
+`.claude/settings.json` hooks, regenerate the Codex adapters (CI's `python3 scripts/check_generated.py` fails until
+you do, and names each stale file):
 
 ```
-python3 <app-in-a-box plugin>/scripts/render.py --adapters-only --target .
+python3 scripts/check_generated.py --fix
 ```
 
 On a system without symlink support (Windows without developer mode), the renderer

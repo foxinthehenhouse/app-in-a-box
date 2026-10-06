@@ -40,9 +40,11 @@ def test_rollback_runbook_covers_every_layer() -> None:
 def test_eas_workflows_use_fingerprints_and_the_right_jobs() -> None:
     preview = (ROOT / "mobile/.eas/workflows/pr-preview.yml").read_text()
     release = (ROOT / "mobile/.eas/workflows/release.yml").read_text()
-    assert "type: fingerprint" in preview and "type: update" in preview
+    assert "type: fingerprint" in preview
+    assert "type: update" in preview
     assert "pr-${{ github.event.pull_request.number }}" in preview
-    assert "type: submit" in release and "profile: production" in release
+    assert "type: submit" in release
+    assert "profile: production" in release
 
 
 @pytest.mark.parametrize(

@@ -198,10 +198,6 @@ export function setCacheOwner(userId: string | null, client: QueryClient = query
   return changed;
 }
 
-export function currentCacheOwner(): string | null {
-  return cacheOwner;
-}
-
 // ---- Connectivity + focus --------------------------------------------------
 
 /** NetInfo -> onlineManager. `isInternetReachable === null` means "not known yet": treat as online. */
