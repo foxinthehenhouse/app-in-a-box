@@ -98,4 +98,11 @@ Run these on a throwaway branch and report a pass/fail table:
 | memory recall (Claude) | `python3 .claude/hooks/memory_recall.py "migration rls"` | no crash |
 | CI | open a draft PR (the phase 7 PR) | `python`, `mobile`, `migrations-rls`, `gitleaks`, `actionlint`, `zizmor` and `harness` run |
 
+`dependencies` (`security.yml`) runs too, and is deliberately not a required check: an
+advisory published overnight would otherwise block every unrelated PR. A fresh Expo app
+usually inherits a few high advisories in the SDK's own build tooling, so its first run
+is often red. Look at each one: fix it, or record it in `mobile/npm-audit-allowlist.json`
+with a reason and an `until` date at most 90 days out (`scripts/check_npm_audit.py`
+documents the shape). Never allowlist one you haven't read.
+
 Clean up the throwaway branch. Set `progress.harness: done`.

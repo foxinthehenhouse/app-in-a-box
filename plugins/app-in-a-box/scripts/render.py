@@ -21,6 +21,7 @@ Then it generates the per-agent adapters from the shared, agent-neutral sources:
     .mcp.json                       synced to the services appbox.yaml's stack chose
     .codex/hooks.json               <- .claude/settings.json hooks (same scripts)
     mobile/lib/tokens.ts            <- design/tokens.json
+    DESIGN.md                       <- design/tokens.json (generated blocks only; prose kept)
     docs/design/TASTE.md            <- KIT/docs/TASTE.md (the taste rubric; never overwritten)
     docs/DEFAULTS.md                <- KIT/docs/DEFAULTS.md (the baked-in product defaults; same)
 
@@ -61,7 +62,10 @@ TEXT_SUFFIXES = {
     "",
 }
 # User decisions: written by the interview/design phases, never clobbered by --force.
+# README.md is rendered once and is the owner's from then on (it carries the removable
+# "Built with App in a Box" badge; a re-render must not put back a badge they deleted).
 PROTECTED = {
+    "README.md",
     "design/tokens.json",
     "design/brief.json",
     "appbox.yaml",
@@ -110,8 +114,18 @@ if _gen_spec is None or _gen_spec.loader is None:
     raise ImportError(f"generators not found at {_GEN_PATH}")
 _gen = importlib.util.module_from_spec(_gen_spec)
 _gen_spec.loader.exec_module(_gen)
-tokens_ts = _gen.tokens_ts
 theme_palettes = _gen.theme_palettes
+
+
+def tokens_ts(tokens: dict) -> str:
+    """design/tokens.json -> mobile/lib/tokens.ts. A hand-written atmosphere without
+    frozen light colours gets them from the prototype's contrast search (kit-only)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from prototype import atmo_lights
+
+    return _gen.tokens_ts(tokens, lights=atmo_lights)
+
+
 codex_agent_toml = _gen.codex_agent_toml
 codex_skill_yaml = _gen.codex_skill_yaml
 codex_config_toml = _gen.codex_config_toml
@@ -175,7 +189,12 @@ def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str 
         return made
     out = target / "mobile" / "lib" / "tokens.ts"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(tokens_ts(tokens))
+    try:
+        ts = tokens_ts(tokens)
+    except (KeyError, ValueError) as e:  # no usable palette, or a bad atmosphere knob
+        print(f"ERROR: design/tokens.json can't be rendered: {e}")
+        raise ContrastGateError([str(e)]) from e
+    out.write_text(ts)
     from check_contrast import check
 
     problems = check(tokens)
@@ -216,6 +235,23 @@ def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str 
     (brand / ".stamp").write_text(stamp)
     made.append("mobile/assets/brand/*.png (icon, adaptive, splash, favicon)")
     return made
+
+
+def design_doc(target: Path, tokens_file: Path, dry_run: bool) -> list[str]:
+    """DESIGN.md at the repo root, from design/tokens.json. Created when absent; when it
+    exists only the frontmatter and the generated blocks are refreshed, so the founder's
+    prose and Decisions log are never overwritten (--force or not). The generated repo
+    checks it with the same code: `python3 scripts/design_md.py --check`."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from design_md import write
+
+    if dry_run:
+        return ["DESIGN.md (from design/tokens.json)"]
+    tokens = json.loads(tokens_file.read_text())
+    if not isinstance(tokens, dict):
+        return []
+    changed = write(target / "DESIGN.md", tokens)
+    return ["DESIGN.md (from design/tokens.json)"] if changed else []
 
 
 def _link(target: Path, link: str, to: str) -> str:
@@ -340,6 +376,7 @@ def render(a: argparse.Namespace) -> int:
             "tests",
             "railway.json",
             "requirements.txt",
+            "requirements.lock",
             "run.sh",
         }:
             continue
@@ -390,6 +427,7 @@ def render(a: argparse.Namespace) -> int:
         except ContrastGateError:
             contrast_failed = True
             written.append("mobile/lib/tokens.ts (from design/tokens.json)")
+        written += design_doc(target, tokens_file, a.dry_run)
 
     if not a.dry_run:
         written += adapters(target)

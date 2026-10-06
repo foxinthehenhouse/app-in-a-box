@@ -157,6 +157,18 @@ def dependabot_problems(d: dict[str, Any]) -> list[str]:
         ecosystems.add(u.get("package-ecosystem"))
         if not u.get("directory") or not (u.get("schedule") or {}).get("interval"):
             problems.append(f"{u.get('package-ecosystem')}: needs directory + schedule.interval")
+        # Cooldown: a fresh release waits before a PR proposes it, so a malicious or
+        # broken publish is usually yanked first. A new major waits longer.
+        cool = u.get("cooldown") or {}
+        days = cool.get("default-days", 0)
+        if not isinstance(days, int) or days < 7:
+            problems.append(f"{u.get('package-ecosystem')}: cooldown.default-days must be >= 7")
+        elif u.get("package-ecosystem") in ("pip", "npm") and not (
+            cool.get("semver-major-days", 0) > days
+        ):
+            problems.append(
+                f"{u.get('package-ecosystem')}: cooldown.semver-major-days must exceed default-days"
+            )
     for need in ("pip", "npm", "github-actions"):
         if need not in ecosystems:
             problems.append(f"no `{need}` updates")
@@ -319,3 +331,19 @@ def test_dependabot_rules_can_fail() -> None:
     assert "version must be 2" in problems
     assert any("`npm`" in p for p in problems)
     assert any("schedule.interval" in p for p in problems)
+    assert any("pip: cooldown.default-days" in p for p in problems)
+    sched = {"directory": "/", "schedule": {"interval": "weekly"}}
+    no_major = dependabot_problems(
+        {
+            "version": 2,
+            "updates": [
+                {"package-ecosystem": "pip", **sched, "cooldown": {"default-days": 7}},
+                {"package-ecosystem": "npm", **sched, "cooldown": {"default-days": 3}},
+                {"package-ecosystem": "github-actions", **sched, "cooldown": {"default-days": 7}},
+            ],
+        }
+    )
+    assert no_major == [
+        "pip: cooldown.semver-major-days must exceed default-days",
+        "npm: cooldown.default-days must be >= 7",
+    ]

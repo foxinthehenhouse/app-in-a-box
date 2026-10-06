@@ -22,6 +22,10 @@ Run through it before the first TestFlight/Play build, and again before public l
 | API docs hidden in production | Kit | `test_production_adds_hsts_and_hides_docs` |
 | Cron endpoints behind a constant-time shared secret, fail closed | Kit | `routers/internal.py`; `tests/test_prod_cron.py` |
 | Dependencies pinned with upper bounds | Kit | `requirements.txt`; `test_every_requirement_has_an_upper_bound` |
+| Hashed Python lock: CI and the dev venv install exact versions with `--require-hashes` | Kit | `requirements*.lock` from `scripts/lock-deps.sh`; `scripts/check_lock.py` fails CI when a range changes without a re-lock |
+| Known-vulnerability scan + SBOM, on every PR and weekly | Kit | `security.yml` `dependencies` job: pip-audit over the lock, npm audit (high/critical, triage in `mobile/npm-audit-allowlist.json`), CycloneDX SBOMs uploaded as the `sbom` artifact |
+| Dependency updates wait out a cooldown (7 days, 30 for a major) | Kit | `.github/dependabot.yml`; `test_config_schemas.py::test_dependabot` |
+| Railway installs the hashed lock too | Gap | Railway's builder installs `requirements.txt` (ranges) at deploy; CI tests the lock. Point the build at `requirements.lock` if you need prod byte-identical to CI |
 | Secrets never in git | Kit | `.githooks/pre-commit` scan; `.env` gitignored |
 | Secret rotation procedure | Kit | `docs/runbooks/secrets-rotation.md` |
 | Supabase security advisors clean | Owner | Supabase → Advisors → Security, before launch and monthly |
@@ -89,6 +93,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Apple + Google sign-in | Recipe | `recipe-social-auth` |
 | Subscriptions / IAP with server-side entitlements | Recipe | `recipe-payments` |
 | AI feature (fenced, capped, evaluated) | Recipe | `recipe-ai-feature` |
+| Image uploads (private bucket, signed URLs, deleted with the account) | Recipe | `recipe-uploads` |
 
 ## Store review gotchas
 

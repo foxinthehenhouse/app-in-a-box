@@ -13,7 +13,7 @@ import { Platform, View, type LayoutChangeEvent } from "react-native";
 import { SegmentedControl as NativeSegmentedControl } from "@expo/ui/community/segmented-control";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 
-import { haptic, springTo } from "../../lib/motion";
+import { haptic, hapticFor, springTo } from "../../lib/motion";
 import { makeStyles, useTheme } from "../../lib/theme";
 import { PressableScale } from "./PressableScale";
 import { Text } from "./Text";
@@ -30,7 +30,7 @@ export function Chip({ label, selected = false, onPress, testID }: ChipProps) {
   return (
     <PressableScale
       onPress={onPress}
-      haptic="selection"
+      haptic={hapticFor.chip}
       accessibilityRole="togglebutton"
       accessibilityLabel={label}
       accessibilityState={{ checked: selected }}
@@ -69,7 +69,7 @@ function PlatformSegmentedControl<V extends string>({ options, value, onChange, 
         onChange={(e) => {
           const next = options[e.nativeEvent.selectedSegmentIndex];
           if (!next || next.value === value) return;
-          haptic.selection();
+          haptic[hapticFor.segment]();
           onChange(next.value);
         }}
         appearance={t.isDark ? "dark" : "light"}
@@ -118,7 +118,7 @@ function ThemedSegmentedControl<V extends string>({
               x.set(springTo(i * segment, "snappy"));
               onChange(o.value);
             }}
-            haptic="selection"
+            haptic={hapticFor.segment}
             pressTint={false}
             // "button" + selected, not "radio": RN maps radio to no iOS trait at
             // all, so VoiceOver wouldn't announce the segment as actionable.

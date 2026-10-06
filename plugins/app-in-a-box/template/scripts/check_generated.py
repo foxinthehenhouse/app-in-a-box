@@ -22,14 +22,20 @@ Standard library only.
 
 from __future__ import annotations
 
+import base64
 import json
 import re
+import struct
 import sys
+import zlib
+from collections.abc import Callable
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_contrast import palettes  # noqa: E402  one shape reader for the gate and this
 
+# The kit's contrast search for atmosphere light colours: (palette, mode, intensity) -> colours.
+LightsFn = Callable[[dict, str, str], dict]
 ROOT = Path(__file__).resolve().parent.parent
 
 # ---- design/tokens.json -> mobile/lib/tokens.ts ------------------------------------
@@ -64,7 +70,18 @@ DEFAULT_ELEVATION = {
     "overlay": {"elevation": 12, "shadowOpacity": 0.2, "shadowRadius": 32, "shadowOffsetY": 12},
 }
 DEFAULT_OPACITY = {"disabled": 0.45, "pressed": 0.12, "scrim": 0.45, "muted": 0.7}
+# A token file from before atmospheres existed never chose a light, so it gets none.
+DEFAULT_ATMOSPHERE = {"mode": "none", "intensity": "medium", "grain": False, "surface": "solid"}
 MODES = ("light", "dark")
+# The atmosphere's knobs and default light geometry, as the kit's prototype defines them
+# (the kit selftest fails if the two copies disagree).
+ATMO_DEFAULT = {"mode": "glow", "intensity": "medium", "grain": True, "surface": "solid"}
+ATMO_KEYS = {
+    "mode": ("none", "glow", "field"),
+    "intensity": ("low", "medium", "high"),
+    "surface": ("solid", "glass"),
+}
+ATMO_LIGHTS = ((0.18, -0.06, 0.78, 0.44), (1.02, 0.74, 0.70, 0.40))
 
 
 def _default_type(size: dict) -> dict:
@@ -100,8 +117,85 @@ def theme_palettes(tokens: dict) -> tuple[dict[str, dict], list[str]]:
     return {m: pals.get(m, fallback) for m in MODES}, supported
 
 
-def tokens_ts(tokens: dict) -> str:
-    """design/tokens.json -> mobile/lib/tokens.ts (import-free, plain data)."""
+def atmo_errors(a: object) -> list[str]:
+    """Problems with an atmosphere object (the prototype's rule, same messages)."""
+    if not isinstance(a, dict):
+        return [": must be an object"]
+    errs = [f".{k}: unknown key" for k in sorted(set(a) - set(ATMO_DEFAULT))]
+    for k, options in ATMO_KEYS.items():
+        if k in a and a[k] not in options:
+            errs.append(f".{k}: {a[k]!r} is not one of {', '.join(options)}")
+    if "grain" in a and not isinstance(a["grain"], bool):
+        errs.append(".grain: must be true or false")
+    return errs
+
+
+def atmosphere_tokens(tokens: dict, pals: dict[str, dict], lights: LightsFn | None = None) -> dict:
+    """design/tokens.json -> `atmosphere` as the app paints it. The prototype's freeze
+    writes the light colours and their contrast-capped alpha into tokens.json, so this
+    only copies them. A hand-written block without them needs the contrast search, which
+    lives in the kit: the renderer passes it as `lights`; here it is an error, so the app
+    never paints an unchecked colour. Mode none paints nothing (alpha 0)."""
+    raw = tokens.get("atmosphere")
+    if not isinstance(raw, dict):
+        raw = DEFAULT_ATMOSPHERE
+    bad = atmo_errors({k: v for k, v in raw.items() if k in ATMO_DEFAULT})
+    if bad:
+        raise ValueError("; ".join("atmosphere" + e for e in bad))
+    a = {**ATMO_DEFAULT, **{k: raw[k] for k in ATMO_DEFAULT if k in raw}}
+    color = raw.get("color") if isinstance(raw.get("color"), dict) else {}
+    a["lights"] = raw.get("lights") or [list(x) for x in ATMO_LIGHTS]
+
+    def lit(m: str) -> dict:
+        if a["mode"] == "none":  # never painted; the ground colour keeps the shape honest
+            c = color.get(m) or {"light1": pals[m]["bg"], "light2": pals[m]["bg"]}
+            return {**c, "alpha": 0}
+        if color.get(m):
+            return color[m]
+        if lights is None:
+            raise ValueError(
+                f"atmosphere.color.{m} is missing: freeze the design again so the light "
+                "colours are contrast-checked and written to design/tokens.json"
+            )
+        return lights(pals[m], m, a["intensity"])
+
+    a["color"] = {m: lit(m) for m in MODES}
+    return a
+
+
+def settle_spring(sp: dict) -> dict:
+    """The spring every screen-scale move uses: `gentle`, damped to at least critical so
+    it arrives without passing the mark (the prototype's settle_spring)."""
+    crit = 2 * (float(sp["stiffness"]) * float(sp.get("mass", 1))) ** 0.5
+    return dict(sp, damping=max(float(sp["damping"]), crit))
+
+
+def grain_png(size: int = 48, seed: int = 7) -> bytes:
+    """A tileable film-grain square: greyscale noise around mid-grey, the same every run
+    (the kit's make_icon.grain_png, byte for byte)."""
+    x, rows = seed, []
+    for _ in range(size):
+        row = bytearray(b"\x00")
+        for _ in range(size):
+            x = (x * 1103515245 + 12345) & 0x7FFFFFFF  # LCG: deterministic, no imports
+            row.append(64 + (x >> 16) % 128)
+        rows.append(bytes(row))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        crc = struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        return struct.pack(">I", len(data)) + kind + data + crc
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 0, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(b"".join(rows), 9))
+        + chunk(b"IEND", b"")
+    )
+
+
+def tokens_ts(tokens: dict, lights: LightsFn | None = None) -> str:
+    """design/tokens.json -> mobile/lib/tokens.ts (import-free, plain data). `lights`:
+    see atmosphere_tokens."""
     pals, supported = theme_palettes(tokens)
     default_mode = tokens.get("mode", supported[0])
     if default_mode not in supported:
@@ -143,6 +237,34 @@ def tokens_ts(tokens: dict) -> str:
     lines.append(
         f"export const opacity = {js({**DEFAULT_OPACITY, **tokens.get('opacity', {})})} as const;\n"
     )
+    motion = {**DEFAULT_MOTION, **tokens.get("motion", {})}
+    gentle = (motion.get("spring") or {}).get("gentle") or DEFAULT_MOTION["spring"]["gentle"]
+    lines.append(
+        "/** The settle spring: `gentle` damped to at least critical, so screens and content"
+        " arrive without passing the mark (the prototype's settle_spring). */"
+    )
+    lines.append(f"export const settle = {js(settle_spring(gentle))} as const;\n")
+    lines += [
+        "export interface AtmosphereLight {",
+        "  light1: string;",
+        "  light2: string;",
+        "  /** Peak alpha of both lights, capped so every ink keeps AA on the lit ground. */",
+        "  alpha: number;",
+        "}",
+        "export interface Atmosphere {",
+        '  mode: "none" | "glow" | "field";',
+        '  intensity: "low" | "medium" | "high";',
+        "  grain: boolean;",
+        '  surface: "solid" | "glass";',
+        "  /** Each light as fractions of the screen: [centre x, centre y, radius x, radius y]. */",
+        "  lights: readonly (readonly [number, number, number, number])[];",
+        "  color: Readonly<Record<ColorScheme, AtmosphereLight>>;",
+        "}",
+        "/** The light the app sits in, frozen from the prototype (components/ui/ScreenAtmosphere). */",
+        f"export const atmosphere: Atmosphere = {js(atmosphere_tokens(tokens, pals, lights))};\n",
+        "/** A tileable film-grain square, laid over the atmosphere when `grain` is on. */",
+        f'export const grainTile = "data:image/png;base64,{base64.b64encode(grain_png()).decode()}";\n',
+    ]
     lines.append(f"export const minTapTarget = {int(tokens.get('minTapTarget', 48))};")
     lines.append(f"export const themeName = {json.dumps(tokens.get('name', 'custom'))};\n")
     return "\n".join(lines)
@@ -300,8 +422,12 @@ def expected(root: Path) -> dict[str, str | None]:
 
 def stale(root: Path) -> list[str]:
     """Every generated file that differs from what its source produces, with why."""
+    try:
+        want = expected(root)
+    except (KeyError, ValueError) as e:  # no usable palette, or a bad atmosphere knob
+        return [f"design/tokens.json: can't generate mobile/lib/tokens.ts: {e}"]
     problems = []
-    for rel, text in expected(root).items():
+    for rel, text in want.items():
         path = root / rel
         if text is None:
             problems.append(f"{rel}: generated from a source that no longer exists")

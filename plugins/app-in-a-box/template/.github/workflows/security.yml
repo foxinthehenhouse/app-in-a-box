@@ -6,7 +6,15 @@
 #             repo it needs GitHub Advanced Security (Code Security), a paid add-on,
 #             so it runs only when the repo is public or `vars.ENABLE_CODEQL == 'true'`.
 #             ⚖️ Owner's call whether a private repo pays for it; see the harness skill.
-# Dependency updates: .github/dependabot.yml (pip, npm, github-actions; weekly, grouped).
+#   dependencies  known vulnerabilities in what we install, and an SBOM of it:
+#             pip-audit over requirements-dev.lock (every locked Python package);
+#             npm audit over mobile/ (high + critical, production deps; triaged entries
+#             live in mobile/npm-audit-allowlist.json, see scripts/check_npm_audit.py);
+#             CycloneDX SBOMs of requirements.lock and mobile/package-lock.json,
+#             uploaded as the `sbom` artifact. The weekly schedule catches advisories
+#             published against code nobody touched.
+# Dependency updates: .github/dependabot.yml (pip, npm, github-actions; weekly, grouped,
+# after a cooldown).
 name: Security
 on:
   pull_request:
@@ -81,3 +89,58 @@ jobs:
       - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           category: /language:${{ matrix.language }}
+
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SYFT_VERSION: "1.54.0"
+      SYFT_SHA256: 54a87372498168b2d033e876fd41fa4e8035b872699e525a57046e1f2f09c860
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.lock
+      - name: Install pip-audit and cyclonedx-py (hashed, from the dev lock)
+        run: python -m pip install --require-hashes -r requirements-dev.lock
+      - name: Python SBOM (CycloneDX, from requirements.lock, what ships)
+        run: |
+          mkdir -p sbom
+          cyclonedx-py requirements requirements.lock --of JSON -o sbom/python.cdx.json
+      - name: Mobile app scaffolded?
+        id: app
+        run: |
+          if [ -f mobile/package-lock.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "::notice::mobile/package-lock.json not found (scaffold phase not run yet); skipping npm audit and the mobile SBOM"
+          echo "present=false" >> "$GITHUB_OUTPUT"
+      - name: Download syft (checksum-verified)
+        if: steps.app.outputs.present == 'true'
+        run: |
+          curl -fsSL -o syft.tgz "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          echo "${SYFT_SHA256}  syft.tgz" | sha256sum -c -
+          tar -xzf syft.tgz syft
+      - name: Mobile SBOM (CycloneDX, from mobile/package-lock.json)
+        if: steps.app.outputs.present == 'true'
+        run: ./syft scan dir:mobile --exclude ./node_modules -o cyclonedx-json=sbom/mobile.cdx.json -q
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sbom
+          path: sbom/
+          if-no-files-found: error
+          retention-days: 90
+      - name: pip-audit (known vulnerabilities in the locked Python deps)
+        # A finding with no fix yet: add `--ignore-vuln <ID>` here with a comment saying
+        # why it is safe to ship, and take it out when the fix lands.
+        run: pip-audit --disable-pip --require-hashes -r requirements-dev.lock
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: ${{ !cancelled() && steps.app.outputs.present == 'true' }}
+        with:
+          node-version: 22
+      - name: npm audit (high + critical, production deps, minus triaged advisories)
+        # Runs even when pip-audit failed, so one red run lists everything to fix.
+        if: ${{ !cancelled() && steps.app.outputs.present == 'true' }}
+        run: python3 scripts/check_npm_audit.py

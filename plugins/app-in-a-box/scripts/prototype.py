@@ -35,6 +35,9 @@ freeze   takes the JSON the prototype's "Copy my choices" button emits,
            docs/product/SCREENS.md  per screen: chosen variant -> components/ui, nav
                                     graph, states, features in/out of v1
            design/choices.json      every selection, resolved (no gaps)
+           DESIGN.md                the design system for agents, generated from
+                                    tokens.json (design_md.py); prose outside the
+                                    generated markers in an existing one is kept
 fonts    checks the type library (scripts/proto/fonts.json): every family OFL-1.1 with
          no Reserved Font Name, none on check_design.py's overused list, every pairing
          made of listed families suited to their roles, and the design-directions
@@ -68,6 +71,7 @@ TEMPLATE_TOKENS = KIT / "template" / "design" / "tokens.json"
 sys.path.insert(0, str(HERE))
 import check_contrast as cc  # noqa: E402  (sibling module; shared contrast gate)
 import check_design as dc  # noqa: E402  (sibling module; shared design-tells gate)
+import design_md as dm  # noqa: E402  (sibling module; DESIGN.md from tokens.json)
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 FONT_RE = re.compile(r"^[A-Za-z0-9 ]{1,40}$")
@@ -260,6 +264,10 @@ def merged_tokens(direction: dict) -> dict:
     base = load_json(str(TEMPLATE_TOKENS))
     base.pop("color", None)
     base.pop("$schema", None)
+    # The template's atmosphere knobs are a default; its light colours belong to its
+    # own palette (a direction gets fresh ones from atmo_lights), so they stay behind.
+    if isinstance(base.get("atmosphere"), dict):
+        base["atmosphere"] = {k: v for k, v in base["atmosphere"].items() if k in ATMO_DEFAULT}
     return deep_merge(base, direction.get("tokens") or {})
 
 
@@ -1811,8 +1819,8 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
     frozen = frozen_tokens(spec, ch)
     m, at = frozen["motion"], frozen["atmosphere"]
     dur, ease = m["duration"], m.get("easing", {})
-    enter = ease.get("enter", [])
     bouncy = ch["temperature"] == "lively"
+    st = settle_spring(m.get("spring", {}).get("gentle") or {"damping": 20, "stiffness": 180})
     return [
         "",
         "## Platform (what the prototype imitates, built natively)",
@@ -1838,7 +1846,8 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
         "| Prototype motion | Build with (`lib/motion.ts`, `components/ui`) | Frozen value |",
         "|---|---|---|",
         f"| Content rises in, staggered | `entering={{entrance(i)}}` (`Card index={{i}}`) | "
-        f"{dur.get('deliberate')}ms, curve `enter` {enter}, 45ms step |",
+        f"spring `settle` (stiffness {st['stiffness']:g}, damping {st['damping']:.1f}: critically "
+        "damped, never past the mark), 45ms step |",
         f"| Press feedback | `PressableScale` / `Button` (scale + haptic) | "
         f"scale {m.get('pressScale')} |",
         f"| Selection moves (chips, thumb) | `springTo(x, \"snappy\")` | "
@@ -1848,16 +1857,20 @@ def _platform_and_motion(spec: dict, ch: dict) -> list[str]:
         f"| Toast in / out | `useToast()` (FadeInUp / fade out) | {dur.get('screen')}ms in |",
         "| Number counts up | `AnimatedNumber` / `StatCard` | static under reduce motion |",
         "| Payoff moment | `Celebration` + `haptic.success()` | the core loop's reward only |",
-        "| Screen change (blur-rise, overlapping) | the Stack transition + `entrance(i)` | "
-        "spring `gentle`, critically damped: arrives without overshoot |",
+        "| Screen change (blur-rise, overlapping) | the Stack transition + `Screen` "
+        "(content fades in on `screenEntrance`) + `entrance(i)` | "
+        "spring `settle`: `gentle`, critically damped, arrives without overshoot |",
         "",
         f"Atmosphere **{at['mode']}**, intensity {at['intensity']}, grain {'on' if at['grain'] else 'off'}, "
         f"{at['surface']} surfaces: design/tokens.json → `atmosphere` carries the two light colours "
         f"and the contrast-capped alpha per mode (light {at['color']['light']['alpha']}, "
-        f"dark {at['color']['dark']['alpha']}). Paint it behind every screen, never over text.",
+        f"dark {at['color']['dark']['alpha']}). `ScreenAtmosphere` (mounted by `Screen`) paints it "
+        "behind every screen, never over text. Glass surfaces mean Liquid Glass chrome only "
+        "(the tab bar, `SheetHeader`) on iOS 26 with Reduce Transparency off, solid `surface` "
+        "everywhere else; cards stay solid.",
         "",
-        "Haptics follow the commitment ladder in `lib/motion.ts`: selection for chips and "
-        "segments, medium for the primary action, success for the payoff.",
+        "Haptics follow the commitment ladder in `lib/motion.ts` (`hapticFor`): selection for "
+        "chips and segments, medium for the primary action, success for the payoff.",
     ]
 
 
@@ -1910,6 +1923,15 @@ def freeze(spec: dict, choices: dict, target: Path) -> int:
         target / "docs" / "product" / "SCREENS.md": screens_md(spec, ch),
         target / "design" / "choices.json": json.dumps(ch, indent=2) + "\n",
     }
+    # DESIGN.md is refreshed, not replaced: a re-freeze keeps the founder's own words
+    # and the Decisions log, and rewrites only the parts tokens.json owns.
+    design_md = target / "DESIGN.md"
+    try:
+        old = design_md.read_text(encoding="utf-8") if design_md.is_file() else None
+    except (OSError, UnicodeDecodeError) as e:
+        print(f"freeze: cannot read {design_md}: {e}")
+        return 1
+    files[design_md] = dm.update(old, tokens)
     # Stage every file first, then rename them into place, so a failure (a target that
     # is a file, a read-only dir) leaves the previous freeze intact, never half of one.
     staged = []
@@ -1942,7 +1964,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("out")
     c = sub.add_parser("check", help="lint the spec; one line per problem")
     c.add_argument("spec")
-    f = sub.add_parser("freeze", help="write tokens.json, SCREENS.md, choices.json")
+    f = sub.add_parser("freeze", help="write tokens.json, SCREENS.md, choices.json, DESIGN.md")
     f.add_argument("spec")
     f.add_argument("choices")
     f.add_argument("--target", required=True, help="repo root to write into")

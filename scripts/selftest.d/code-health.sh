@@ -7,7 +7,7 @@
 #   ruff C90/SIM/RET/PT  complexity <= 10 and the simpler-code rules (pyproject.toml)
 #   vulture              dead code in backend/ at 80% confidence (CI)
 # knip and the ESLint complexity rules need node_modules: their plants run in the
-# --mobile pass (selftest.d/mobile/code-health.sh).
+# --mobile pass (mobile_check_code_health, at the bottom).
 CH_PY="$APP/.venv/bin"
 
 _ch_copy() {  # a throwaway copy of the rendered app (no venv, no git) at $T/ch
@@ -19,7 +19,34 @@ _ch_copy() {  # a throwaway copy of the rendered app (no venv, no git) at $T/ch
 check "generated: tokens.ts and the Codex adapters in a fresh render are current" \
   "cd '$APP' && python3 scripts/check_generated.py"
 check "generated: the renderer writes them with the app's own generator (one implementation)" \
-  "grep -q 'template\" / \"scripts\" / \"check_generated.py\"\\|TEMPLATE / \"scripts\" / \"check_generated.py\"' '$KIT/scripts/render.py' && ! grep -q '^def tokens_ts\\|^def codex_agent_toml' '$KIT/scripts/render.py'"
+  "grep -q 'template\" / \"scripts\" / \"check_generated.py\"\\|TEMPLATE / \"scripts\" / \"check_generated.py\"' '$KIT/scripts/render.py' && ! grep -q '^DEFAULT_MOTION\\|^def atmosphere_tokens\\|^def codex_agent_toml' '$KIT/scripts/render.py'"
+_ch_parity() {  # the app's copies of the atmosphere/settle/grain code vs the kit's
+  python3 - "$KIT/scripts" "$APP/scripts/check_generated.py" <<'PY'
+import importlib.util, sys
+sys.path.insert(0, sys.argv[1])
+import make_icon, prototype
+spec = importlib.util.spec_from_file_location("g", sys.argv[2])
+g = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(g)
+assert g.ATMO_DEFAULT == prototype.ATMO_DEFAULT, "ATMO_DEFAULT"
+assert g.ATMO_KEYS == prototype.ATMO_KEYS, "ATMO_KEYS"
+assert g.ATMO_LIGHTS == prototype.ATMO_LIGHTS, "ATMO_LIGHTS"
+for bad in ({"mode": "neon"}, {"grain": "yes"}, {"colour": 1}, []):
+    assert g.atmo_errors(bad) == prototype.atmo_errors(bad), bad
+sp = {"damping": 5, "stiffness": 180, "mass": 1}
+assert g.settle_spring(sp) == prototype.settle_spring(sp), "settle_spring"
+assert g.grain_png() == make_icon.grain_png(), "grain_png"
+PY
+}
+check "generated: the app's atmosphere, settle spring and grain code match the kit's" "_ch_parity"
+_ch_no_colour() {  # a hand-written glow with no frozen light colours: the app can't check them
+  _ch_copy && python3 - "$T/ch/design/tokens.json" <<'PY' && cd "$T/ch" && python3 scripts/check_generated.py
+import json, sys
+t = json.load(open(sys.argv[1])); t["atmosphere"].pop("color"); json.dump(t, open(sys.argv[1], "w"))
+PY
+}
+refuses "generated: an atmosphere without frozen light colours fails, naming the fix" "_ch_no_colour" \
+  "atmosphere.color.light is missing: freeze the design again"
 check "generated: CI runs the freshness check" \
   "grep -q 'run: python3 scripts/check_generated.py' '$APP/.github/workflows/ci.yml'"
 _ch_tokens_edit() {
@@ -98,3 +125,19 @@ check "eslint: complexity, max-depth, max-nested-callbacks and max-params are er
   "grep -q 'complexity: \\[\"error\", 15\\]' '$APP/mobile/eslint.config.js' && grep -q '\"max-depth\": \\[\"error\"' '$APP/mobile/eslint.config.js'"
 check "code health: the app's own guard tests (rules + negative controls) pass" \
   "cd '$APP' && '$CH_PY/python' -m pytest -q tests/harness/test_code_health.py"
+
+# ---- the mobile half (--mobile): cwd = the real Expo app's mobile/, gates green -----
+mobile_check_code_health() {
+  cp lib/app.ts "$T/ch-app.ts"
+  printf '\nexport function plantedUnused(): number {\n  return 1;\n}\n' >> lib/app.ts
+  refuses "knip catches an unused export" "npx knip" "plantedUnused"
+  cp "$T/ch-app.ts" lib/app.ts
+
+  {
+    printf 'export function planted(x: number): number {\n'
+    for i in $(seq 0 15); do printf '  if (x === %s) return %s;\n' "$i" "$i"; done
+    printf '  return -1;\n}\n'
+  } > lib/planted-complex.ts
+  refuses "eslint catches a function over the complexity limit" "npx eslint lib/planted-complex.ts" "complexity"
+  rm -f lib/planted-complex.ts
+}

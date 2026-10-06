@@ -41,6 +41,8 @@ _SWALLOW = re.compile(r"\|\|\s*(true|:|exit\s+0)\s*$")
 def guard_files(root: Path) -> list[str]:
     found = [p.name for p in (root / "scripts").glob("check_*.py")]
     found += [p.name for p in (root / "scripts").glob("db-*.sh")]  # db-test.sh, db-lint.sh
+    # Not named check_*, but a guard all the same: `--check` fails on a drifted DESIGN.md.
+    found += [p.name for p in (root / "scripts").glob("design_md.py")]
     # The mobile guards are wired through `npm run gates` in mobile/package.json, which
     # the scaffold phase creates (create-expo-app). Before that there is no app to gate.
     if (root / "mobile" / "package.json").exists():
@@ -141,6 +143,22 @@ def test_ci_runs_the_mobile_gates_and_the_harness() -> None:
     assert "ruff" in ci
 
 
+def design_md_wired(root: Path) -> list[str]:
+    """Where the DESIGN.md drift check should run but doesn't. Its mode is a flag, so
+    the file name appearing (e.g. a bare regenerate) isn't enough: it must be `--check`."""
+    if not (root / "scripts" / "design_md.py").exists():
+        return []
+    want = "python3 scripts/design_md.py --check"
+    places = {"ci.yml": root / ".github" / "workflows" / "ci.yml"}
+    places["pre-commit"] = root / ".githooks" / "pre-commit"
+    return [n for n, p in places.items() if not p.is_file() or want not in p.read_text()]
+
+
+def test_design_md_check_runs_in_ci_and_pre_commit() -> None:
+    missing = design_md_wired(ROOT)
+    assert not missing, f"`python3 scripts/design_md.py --check` is not run by: {missing}"
+
+
 @pytest.mark.parametrize("wf", WORKFLOWS, ids=lambda p: p.name)
 def test_no_guard_step_is_silently_advisory(wf: Path) -> None:
     found = advisory_steps(yaml.safe_load(wf.read_text()))
@@ -169,6 +187,7 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "tests/harness/test_workflow_lint.py",
         "tests/harness/test_skills_lint.py",
         "tests/harness/test_hook_scripts.py",
+        "tests/harness/test_supply_chain.py",
         "supabase/tests/database/rls.test.sql",
         "supabase/ci/schema_snapshot.sql",
         "supabase/schema-snapshot.txt",
@@ -260,6 +279,21 @@ def test_unwired_guard_is_caught(tmp_path: Path) -> None:
     (tmp_path / "mobile" / "package.json").write_text('{"scripts": {"gates": "tsc"}}')
     assert "check-x.js" in guard_files(tmp_path)
     assert "check-x.js" not in wiring_text(tmp_path)
+
+
+def test_unwired_design_md_check_is_caught(tmp_path: Path) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "design_md.py").write_text("")
+    (tmp_path / ".github" / "workflows").mkdir(parents=True)
+    (tmp_path / ".githooks").mkdir()
+    ci = tmp_path / ".github" / "workflows" / "ci.yml"
+    hook = tmp_path / ".githooks" / "pre-commit"
+    ci.write_text("run: python3 scripts/design_md.py\n")  # regenerates; checks nothing
+    hook.write_text("python3 scripts/design_md.py --check\n")
+    assert "design_md.py" in guard_files(tmp_path)
+    assert design_md_wired(tmp_path) == ["ci.yml"]
+    ci.write_text("run: python3 scripts/design_md.py --check\n")
+    assert design_md_wired(tmp_path) == []
 
 
 @pytest.mark.parametrize(
