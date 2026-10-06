@@ -10,12 +10,17 @@
  * - Close with `closeSheet()` below (dismiss, falling back to back), and always
  *   give the sheet a visible Close button: swipe-down isn't discoverable.
  * - Toasts render under a native sheet on iOS: close the sheet, then toast.
+ * - The header is glass only when the theme chose glass surfaces and the phone
+ *   allows it (`useGlassChrome`: iOS 26+, Reduce Transparency off); otherwise it
+ *   sits solid on the sheet, as before.
  */
 import { router } from "expo-router";
+import { GlassView } from "expo-glass-effect";
 import { View } from "react-native";
 
+import { useGlassChrome } from "../../lib/atmosphere";
 import { useT } from "../../lib/i18n";
-import { makeStyles } from "../../lib/theme";
+import { makeStyles, useTheme } from "../../lib/theme";
 import { IconButton } from "./Button";
 import { Text } from "./Text";
 
@@ -27,17 +32,27 @@ export function closeSheet(): void {
 export function SheetHeader({ title, onClose = closeSheet, testID }: { title: string; onClose?: () => void; testID?: string }) {
   const s = useStyles();
   const t = useT();
-  return (
-    <View style={s.header}>
+  const { scheme } = useTheme();
+  const glass = useGlassChrome();
+  const content = (
+    <>
       <Text variant="heading" style={s.title}>
         {title}
       </Text>
       <IconButton sf="xmark" md="close" accessibilityLabel={t("common.close")} onPress={onClose} tone="filled" testID={testID} />
-    </View>
+    </>
+  );
+  return glass ? (
+    <GlassView glassEffectStyle="regular" colorScheme={scheme} style={[s.header, s.glass]}>
+      {content}
+    </GlassView>
+  ) : (
+    <View style={s.header}>{content}</View>
   );
 }
 
 const useStyles = makeStyles((t) => ({
   header: { flexDirection: "row", alignItems: "center", gap: t.space.md },
+  glass: { borderRadius: t.radius.lg, paddingVertical: t.space.xs, paddingLeft: t.space.md, paddingRight: t.space.xs },
   title: { flex: 1 },
 }));

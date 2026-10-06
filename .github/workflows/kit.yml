@@ -96,7 +96,7 @@ jobs:
           npm install -g --no-audit --no-fund "squawk-cli@${SQUAWK_VERSION}"
           squawk --version
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Throwaway Postgres with pgTAP + pgvector (the generated repo's DB gate and recipe-search run against it)
+      - name: Throwaway Postgres with pgTAP + pgvector (the generated repo's DB gate and recipe-search run against it; pgvector for the AI recipe's retrieval tables)
         run: |
           PGV="$(find /usr/lib/postgresql -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -n | tail -1)"
           sudo apt-get update -q

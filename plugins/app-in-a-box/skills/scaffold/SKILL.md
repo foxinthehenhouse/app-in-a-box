@@ -104,8 +104,8 @@ Reanimated 4) and `setupFiles` (`jest.setup.ts`: NetInfo + AsyncStorage mocks). 
   updates (`runtimeVersion` fingerprint policy, a channel per eas.json profile,
   `UpdateBanner`), react-hook-form + zod forms (`FormField`), and i18n (every string in
   `locales/en.ts`, `check-hardcoded-strings.js` in the gates, an `en-XA` pseudo-locale
-  test). Still recipes: social sign-in, payments, PowerSync, AI features, search, and the
-  push **credentials** (`recipe-push`).
+  test). Still recipes: social sign-in, payments, PowerSync, AI features, image uploads
+  (`recipe-uploads`), search (`recipe-search`), and the push **credentials** (`recipe-push`).
 
 ## 2. Repo
 
@@ -130,8 +130,9 @@ The renderer also themes `app.json` from the tokens (splash background per mode,
 `userInterfaceStyle`) and draws a placeholder icon, adaptive icon, splash mark and
 favicon into `mobile/assets/brand/` (the app's initial in `onAccent` on `accent`).
 Drop a real 1024px `design/icon.png` and re-render to use your own.
-`design/tokens.json`, `appbox.yaml` and `BRIEF.md` are protected and never
-overwritten. The renderer also generates `mobile/lib/tokens.ts` and the
+`design/tokens.json`, `appbox.yaml`, `BRIEF.md` and the root `README.md` are protected
+and never overwritten. The README is rendered once with a small "Built with App in a
+Box" badge; it's the owner's to keep or delete. The renderer also generates `mobile/lib/tokens.ts` and the
 Claude/Codex adapters (`.claude/skills`, `.codex/*`).
 
 ## 4. Make it *their* app (the part that needs judgement)

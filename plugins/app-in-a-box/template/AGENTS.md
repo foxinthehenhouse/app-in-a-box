@@ -40,8 +40,8 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 5. **Additive wire changes only.** Old app builds stay in the wild for weeks. Never
    rename, retype or remove a response field in place.
 6. **Every screen fires an analytics event; every mutation fires success AND failure.**
-7. **Mobile-first:** 48px tap targets, theme tokens only, `accessibilityLabel` on
-   everything interactive, never meaning by colour alone.
+7. **Mobile-first. Read `DESIGN.md` before any UI work**; change tokens via the design flow,
+   never by hand. 48px taps, `accessibilityLabel` on every control, never colour alone.
 8. **LLM use is fenced.** <!-- appbox:ai-fence: "No LLM calls anywhere." OR "Claude API
    only in backend/services/<module>*." -->
 9. **Write endpoints are rate-limited; multi-row writes are atomic.** `Depends(rate_limit(...))`
