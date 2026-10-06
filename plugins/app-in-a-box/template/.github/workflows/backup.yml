@@ -1,0 +1,55 @@
+# Nightly encrypted database backup (docs/runbooks/backup-restore.md).
+# scripts/backup-db.sh dumps the database with `supabase db dump` (roles, schema, data),
+# encrypts it with age to the owner's PUBLIC key, and uploads it to S3-compatible
+# storage (Cloudflare R2's free tier by default). GitHub can write a backup but never
+# read one: the private key never leaves the owner, so no step here can print it.
+#
+# Off until provisioning sets the BACKUP_AGE_RECIPIENT variable, so a fresh repo doesn't
+# fail a run every night. Then it needs secrets SUPABASE_DB_URL (the Session pooler
+# string: GitHub's runners have no IPv6 for the direct one), BACKUP_S3_ACCESS_KEY_ID and
+# BACKUP_S3_SECRET_ACCESS_KEY, and variables BACKUP_S3_BUCKET and BACKUP_S3_ENDPOINT.
+# A missing one fails the run by name. Secrets reach the script only through `env:`,
+# and the script never echoes them (tests/test_backup.py, with a planted leak).
+name: Backup
+on:
+  schedule: [{ cron: "23 2 * * *" }]   # nightly, 02:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # One backup at a time; a manual run waits for the nightly one rather than racing it.
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: vars.BACKUP_AGE_RECIPIENT != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.119.0
+      - name: Install age
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q age
+      - name: Dump, encrypt, upload
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT }}
+          BACKUP_S3_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ vars.BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.BACKUP_S3_REGION || 'auto' }}
+          # R2 and some other S3-compatible stores reject the newer default checksum
+          # headers; only send them where the operation requires one.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: scripts/backup-db.sh
