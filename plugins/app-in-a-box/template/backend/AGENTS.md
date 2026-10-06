@@ -33,7 +33,9 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
   `internal.py` (`/internal/cron/*`, shared-secret auth; `prune-rate-limits` prunes
   every table in `RETENTION`, idempotency keys included).
 - `services/`: logic. `push_service.py` (Expo push), `jobs_service.py` (cron jobs, and
-  `RETENTION`: what the daily prune deletes, and after how long).
+  `RETENTION`: what the daily prune deletes, and after how long), `audit_service.py`
+  (the append-only audit trail), `erasure_service.py` (account deletion beyond
+  Postgres: Storage, PostHog, Sentry).
 - `observability.py`: Sentry with PII scrubbing, request-id logging, `LOG_FORMAT=json`.
   Log ids and error types, never an email, a name or a body: `scripts/check_guardrails.py`
   fails CI on a log call that passes one, and Semgrep (`.semgrep/backend.yml`) scans for
@@ -127,8 +129,22 @@ tests in `tests/test_prod_migrations.py` enforce the last three.
   `routers/internal.py`. Schedule it per `docs/runbooks/release.md`.
 - **Account deletion:** `DELETE /api/v1/me` with `{"confirm": "DELETE"}` deletes the
   auth user; every table keyed `user_id ... references auth.users on delete cascade`
-  goes with it. A new table that holds user data MUST cascade, and Storage objects
-  must be deleted in `_delete_user_files()`.
+  goes with it. A new table that holds user data MUST cascade. Before that, the user's
+  Storage files go (every bucket in `erasure_service.USER_FILE_BUCKETS`, files under
+  `<user id>/`; `tests/test_erasure.py` fails on a bucket a migration creates that
+  isn't listed), and so do their PostHog person and Sentry issues once the
+  `account erasure: *` variables are set (dormant until then, best effort after).
+
+## Audit trail
+
+`public.audit_events` is append-only: service role only, and a trigger refuses every
+UPDATE, DELETE and TRUNCATE. `audit_service.record(db, user.id, "<noun.verb>")` appends
+a row with the request id. **A sensitive endpoint records in the same handler**, before
+its irreversible step: account deletion, data export, and any role or permission
+change you add (`role.change`, target = the member's id). It fails closed: if the row
+can't be written, the action doesn't happen. New action names go in
+`audit_service.ACTIONS`. Never put personal data in `target`; the trail outlives the
+account by design. The export includes the caller's own rows (by `actor_id`).
 
 ## Migrations
 
