@@ -42,6 +42,35 @@ reportMissingModuleSource = false
 #   scrub_event takes a plain dict. Correct at runtime; fix with typing.cast, then drop.
 ignore = ["backend/observability.py"]
 
+[tool.importlinter]
+# Architecture boundaries as checks, not prose (AGENTS.md rules 1 and 8, backend/AGENTS.md
+# "Layout"). CI runs `lint-imports`; locally, `scripts/dev-venv.sh lint-imports`. A broken
+# contract names the import and the line. Fix the code, don't loosen the contract: moving
+# a boundary is an architecture decision, so it goes in docs/decision-log.md.
+root_package = "backend"
+# Third-party packages are in the graph too, so the forbidden contract below can name an SDK.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Routers do I/O, services hold logic, db.py and config.py sit underneath"
+type = "layers"
+containers = ["backend"]
+# Higher layers may import lower ones, never the reverse (indirect chains count too).
+# Modules not listed (auth, ratelimit, middleware, observability) are shared helpers.
+layers = ["main", "routers", "services", "db", "config"]
+broken_contract_guidance = "A lower layer reached up. Services take what they need as arguments (a db client, a user id) and return data; the router turns it into HTTP. Move the shared piece down, or pass it in."
+
+[[tool.importlinter.contracts]]
+name = "LLM SDKs are fenced in the AI module (AGENTS.md rule 8)"
+type = "forbidden"
+source_modules = ["backend"]
+forbidden_modules = ["anthropic", "openai"]
+# Nothing calls a model yet, so nothing is allowed to. The recipe-ai-feature skill adds
+# the one fenced module here, e.g. "backend.services.ai_summary -> anthropic". An entry
+# that matches no import fails the check, so a stale fence can't linger.
+ignore_imports = []
+broken_contract_guidance = "Model calls live in one module, backend/services/ai_<feature>.py, listed in this contract's ignore_imports and in AGENTS.md rule 8. Call that module instead of the SDK."
+
 [tool.black]
 line-length = 100
 target-version = ["py312"]
