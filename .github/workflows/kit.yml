@@ -4,7 +4,8 @@
 #   selftest   every PR/push: renderer, design, backend, git/agent hooks, and the
 #              v0.3 trust checks (harness lint, wire contract, scoping, migrations,
 #              actionlint, zizmor, squawk on migrations, and the full Postgres +
-#              pgTAP DB gate with its schema snapshot)
+#              pgTAP DB gate with its schema snapshot, and the backup round trip
+#              through age and a restore drill)
 #   plugin     `claude plugin validate --strict` on the marketplace, the plugin and
 #              a RENDERED repo's .agents/ (the raw template still holds __APP_SLUG__
 #              placeholders, which aren't valid names; no auth needed; fails if the
@@ -96,11 +97,11 @@ jobs:
           npm install -g --no-audit --no-fund "squawk-cli@${SQUAWK_VERSION}"
           squawk --version
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Throwaway Postgres with pgTAP + pgvector (the generated repo's DB gate and recipe-search run against it; pgvector for the AI recipe's retrieval tables)
+      - name: Throwaway Postgres with pgTAP + pgvector (the generated repo's DB gate and recipe-search run against it; pgvector for the AI recipe's retrieval tables), and age (the backup round trip)
         run: |
           PGV="$(find /usr/lib/postgresql -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -n | tail -1)"
           sudo apt-get update -q
-          sudo apt-get install -y -q "postgresql-${PGV}-pgtap" "postgresql-${PGV}-pgvector"
+          sudo apt-get install -y -q "postgresql-${PGV}-pgtap" "postgresql-${PGV}-pgvector" age
           sudo systemctl start postgresql.service
           sudo -u postgres psql -q -c "alter user postgres password 'postgres'"
       - name: Selftest
