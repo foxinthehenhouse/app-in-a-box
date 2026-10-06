@@ -13,6 +13,8 @@ pyright>=1.1.390,<2
 vulture>=2.14,<3
 # tests/harness parses YAML frontmatter and workflow files.
 pyyaml>=6,<7
+# lint-imports: the architecture boundaries in pyproject.toml [tool.importlinter].
+import-linter>=2.15,<3
 # Supply chain (.github/workflows/security.yml, workflow-lint.yml): vulnerability audit
 # of the locks, a CycloneDX SBOM, workflow security lint. Here, not pip-installed by
 # name in the workflow, so they install hashed like everything else.

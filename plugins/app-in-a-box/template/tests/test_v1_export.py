@@ -55,6 +55,10 @@ def _two_users() -> FakeDB:
                 {"ticket_id": "t-SECRET-A", "user_id": "a", "token": "x", "created_at": "1"},
                 {"ticket_id": "t-b", "user_id": "b", "token": "y", "created_at": "2"},
             ],
+            "audit_events": [
+                {"id": 1, "actor_id": "a", "action": "data.export", "request_id": "SECRET-A-r"},
+                {"id": 2, "actor_id": "b", "action": "data.export", "request_id": "req-b"},
+            ],
         }
     )
 
@@ -75,6 +79,7 @@ def test_exports_the_callers_rows_in_every_table() -> None:
     assert [r["display_name"] for r in tables["profiles"]] == ["Bea"]
     assert [r["token"] for r in tables["push_tokens"]] == ["ExponentPushToken[bbbb]"]
     assert [r["ticket_id"] for r in tables["push_tickets"]] == ["t-b"]
+    assert [r["request_id"] for r in tables["audit_events"]] == ["req-b"]
 
 
 def test_another_users_data_is_never_included() -> None:
@@ -86,6 +91,7 @@ def test_another_users_data_is_never_included() -> None:
     assert "bbbb" not in other
     assert "Bea" not in other
     assert "t-b" not in other
+    assert "req-b" not in other
 
 
 def test_every_read_is_filtered_by_the_caller() -> None:
@@ -94,7 +100,8 @@ def test_every_read_is_filtered_by_the_caller() -> None:
     reads = [(t, f) for t, op, f in db.calls if op == "select" and t in export_router.EXPORTERS]
     assert {t for t, _ in reads} == set(export_router.EXPORTERS)
     for table, filters in reads:
-        assert ("eq", "user_id", "b") in filters or ("eq", "id", "b") in filters, (table, filters)
+        owner = {("eq", col, "b") for col in ("user_id", "id", "actor_id")}
+        assert any(f in filters for f in owner), (table, filters)
 
 
 def test_ignores_a_user_id_in_the_query_string() -> None:
