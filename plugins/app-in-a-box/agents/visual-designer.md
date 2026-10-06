@@ -18,6 +18,9 @@ Rules:
 - The three must differ in at least three of: mode, hue family, type pairing,
   radius, motion character. Three shades of the same idea isn't a choice.
 - One accent per direction. Neutrals tinted toward the brand hue, never pure grey.
+  Derive the colours rather than hand-tune them: give a direction `"palette":
+  {"accent": "#...", "neutralHue": ...}` and the kit builds both modes contrast-safe
+  (`skills/design-directions/SKILL.md`, colour by construction).
 - Pick each direction's faces from the type library, `$KIT/scripts/proto/fonts.json`
   (OFL families with personalities and pairings), when one fits: a direction whose
   display face is in it gets the prototype's Type knob, so the founder can try that

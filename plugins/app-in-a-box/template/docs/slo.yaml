@@ -1,0 +1,28 @@
+# Service level objectives: how reliable "good enough" is, in numbers.
+#
+# The north-star-report skill reads this file every week and reports each SLO against
+# its objective over the trailing window, with the error budget left. An SLO that is
+# burning its budget outranks new features in that week's proposed tickets. Change an
+# objective deliberately (with a decision-log line), never to make a red week green.
+#
+# Checked by tests/test_slo.py: availability, latency_p95 and crash_free must stay.
+window_days: 28
+
+slos:
+  - id: availability
+    description: API requests that don't fail with a 5xx.
+    objective: 99.5 # percent
+    unit: percent
+    source: "Sentry performance (failure rate) or Railway HTTP metrics: 5xx / all requests"
+
+  - id: latency_p95
+    description: 95th-percentile API response time, excluding /health.
+    objective: 800 # milliseconds, at most
+    unit: ms
+    source: "Sentry performance (p95 of http.server transactions) or Railway HTTP metrics"
+
+  - id: crash_free
+    description: App sessions that end without a crash.
+    objective: 99.5 # percent
+    unit: percent
+    source: "Sentry release health (crash-free sessions), per release"

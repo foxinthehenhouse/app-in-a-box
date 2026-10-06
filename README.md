@@ -89,7 +89,7 @@ A repo that's ready to ship on day one, not a starter you'll spend a week harden
 | **🎨 Design** | A clickable prototype of every v1 screen that looks finished on the first render: a lit atmosphere derived from your palette, real device chrome, spring-driven screen transitions and a reduced-motion version. Switch between three design directions, layout variants per screen, density, motion, atmosphere (light, grain, glass) and copy tone. The frozen version becomes `design/tokens.json` + `docs/product/SCREENS.md`, and a WCAG contrast gate rejects unreadable palettes before any code exists. |
 | **🛡️ Guards** | Git hooks that bind every agent and human: no commits on `main`, no staged `.env`, no key-shaped strings, gates before push. Mobile guard scripts: every screen instrumented, every env var wired for shipping builds, replay never unmasked. Harness lints: every PR names its ticket, product skills ask the owner instead of deciding, and `AGENTS.md`'s map of screens, APIs and tables can't drift from the code. |
 | **🔁 CI/CD** | Backend (ruff with a complexity cap + vulture + pyright + import-linter architecture boundaries + pytest), mobile (tsc + eslint with boundary rules + knip dead-code check + guards + jest), generated files (theme tokens, Codex adapters) rebuilt and diffed, PR titles linted (squash merge makes them the commit), CODEOWNERS on migrations, CI, agent instructions and auth, migrations linted with squawk (no locking or breaking statements), applied and RLS-tested with pgTAP on a throwaway Postgres, and diffed against a committed schema snapshot (Supabase Branching opt-in), gitleaks + CodeQL, workflow lint (actionlint + zizmor) and harness lint for prompts/hooks, AI PR review (Claude or Codex), EAS build/OTA workflows, scheduled jobs behind a secret, a Supabase keep-alive, and nightly age-encrypted database backups with a restore drill. |
-| **🤖 Agent harness** | `AGENTS.md` (Claude reads it via `CLAUDE.md`). 14 skills: backlog, next, feature-discovery, build-feature, pr-review, land, new-worktree, ship, north-star-report, market-watch, routines, reflect, harness-optimize, harness-check. 10 subagent roles on routed models, with a `chair` for irreversible calls. Path rules that inject when you touch migrations, API contracts or screens. A git-tracked memory vault. |
+| **🤖 Agent harness** | `AGENTS.md` (Claude reads it via `CLAUDE.md`). 15 skills: backlog, next, feature-discovery, build-feature, pr-review, land, new-worktree, ship, incident, north-star-report, market-watch, routines, reflect, harness-optimize, harness-check. 10 subagent roles on routed models, with a `chair` for irreversible calls. Path rules that inject when you touch migrations, API contracts or screens. A git-tracked memory vault. |
 | **🧠 Self-learning loop** | Every tool call is captured. `reflect` turns corrections into memory, and a pattern extractor mines transcripts for repeated failures. `harness-optimize` then proposes harness changes as a PR, with a protected-components manifest and a sunset protocol. |
 
 ### One harness, two agents
@@ -177,6 +177,7 @@ plugins/app-in-a-box/
   scripts/render.py                  deterministic renderer + Claude/Codex adapter generator
   scripts/prototype.py               prototype.json → check / render / freeze
   scripts/check_contrast.py          WCAG gate for design/tokens.json
+  scripts/palette.py                 both palettes from one accent + neutral hue (HCT)
   scripts/doctor.sh                  tools / logins / gates health check
   template/                          everything that lands in your new repo, including
                                      .agents/skills (land drives a PR to merged)
@@ -187,6 +188,7 @@ scripts/selftest.sh                  proves the kit works (see below)
 scripts/selftest.d/                  one check file per area, sourced by the selftest
 scripts/check_discoverability.py     manifests, README and llms.txt describe the kit
                                      the same way, and every doc link resolves
+scripts/tests/                       unittest suites the selftest runs (HCT port, palettes)
 docs/guides/                         one page per question (see Guides above)
 llms.txt                             a map of these docs for LLMs (llmstxt.org)
 ```
