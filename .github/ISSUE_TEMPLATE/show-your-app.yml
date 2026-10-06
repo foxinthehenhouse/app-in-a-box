@@ -1,0 +1,44 @@
+name: Show your app
+description: Built something with App in a Box? Add it to SHOWCASE.md.
+title: "Showcase: "
+labels: [showcase]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing. A maintainer adds a line to SHOWCASE.md from this, or you can send a PR that adds it yourself. Prototypes and works in progress are welcome. Only share links you're happy to make public.
+  - type: input
+    id: name
+    attributes:
+      label: App name
+    validations:
+      required: true
+  - type: input
+    id: one_liner
+    attributes:
+      label: One line about it
+      description: Who it's for and what it does, in your own words.
+    validations:
+      required: true
+  - type: input
+    id: link
+    attributes:
+      label: Link
+      description: App Store, Google Play, TestFlight, a website, a public repo or a video. Optional.
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage
+      options: [Prototype, In testing, Live in a store, Open source]
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Built with
+      options: [Claude Code, Codex, Both, Other / pasted prompt]
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything we should know
+      description: Optional. What worked, what got in the way, what you'd change in the kit.

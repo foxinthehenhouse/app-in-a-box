@@ -1,15 +1,15 @@
 {
   "name": "app-in-a-box",
   "displayName": "App in a Box",
-  "version": "0.6.0",
-  "description": "From a rambled idea to a beautiful, working MVP in an afternoon: a product-advisor agent team shapes your idea, checks the market and builds a clickable prototype you tune before anything is wired; then an Expo + FastAPI + Supabase repo with CI and a self-driving agent harness.",
+  "version": "0.7.0",
+  "description": "A free, open-source plugin for Claude Code and Codex. A product advisor shapes your idea, you click through a prototype of every screen, then your agent builds and wires an Expo + FastAPI + Supabase app with auth, analytics, CI, store builds and an agent harness.",
   "author": {
     "name": "Kyle Fox"
   },
   "homepage": "https://github.com/foxinthehenhouse/app-in-a-box",
   "repository": "https://github.com/foxinthehenhouse/app-in-a-box",
   "license": "MIT",
-  "keywords": ["scaffold", "expo", "react-native", "fastapi", "supabase", "harness", "starter", "mobile"],
+  "keywords": ["app-builder", "mobile", "ios", "android", "mvp", "prototype", "claude-code", "codex", "ai-agents", "expo", "react-native", "supabase", "fastapi", "startup", "scaffold"],
   "userConfig": {
     "default_tracker": {
       "type": "string",
