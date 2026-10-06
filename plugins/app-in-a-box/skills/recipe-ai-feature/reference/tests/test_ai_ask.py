@@ -402,11 +402,13 @@ def test_embedder_speaks_the_openai_compatible_shape(
         data = [{"index": i, "embedding": [0.0] * DIM} for i in range(len(sent[-1]["input"]))]
         return httpx.Response(200, json={"data": data})
 
-    def post(url: str, **kw: Any) -> httpx.Response:
-        with httpx.Client(transport=httpx.MockTransport(handler)) as c:
-            return c.post(url, **kw)
+    real_post = ai_ask.outbound.post
 
-    monkeypatch.setattr(ai_ask.httpx, "post", post)
+    def post(name: str, url: str, **kw: Any) -> httpx.Response:
+        # The real client (timeout, retries, breaker), on a fake network.
+        return real_post(name, url, transport=httpx.MockTransport(handler), **kw)
+
+    monkeypatch.setattr(ai_ask.outbound, "post", post)
     voyage = ai_ask.OpenAICompatibleEmbedder("https://api.voyageai.com/v1", "k", "voyage-3.5-lite")
     assert len(voyage.embed(["a", "b"], "query")) == 2
     assert sent[-1] == {
@@ -420,14 +422,14 @@ def test_embedder_speaks_the_openai_compatible_shape(
 
 
 def test_embedder_refuses_the_wrong_dimension(monkeypatch: pytest.MonkeyPatch) -> None:
-    def post(url: str, **kw: Any) -> httpx.Response:
+    def post(name: str, url: str, **kw: Any) -> httpx.Response:
         return httpx.Response(
             200,
             json={"data": [{"index": 0, "embedding": [0.0] * 3}]},
             request=httpx.Request("POST", url),
         )
 
-    monkeypatch.setattr(ai_ask.httpx, "post", post)
+    monkeypatch.setattr(ai_ask.outbound, "post", post)
     with pytest.raises(ai_ask.AIUnavailable):
         ai_ask.OpenAICompatibleEmbedder("https://x/v1", "k", "m").embed(["a"], "query")
 
@@ -455,7 +457,7 @@ def test_tracing_is_off_unless_registered(wired: None, monkeypatch: pytest.Monke
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
     posts: list[str] = []
-    monkeypatch.setattr(ai_ask.httpx, "post", lambda url, **kw: posts.append(url))
+    monkeypatch.setattr(ai_ask.outbound, "post", lambda name, url, **kw: posts.append(url))
     if ai_ask.TRACING_FEATURE in FEATURE_CONFIG:
         assert ai_ask.tracing_enabled()
         monkeypatch.delitem(FEATURE_CONFIG, ai_ask.TRACING_FEATURE)

@@ -223,7 +223,11 @@ def test_migrations_apply_and_functions_behave() -> None:
     with pytest.raises(AssertionError, match="check constraint"):
         _psql(url, f"select public.register_push_token('{a}', 'nope');")
     # Least privilege: anon/authenticated can't execute the functions.
-    for fn in ("register_push_token(uuid, text, text, integer)", "rate_limit_hit(text, integer)"):
+    for fn in (
+        "register_push_token(uuid, text, text, integer)",
+        "rate_limit_hit(text, integer)",
+        "idempotency_claim(uuid, text, text, integer, integer)",
+    ):
         for role in ("anon", "authenticated"):
             ok = _psql(url, f"select has_function_privilege('{role}', 'public.{fn}', 'execute');")
             assert ok == "f", (role, fn)
@@ -231,9 +235,51 @@ def test_migrations_apply_and_functions_behave() -> None:
     key = f"test:{uuid.uuid4()}"
     counts = [_psql(url, f"select public.rate_limit_hit('{key}', 3600);") for _ in range(3)]
     assert counts == ["1", "2", "3"]
-    # Cascade: deleting the auth user removes their tokens (account deletion).
+    # Idempotency: the first claim owns the key; a repeat sees the claim, then the stored
+    # response; a claim past its TTL (or abandoned past stale) is taken over.
+    fp1, fp2 = "a" * 64, "b" * 64
+
+    def claim(key: str, fp: str, stale: int = 120, ttl: int = 86400) -> str:
+        return _psql(
+            url,
+            f"select claimed, stored_fingerprint, stored_status, stored_body from "
+            f"public.idempotency_claim('{a}', '{key}', '{fp}', {stale}, {ttl});",
+        )
+
+    assert claim("key-00000001", fp1) == f"t|{fp1}||"
+    assert claim("key-00000001", fp1) == f"f|{fp1}||"  # still running
+    assert claim("key-00000001", fp2) == f"f|{fp1}||"  # a different request can't take it
+    _psql(
+        url,
+        f"update public.idempotency_keys set response_status = 201, response_body = '{{}}' "
+        f"where user_id = '{a}' and key = 'key-00000001';",
+    )
+    assert claim("key-00000001", fp1) == f"f|{fp1}|201|{{}}"
+    _psql(
+        url,
+        f"update public.idempotency_keys set created_at = now() - interval '2 days' "
+        f"where user_id = '{a}' and key = 'key-00000001';",
+    )
+    assert claim("key-00000001", fp2) == f"t|{fp2}||"  # expired: a new request owns it
+    _psql(
+        url,
+        f"update public.idempotency_keys set created_at = now() - interval '10 minutes' "
+        f"where user_id = '{a}' and key = 'key-00000001';",
+    )
+    assert claim("key-00000001", fp1) == f"t|{fp1}||"  # abandoned claim taken over
+    assert claim("key-00000002", fp1).startswith("t|")  # keys are per (user, key)
+    with pytest.raises(AssertionError, match="not your account"):
+        _psql(
+            url,
+            f"set request.jwt.claim.sub = '{b}';"
+            f"select * from public.idempotency_claim('{a}', 'key-00000003', '{fp1}', 120, 86400);",
+        )
+    with pytest.raises(AssertionError, match="check constraint"):
+        claim("short", fp1)
+    # Cascade: deleting the auth user removes their tokens and keys (account deletion).
     _psql(url, f"delete from auth.users where id = '{a}';")
     assert _psql(url, f"select count(*) from public.push_tokens where user_id = '{a}'") == "0"
+    assert _psql(url, f"select count(*) from public.idempotency_keys where user_id = '{a}'") == "0"
     # job_runs primary key is the idempotency guard.
     job = f"j-{uuid.uuid4()}"
     _psql(url, f"insert into public.job_runs (job, run_key) values ('{job}', 'w1');")
