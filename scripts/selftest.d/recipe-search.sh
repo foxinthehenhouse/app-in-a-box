@@ -121,6 +121,7 @@ edit("AGENTS.md", "| Data export |",
 dm = (rs / "snippets/data-map.yaml").read_text().split("\n## ")[1:]
 for part in dm:
     section, block = part.split("\n", 1)
+    block = block.rstrip("\n") + "\n"
     edit("privacy/data-map.yaml", f"\n{section}:\n", f"\n{section}:\n{block}")
 PYEOF
   (cd "$a" && python3 scripts/check_data_map.py --write >/dev/null)
