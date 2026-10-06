@@ -30,7 +30,7 @@ reviewers each re-read the same material, and rework (building the wrong thing) 
 
 | Phase | Agents | Rough size |
 |---|---|---|
-| 1a Shape | advisor + scribe | small: a few conversation rounds |
+| 1a Shape | advisor + scribe (+ risk-reviewer when the idea touches a sensitive category) | small: a few conversation rounds |
 | 1b Idea check (quick) | market-analyst | small; the deep pass is about 4× that and opt-in |
 | 2 Prototype | 4 helpers + critic, then 1–3 refine rounds | the largest phase; each refine round is cheap (spec edits + re-render) |
 | 3–8 Build | as before | the same as the kit without this flow |
@@ -58,6 +58,8 @@ the app's own skills (`next`, `feature-discovery`, `ship`) read the same ledger:
   "feel": {"words": ["…"], "inspiration": ["…"], "avoid": ["…"]},
   "constraints": {"platforms": ["ios", "android"], "accounts": "email_otp", "sensitive": []},
   "validation": {"verdict": "…", "angle": "…", "riskiest": ["…"]},
+  "risk": {"tier": "standard|elevated|high|stop", "categories": [], "questions": [],
+           "abuse_cases": [], "accepted": [], "screened_at": "shape", "declined": []},
   "decisions": [
     {"id": "platforms", "question": "Which phones?", "answer": "iPhone and Android",
      "status": "default", "ask_at": "shape", "why": "sets the build profiles and store accounts"},
@@ -80,7 +82,14 @@ team makes or parks gets one entry:
   whose phase has arrived.
 - `why`: one line on what the answer changes, shown with the question.
 
+**The risk block** (`risk`) is the risk screen's record (`skills/shape` → "The risk
+screen"; categories in `scripts/risk/categories.json`): the tier, each sensitive
+category and why, the must-answer questions (each also in `decisions`), the abuse
+cases, the owner's acknowledgments at tier high, and anything declined.
+`scripts/risk_screen.py render` turns it into `docs/product/RISK.md`.
+
 `money.model` is the model only. The price and the paywall's placement are a
 `pre-launch` decision. `python3 "$KIT/scripts/check_intake.py" brief design/brief.json`
-validates the shape (the ledger and the five day-0 sections are required) and caps the
-questions asked at shape at 7.
+validates the shape (the ledger, the five day-0 sections and the `risk` block are
+required), checks the risk block against the keyword backstop, and caps the questions
+asked at shape at 7.
