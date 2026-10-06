@@ -13,6 +13,12 @@ build from weeks ago against today's API.
 - **A generic cast is not validation.** `apiFetch<T>()` asserts a shape. When the wire
   shape differs from the UI shape, write an adapter (`toX(wire)`) with a test.
 - Change a response model → update its `*Wire` interface in the same PR.
+- **A new POST takes `Depends(idempotent())`** (after `rate_limit(...)`); the app's write
+  adapter takes `{ idempotencyKey }` and passes it to `apiFetch`. `tests/test_idempotency.py`
+  fails a POST under `/api` without it.
+- **A new list returns `Page[Thing]`** (`backend/pagination.py`, keyset cursor), mirrored as
+  `ThingPageWire { items: ThingWire[]; nextCursor: string | null }` and read with
+  `usePagedQuery()`. Never an offset: a row added between loads shifts every later page.
 
 Merge-gate question: *if last month's App Store build gets this JSON tomorrow, does it
 still work?*
