@@ -415,14 +415,14 @@ def test_ugc_needs_report_block_and_a_queue(app: Path) -> None:
 
 def test_ugc_ignores_the_replay_cache_but_not_a_mapped_content_table(app: Path) -> None:
     # idempotency_keys.response_body is `ugc` in the map (store answers), yet nobody else
-    # sees it: the ugc pack on a pristine app asks for no report/block.
+    # sees it: the ugc pack never names it. (A recipe's own content tables still count.)
     packs(app, "ugc")
-    assert "[ugc]" not in problems(app)
+    assert "idempotency_keys" not in problems(app)
     data = yaml.safe_load((app / guard.DATA_MAP).read_text())
     data["tables"]["journal"] = {"owner": "user", "columns": {"entry": {"category": "ugc"}}}
     (app / guard.DATA_MAP).write_text(yaml.safe_dump(data, sort_keys=False))
     out = problems(app)
-    assert "user content in `journal`, but no reports table" in out
+    assert re.search(r"user content in [^\n]*`journal`[^\n]*, but no reports table", out)
     assert "idempotency_keys" not in out
 
 
