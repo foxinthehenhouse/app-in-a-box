@@ -278,6 +278,39 @@ def _inside(text: str, open_at: int) -> str:
     return text[open_at + 1 :]
 
 
+def _object_props(arg: str) -> set[str]:
+    """Props of an inline object literal: `{ a, b: x, ...rest }` ("*" marks a spread)."""
+    return {
+        "*" if item.startswith("...") else re.split(r"[\s:]", item)[0]
+        for item in _split_top(_inside(arg, 0))
+    }
+
+
+def _typed_props(name: str, entry: str, arg: str) -> tuple[set[str] | None, str | None]:
+    """Props of a parameter passed whole, read from its inline type annotation."""
+    params = entry[entry.index("(") + 1 :]
+    t = re.search(rf"\b{arg}\??\s*:\s*\{{", params)
+    if not t:
+        return None, (
+            f"{ANALYTICS}: can't read the props of analytics.{name}: type `{arg}` inline "
+            "(`p: {{ a: string; b: number }}`) so the data map can see them"
+        )
+    body = _inside(params, t.end() - 1)
+    return {re.split(r"[\s?:]", item)[0] for item in _split_top(body.replace(";", ","), ",")}, None
+
+
+def _capture_props(name: str, entry: str, arg: str) -> tuple[set[str] | None, str | None]:
+    """(props, problem) for one capture() payload. props is None when the event must be
+    skipped entirely (its props can't be read at all)."""
+    if arg.startswith("{"):
+        return _object_props(arg), None
+    if re.fullmatch(r"\w+", arg):
+        return _typed_props(name, entry, arg)
+    if arg:
+        return set(), f"{ANALYTICS}: can't read the props of analytics.{name} ({arg[:40]})"
+    return set(), None
+
+
 def analytics_events(src: str) -> tuple[dict[str, set[str]], list[str]]:
     """event -> props, read from `export const analytics = {...}`. "*" marks a spread."""
     src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
@@ -297,26 +330,11 @@ def analytics_events(src: str) -> tuple[dict[str, set[str]], list[str]]:
         if not ev:
             problems.append(f"{ANALYTICS}: analytics.{name} captures a non-literal event name")
             continue
-        props: set[str] = set()
-        arg = args[1] if len(args) > 1 else ""
-        if arg.startswith("{"):
-            for item in _split_top(_inside(arg, 0)):
-                props.add("*" if item.startswith("...") else re.split(r"[\s:]", item)[0])
-        elif re.fullmatch(r"\w+", arg):
-            params = entry[entry.index("(") + 1 :]
-            t = re.search(rf"\b{arg}\??\s*:\s*\{{", params)
-            if not t:
-                problems.append(
-                    f"{ANALYTICS}: can't read the props of analytics.{name}: type `{arg}` inline "
-                    "(`p: {{ a: string; b: number }}`) so the data map can see them"
-                )
-                continue
-            body = _inside(params, t.end() - 1)
-            for item in _split_top(body.replace(";", ","), ","):
-                props.add(re.split(r"[\s?:]", item)[0])
-        elif arg:
-            problems.append(f"{ANALYTICS}: can't read the props of analytics.{name} ({arg[:40]})")
-        events.setdefault(ev.group(1), set()).update(props)
+        props, problem = _capture_props(name, entry, args[1] if len(args) > 1 else "")
+        if problem:
+            problems.append(problem)
+        if props is not None:
+            events.setdefault(ev.group(1), set()).update(props)
     return events, problems
 
 
@@ -328,41 +346,56 @@ class Permission:
     default_text: bool = False  # a plugin's built-in default (generic by definition)
 
 
+def _ios_permissions(ex: dict[str, Any]) -> list[Permission]:
+    return [
+        Permission(IOS_KEYS.get(key) or str(key), f"{APP_JSON}: ios.infoPlist.{key}", str(val))
+        for key, val in ((ex.get("ios") or {}).get("infoPlist") or {}).items()
+        if key.endswith("UsageDescription")
+    ]
+
+
+def _android_permissions(ex: dict[str, Any]) -> list[Permission]:
+    shorts = [
+        str(perm).rsplit(".", 1)[-1] for perm in (ex.get("android") or {}).get("permissions") or []
+    ]
+    return [
+        Permission(ANDROID.get(short, short.lower()), f"{APP_JSON}: android.permissions {short}")
+        for short in shorts
+        if short not in ANDROID_NORMAL
+    ]
+
+
+def _plugin_permission(
+    name: str, pid: str, opt: str | None, opts: dict[str, Any]
+) -> Permission | None:
+    """What one plugin option asks for: None when the option turns it off (`false`)."""
+    where = f"{APP_JSON}: plugin {name}" + (f" {opt}" if opt else "")
+    if opt is None:
+        return Permission(pid, where)
+    if opts.get(opt) is False:
+        return None
+    if isinstance(opts.get(opt), str):
+        return Permission(pid, where, opts[opt])
+    return Permission(pid, where, default_text=True)
+
+
+def _plugin_permissions(plugin: Any) -> list[Permission]:
+    name, opts = (plugin, {}) if isinstance(plugin, str) else (plugin[0], (plugin[1:] or [{}])[0])
+    opts = opts if isinstance(opts, dict) else {}
+    found = [_plugin_permission(name, pid, opt, opts) for pid, opt in PLUGINS.get(name, {}).items()]
+    extra = [
+        Permission(pid, f"{APP_JSON}: plugin {name} {opt}", opts[opt])
+        for opt, pid in PLUGIN_EXTRA_KEYS.items()
+        if isinstance(opts.get(opt), str)
+    ]
+    return [p for p in found if p is not None] + extra
+
+
 def app_permissions(app: dict[str, Any]) -> list[Permission]:
     ex = app.get("expo") or {}
-    found: list[Permission] = []
-    for key, val in ((ex.get("ios") or {}).get("infoPlist") or {}).items():
-        if key.endswith("UsageDescription"):
-            found.append(
-                Permission(IOS_KEYS.get(key) or str(key), f"{APP_JSON}: ios.infoPlist.{key}", str(val))
-            )
-    for perm in (ex.get("android") or {}).get("permissions") or []:
-        short = str(perm).rsplit(".", 1)[-1]
-        if short in ANDROID_NORMAL:
-            continue
-        found.append(
-            Permission(
-                ANDROID.get(short, short.lower()), f"{APP_JSON}: android.permissions {short}"
-            )
-        )
+    found = _ios_permissions(ex) + _android_permissions(ex)
     for plugin in ex.get("plugins") or []:
-        name, opts = (
-            (plugin, {}) if isinstance(plugin, str) else (plugin[0], (plugin[1:] or [{}])[0])
-        )
-        opts = opts if isinstance(opts, dict) else {}
-        for pid, opt in PLUGINS.get(name, {}).items():
-            where = f"{APP_JSON}: plugin {name}" + (f" {opt}" if opt else "")
-            if opt is None:
-                found.append(Permission(pid, where))
-            elif opts.get(opt) is False:
-                continue
-            elif isinstance(opts.get(opt), str):
-                found.append(Permission(pid, where, opts[opt]))
-            else:
-                found.append(Permission(pid, where, default_text=True))
-        for opt, pid in PLUGIN_EXTRA_KEYS.items():
-            if isinstance(opts.get(opt), str):
-                found.append(Permission(pid, f"{APP_JSON}: plugin {name} {opt}", opts[opt]))
+        found += _plugin_permissions(plugin)
     return found
 
 
@@ -394,66 +427,95 @@ def _column(spec: Any) -> dict[str, Any]:
     return {"category": spec} if isinstance(spec, str) else dict(spec or {})
 
 
-def map_problems(m: dict[str, Any]) -> list[str]:
-    """The map is well-formed: known vocabulary, sensitive data kept and fenced."""
+def _header_problems(m: dict[str, Any]) -> list[str]:
     out: list[str] = []
-    if not isinstance(m, dict):
-        return [f"{MAP}: not a mapping"]
     packs = m.get("packs", ["baseline"])
     if not isinstance(packs, list) or not set(packs) <= PACKS:
         out.append(f"{MAP}: packs must be a list of {sorted(PACKS)}, got {packs!r}")
     if not isinstance(m.get("tracking", False), bool):
         out.append(f"{MAP}: tracking must be true or false")
-    third = m.get("third_parties") or {}
+    return out
+
+
+def _processor_problems(m: dict[str, Any]) -> list[str]:
+    out: list[str] = []
     for name, p in (m.get("processors") or {}).items():
         if not isinstance(p, dict) or not str(p.get("role", "")).strip():
             out.append(f"{MAP}: processor {name} needs a role (what it does for the app)")
             continue
-        for u in p.get("uses") or []:
-            if u not in USES:
-                out.append(f"{MAP}: processor {name}: unknown use {u!r}")
-        for c in p.get("collects") or []:
-            c = _column(c)
-            if c.get("category") not in CATEGORIES - {"none"}:
-                out.append(
-                    f"{MAP}: processor {name} collects unknown category {c.get('category')!r}"
-                )
-    for name, p in third.items():
-        if not isinstance(p, dict) or not str(p.get("purpose", "")).strip():
-            out.append(f"{MAP}: third party {name} needs a purpose (what it does with the data)")
+        out += [
+            f"{MAP}: processor {name}: unknown use {u!r}"
+            for u in p.get("uses") or []
+            if u not in USES
+        ]
+        cats = [_column(c).get("category") for c in p.get("collects") or []]
+        out += [
+            f"{MAP}: processor {name} collects unknown category {cat!r}"
+            for cat in cats
+            if cat not in CATEGORIES - {"none"}
+        ]
+    return out
 
-    def check_item(where: str, c: dict[str, Any]) -> None:
-        cat = c.get("category")
-        if cat not in CATEGORIES:
-            out.append(f"{MAP}: {where} has unknown category {cat!r} (one of {sorted(CATEGORIES)})")
-            return
-        if cat == "none":
-            return
-        if c.get("type") is not None and c["type"] not in TYPES.get(cat, set()):
-            out.append(
-                f"{MAP}: {where}: type {c['type']!r} isn't one of {sorted(TYPES.get(cat, []))} for {cat}"
-            )
-        if not str(c.get("purpose", "")).strip():
-            out.append(f"{MAP}: {where} is '{cat}' but has no purpose (why the app keeps it)")
-        ret = c.get("retention")
-        if ret is None:
-            if cat in SENSITIVE:
-                out.append(
-                    f"{MAP}: {where} is '{cat}' (sensitive) but has no retention: say how long it's kept"
-                )
-        elif ret != "account" and not DURATION.match(str(ret)):
-            out.append(
-                f"{MAP}: {where}: retention {ret!r} must be `account` or an ISO-8601 duration (P30D)"
-            )
-        for u in c.get("uses") or []:
-            if u not in USES:
-                out.append(f"{MAP}: {where}: unknown use {u!r} (one of {sorted(USES)})")
-        for s in c.get("shared_with") or []:
-            if s not in third:
-                out.append(
-                    f"{MAP}: {where} is shared with {s!r}, which isn't listed under third_parties"
-                )
 
+def _third_party_problems(m: dict[str, Any]) -> list[str]:
+    return [
+        f"{MAP}: third party {name} needs a purpose (what it does with the data)"
+        for name, p in (m.get("third_parties") or {}).items()
+        if not isinstance(p, dict) or not str(p.get("purpose", "")).strip()
+    ]
+
+
+def _type_problems(where: str, cat: str, c: dict[str, Any]) -> list[str]:
+    if c.get("type") is None or c["type"] in TYPES.get(cat, set()):
+        return []
+    return [
+        f"{MAP}: {where}: type {c['type']!r} isn't one of {sorted(TYPES.get(cat, []))} for {cat}"
+    ]
+
+
+def _purpose_problems(where: str, cat: str, c: dict[str, Any]) -> list[str]:
+    if str(c.get("purpose", "")).strip():
+        return []
+    return [f"{MAP}: {where} is '{cat}' but has no purpose (why the app keeps it)"]
+
+
+def _retention_problems(where: str, cat: str, c: dict[str, Any]) -> list[str]:
+    ret = c.get("retention")
+    if ret is None:
+        if cat in SENSITIVE:
+            return [
+                f"{MAP}: {where} is '{cat}' (sensitive) but has no retention: say how long it's kept"
+            ]
+        return []
+    if ret != "account" and not DURATION.match(str(ret)):
+        return [
+            f"{MAP}: {where}: retention {ret!r} must be `account` or an ISO-8601 duration (P30D)"
+        ]
+    return []
+
+
+def _item_problems(where: str, c: dict[str, Any], third: Any) -> list[str]:
+    """One column's declaration: known category and type, a purpose, a retention, known
+    uses, and only third parties the map lists."""
+    cat = c.get("category")
+    if cat not in CATEGORIES:
+        return [f"{MAP}: {where} has unknown category {cat!r} (one of {sorted(CATEGORIES)})"]
+    if cat == "none":
+        return []
+    return [
+        *_type_problems(where, cat, c),
+        *_purpose_problems(where, cat, c),
+        *_retention_problems(where, cat, c),
+        *(f"{MAP}: {where}: unknown use {u!r} (one of {sorted(USES)})"
+          for u in c.get("uses") or [] if u not in USES),
+        *(f"{MAP}: {where} is shared with {s!r}, which isn't listed under third_parties"
+          for s in c.get("shared_with") or [] if s not in third),
+    ]  # fmt: skip
+
+
+def _table_problems(m: dict[str, Any]) -> list[str]:
+    third = m.get("third_parties") or {}
+    out: list[str] = []
     for tname, t in (m.get("tables") or {}).items():
         if not isinstance(t, dict):
             out.append(f"{MAP}: table {tname} must be a mapping with owner + columns")
@@ -461,17 +523,31 @@ def map_problems(m: dict[str, Any]) -> list[str]:
         if t.get("owner") not in OWNERS:
             out.append(f"{MAP}: table {tname}: owner must be one of {sorted(OWNERS)}")
         for col, spec in (t.get("columns") or {}).items():
-            check_item(f"{tname}.{col}", _column(spec))
+            out += _item_problems(f"{tname}.{col}", _column(spec), third)
+    return out
+
+
+def _analytics_prop_problem(where: str, cat: Any) -> list[str]:
+    if cat not in CATEGORIES:
+        return [f"{MAP}: {where} has unknown category {cat!r}"]
+    if cat in SENSITIVE:
+        return [
+            f"{MAP}: {where} is '{cat}': sensitive data never goes to analytics. "
+            "Send a coarse, non-identifying value (a count, a bucket, a yes/no) instead"
+        ]
+    return []
+
+
+def _analytics_map_problems(m: dict[str, Any]) -> list[str]:
+    out: list[str] = []
     for ev, e in (m.get("analytics") or {}).items():
         for prop, cat in ((e or {}).get("props") or {}).items():
-            where = f"analytics prop '{ev}.{prop}'"
-            if cat not in CATEGORIES:
-                out.append(f"{MAP}: {where} has unknown category {cat!r}")
-            elif cat in SENSITIVE:
-                out.append(
-                    f"{MAP}: {where} is '{cat}': sensitive data never goes to analytics. "
-                    "Send a coarse, non-identifying value (a count, a bucket, a yes/no) instead"
-                )
+            out += _analytics_prop_problem(f"analytics prop '{ev}.{prop}'", cat)
+    return out
+
+
+def _permission_map_problems(m: dict[str, Any]) -> list[str]:
+    out: list[str] = []
     for pid, purpose in (m.get("permissions") or {}).items():
         text = purpose.get("purpose") if isinstance(purpose, dict) else purpose
         if not text or is_generic(str(text)):
@@ -479,6 +555,11 @@ def map_problems(m: dict[str, Any]) -> list[str]:
                 f"{MAP}: permission '{pid}' has a generic purpose ({text!r}): say what the user "
                 'gets for it, in their words ("show your runs on a map")'
             )
+    return out
+
+
+def _required_reason_problems(m: dict[str, Any]) -> list[str]:
+    out: list[str] = []
     for api, reasons in ((m.get("ios") or {}).get("required_reason_apis") or {}).items():
         if api not in REQUIRED_REASONS:
             out.append(f"{MAP}: ios.required_reason_apis: unknown API category {api!r}")
@@ -489,93 +570,151 @@ def map_problems(m: dict[str, Any]) -> list[str]:
     return out
 
 
-def coverage_problems(m: dict[str, Any], root: Path) -> list[str]:
-    """The map lists exactly what the migrations, analytics.ts and app.json hold."""
-    out: list[str] = []
+# The per-rule checks map_problems runs, in the order their problems are reported.
+MAP_CHECKS = (
+    _header_problems,
+    _processor_problems,
+    _third_party_problems,
+    _table_problems,
+    _analytics_map_problems,
+    _permission_map_problems,
+    _required_reason_problems,
+)
+
+
+def map_problems(m: dict[str, Any]) -> list[str]:
+    """The map is well-formed: known vocabulary, sensitive data kept and fenced."""
+    if not isinstance(m, dict):
+        return [f"{MAP}: not a mapping"]
+    return [problem for check in MAP_CHECKS for problem in check(m)]
+
+
+def _sql_table_problems(name: str, t: schema_sql.Table, mt: Any) -> list[str]:
+    """One table a migration creates against its entry in the map."""
+    if not isinstance(mt, dict):
+        return [f"data map: table {name} (supabase/migrations) is not in {MAP}"]
+    cols = mt.get("columns") or {}
+    out = [
+        f"data map: column {name}.{col} (supabase/migrations) is not in {MAP}"
+        for col in t.columns
+        if col not in cols
+    ]
+    out += [
+        f"data map: {name}.{col} is in {MAP} but no migration creates it"
+        for col in cols
+        if col not in t.columns
+    ]
+    if t.user_owned and mt.get("owner") == "system":
+        out.append(
+            f"data map: table {name} references auth.users (user data) but the map says owner: system"
+        )
+    if not t.deleted_with_account:
+        out += [
+            f"data map: {name}.{col} says retention: account, but {name} isn't deleted "
+            "with the account (no `references auth.users ... on delete cascade`)"
+            for col, spec in cols.items()
+            if _column(spec).get("retention") == "account"
+        ]
+    return out
+
+
+def _table_coverage(m: dict[str, Any], root: Path) -> list[str]:
     mtables = m.get("tables") or {}
     sql = schema_sql.parse(schema_sql.all_sql(root / "supabase" / "migrations"))
+    out: list[str] = []
     for name, t in sql.items():
-        mt = mtables.get(name)
-        if not isinstance(mt, dict):
-            out.append(f"data map: table {name} (supabase/migrations) is not in {MAP}")
-            continue
-        cols = mt.get("columns") or {}
-        for col in t.columns:
-            if col not in cols:
-                out.append(f"data map: column {name}.{col} (supabase/migrations) is not in {MAP}")
-        for col in cols:
-            if col not in t.columns:
-                out.append(f"data map: {name}.{col} is in {MAP} but no migration creates it")
-        if t.user_owned and mt.get("owner") == "system":
-            out.append(
-                f"data map: table {name} references auth.users (user data) but the map says owner: system"
-            )
-        if not t.deleted_with_account:
-            for col, spec in cols.items():
-                if _column(spec).get("retention") == "account":
-                    out.append(
-                        f"data map: {name}.{col} says retention: account, but {name} isn't deleted "
-                        "with the account (no `references auth.users ... on delete cascade`)"
-                    )
-    for name, mt in mtables.items():
-        if name not in sql and not (isinstance(mt, dict) and mt.get("external")):
-            out.append(
-                f"data map: table {name} is in {MAP} but no migration creates it (or mark it external)"
-            )
-
-    src = root / ANALYTICS
-    if src.is_file():
-        events, problems = analytics_events(src.read_text(encoding="utf-8"))
-        out += problems
-        mevents = m.get("analytics") or {}
-        for ev, props in sorted(events.items()):
-            if ev not in mevents:
-                out.append(f"data map: analytics event '{ev}' ({ANALYTICS}) is not in {MAP}")
-                continue
-            mprops = (mevents[ev] or {}).get("props") or {}
-            for p in sorted(props):
-                if p not in mprops:
-                    out.append(f"data map: analytics prop '{ev}.{p}' ({ANALYTICS}) is not in {MAP}")
-            for p in mprops:
-                if p not in props:
-                    out.append(
-                        f"data map: analytics prop '{ev}.{p}' is in {MAP} but {ANALYTICS} doesn't send it"
-                    )
-        for ev in mevents:
-            if ev not in events:
-                out.append(
-                    f"data map: analytics event '{ev}' is in {MAP} but {ANALYTICS} doesn't define it"
-                )
-
-    for cfg in ("app.config.ts", "app.config.js"):
-        if (root / "mobile" / cfg).exists():
-            out.append(
-                f"data map: mobile/{cfg} exists, but permissions are read from {APP_JSON} only: "
-                "keep permissions and their text in app.json"
-            )
-    app = root / APP_JSON
-    if app.is_file():
-        mperms = m.get("permissions") or {}
-        seen: set[str] = set()
-        for p in app_permissions(json.loads(app.read_text(encoding="utf-8"))):
-            seen.add(p.id)
-            if p.id not in mperms:
-                out.append(f"data map: permission '{p.id}' ({p.where}) is not in {MAP}")
-            if p.default_text:
-                out.append(
-                    f"data map: permission '{p.id}' ({p.where}) ships the plugin's generic default "
-                    "text: set it to what the user gets, in their words, or `false` if unused"
-                )
-            elif p.text is not None and is_generic(p.text):
-                out.append(
-                    f"data map: permission '{p.id}' ({p.where}) has a generic purpose ({p.text!r})"
-                )
-        for pid in mperms:
-            if pid not in seen:
-                out.append(
-                    f"data map: permission '{pid}' is in {MAP} but {APP_JSON} doesn't ask for it"
-                )
+        out += _sql_table_problems(name, t, mtables.get(name))
+    out += [
+        f"data map: table {name} is in {MAP} but no migration creates it (or mark it external)"
+        for name, mt in mtables.items()
+        if name not in sql and not (isinstance(mt, dict) and mt.get("external"))
+    ]
     return out
+
+
+def _event_prop_problems(ev: str, props: set[str], mprops: dict[str, Any]) -> list[str]:
+    out = [
+        f"data map: analytics prop '{ev}.{p}' ({ANALYTICS}) is not in {MAP}"
+        for p in sorted(props)
+        if p not in mprops
+    ]
+    out += [
+        f"data map: analytics prop '{ev}.{p}' is in {MAP} but {ANALYTICS} doesn't send it"
+        for p in mprops
+        if p not in props
+    ]
+    return out
+
+
+def _analytics_coverage(m: dict[str, Any], root: Path) -> list[str]:
+    src = root / ANALYTICS
+    if not src.is_file():
+        return []
+    events, problems = analytics_events(src.read_text(encoding="utf-8"))
+    out = list(problems)
+    mevents = m.get("analytics") or {}
+    for ev, props in sorted(events.items()):
+        if ev not in mevents:
+            out.append(f"data map: analytics event '{ev}' ({ANALYTICS}) is not in {MAP}")
+            continue
+        out += _event_prop_problems(ev, props, (mevents[ev] or {}).get("props") or {})
+    out += [
+        f"data map: analytics event '{ev}' is in {MAP} but {ANALYTICS} doesn't define it"
+        for ev in mevents
+        if ev not in events
+    ]
+    return out
+
+
+def _app_config_problems(_m: dict[str, Any], root: Path) -> list[str]:
+    return [
+        f"data map: mobile/{cfg} exists, but permissions are read from {APP_JSON} only: "
+        "keep permissions and their text in app.json"
+        for cfg in ("app.config.ts", "app.config.js")
+        if (root / "mobile" / cfg).exists()
+    ]
+
+
+def _app_permission_problems(p: Permission, mperms: dict[str, Any]) -> list[str]:
+    """One permission app.json asks for: mapped, and with text a reviewer can check."""
+    out: list[str] = []
+    if p.id not in mperms:
+        out.append(f"data map: permission '{p.id}' ({p.where}) is not in {MAP}")
+    if p.default_text:
+        out.append(
+            f"data map: permission '{p.id}' ({p.where}) ships the plugin's generic default "
+            "text: set it to what the user gets, in their words, or `false` if unused"
+        )
+    elif p.text is not None and is_generic(p.text):
+        out.append(f"data map: permission '{p.id}' ({p.where}) has a generic purpose ({p.text!r})")
+    return out
+
+
+def _permission_coverage(m: dict[str, Any], root: Path) -> list[str]:
+    app = root / APP_JSON
+    if not app.is_file():
+        return []
+    mperms = m.get("permissions") or {}
+    perms = app_permissions(json.loads(app.read_text(encoding="utf-8")))
+    out: list[str] = []
+    for p in perms:
+        out += _app_permission_problems(p, mperms)
+    seen = {p.id for p in perms}
+    out += [
+        f"data map: permission '{pid}' is in {MAP} but {APP_JSON} doesn't ask for it"
+        for pid in mperms
+        if pid not in seen
+    ]
+    return out
+
+
+# The per-source checks coverage_problems runs, in the order their problems are reported.
+COVERAGE_CHECKS = (_table_coverage, _analytics_coverage, _app_config_problems, _permission_coverage)
+
+
+def coverage_problems(m: dict[str, Any], root: Path) -> list[str]:
+    """The map lists exactly what the migrations, analytics.ts and app.json hold."""
+    return [problem for check in COVERAGE_CHECKS for problem in check(m, root)]
 
 
 def items(m: dict[str, Any]) -> list[Item]:
@@ -587,10 +726,17 @@ def items(m: dict[str, Any]) -> list[Item]:
             if c.get("category", "none") == "none":
                 continue
             found.append(
-                Item(c["category"], c.get("type"), f"{tname}.{col}", str(c.get("purpose", "")),
-                     c.get("retention"), list(c.get("uses") or ["app_functionality"]),
-                     bool(c.get("linked", True)), bool(c.get("optional", False)),
-                     list(c.get("shared_with") or []))  # fmt: skip
+                Item(
+                    c["category"],
+                    c.get("type"),
+                    f"{tname}.{col}",
+                    str(c.get("purpose", "")),
+                    c.get("retention"),
+                    list(c.get("uses") or ["app_functionality"]),
+                    bool(c.get("linked", True)),
+                    bool(c.get("optional", False)),
+                    list(c.get("shared_with") or []),
+                )  # fmt: skip
             )
     for ev, e in (m.get("analytics") or {}).items():
         for prop, cat in ((e or {}).get("props") or {}).items():
@@ -602,9 +748,16 @@ def items(m: dict[str, Any]) -> list[Item]:
         for c in (p or {}).get("collects") or []:
             c = _column(c)
             found.append(
-                Item(c["category"], c.get("type"), f"{name} SDK", str(p.get("role", "")), None,
-                     list(p.get("uses") or ["app_functionality"]), bool(c.get("linked", True)),
-                     bool(p.get("optional", False)))  # fmt: skip
+                Item(
+                    c["category"],
+                    c.get("type"),
+                    f"{name} SDK",
+                    str(p.get("role", "")),
+                    None,
+                    list(p.get("uses") or ["app_functionality"]),
+                    bool(c.get("linked", True)),
+                    bool(p.get("optional", False)),
+                )  # fmt: skip
             )
     return found
 
@@ -661,7 +814,9 @@ def _yes(b: bool) -> str:
 def _sources(group: list[Item]) -> str:
     """Tables and SDKs by name; analytics props folded into one list of events."""
     named = sorted({f"`{it.source}`" for it in group if not it.source.startswith("analytics ")})
-    events = sorted({it.source.split()[1].split(".")[0] for it in group if it.source.startswith("analytics ")})
+    events = sorted(
+        {it.source.split()[1].split(".")[0] for it in group if it.source.startswith("analytics ")}
+    )
     if events:
         named.append("analytics events: " + ", ".join(f"`{e}`" for e in events))
     return ", ".join(named)

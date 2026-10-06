@@ -88,7 +88,7 @@ check "data map: render sets packs from design/brief.json risk.categories (basel
 check "data map: no risk block (or no brief) means packs: [baseline]" \
   "_dmp_render '{\"decisions\": []}' 'packs: [baseline]' && _dmp_render '' 'packs: [baseline]'"
 check "data map: a category with no pack of its own adds none, and a malformed risk block is ignored" \
-  "_dmp_render '{\"risk\": {\"categories\": [\"intimate\", {\"id\": \"health\"}, 7]}}' 'packs: [baseline, health]' \
+  "_dmp_render '{\"risk\": {\"categories\": [\"ai_decisions\", {\"id\": \"health\"}, 7]}}' 'packs: [baseline, health]' \
    && _dmp_render '{\"risk\": {\"categories\": \"minors\"}}' 'packs: [baseline]'"
 _dmp_rerender_keeps_map() {  # --force never overwrites the app's map; it only refreshes packs
   local d="$T/dmp-render"; _dmp_render '' 'packs: [baseline]' || return 1

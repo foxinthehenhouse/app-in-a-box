@@ -24,7 +24,8 @@ ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location(
     "check_data_map", ROOT / "scripts" / "check_data_map.py"
 )
-assert _spec is not None and _spec.loader is not None
+assert _spec is not None
+assert _spec.loader is not None
 dm = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = dm  # its dataclasses look themselves up here
 _spec.loader.exec_module(dm)
@@ -187,9 +188,9 @@ def test_sensitive_data_sent_to_analytics_is_caught(app: Path) -> None:
         app, lambda m: m["analytics"]["screen_viewed"]["props"].update({"screen": "location"})
     )
     probs = dm.check(app)
+    assert len(probs) == 1
     assert (
-        len(probs) == 1
-        and "analytics prop 'screen_viewed.screen' is 'location': sensitive data never goes to analytics"
+        "analytics prop 'screen_viewed.screen' is 'location': sensitive data never goes to analytics"
         in probs[0]
     )
 
@@ -199,7 +200,8 @@ def test_a_generic_permission_purpose_is_caught(app: Path) -> None:
         app, lambda m: m["permissions"].update({"notifications": "Required for app functionality."})
     )
     probs = dm.check(app)
-    assert len(probs) == 1 and "permission 'notifications' has a generic purpose" in probs[0]
+    assert len(probs) == 1
+    assert "permission 'notifications' has a generic purpose" in probs[0]
 
 
 def test_account_retention_on_a_table_that_survives_the_account_is_caught(app: Path) -> None:
@@ -222,7 +224,8 @@ def test_a_stale_generated_file_is_caught(app: Path) -> None:
     assert dm.check(app) == [
         "privacy/PRIVACY_POLICY.md is stale (it no longer matches privacy/data-map.yaml): run python3 scripts/check_data_map.py --write"
     ]
-    assert dm.write(app) == [] and dm.check(app) == []
+    assert dm.write(app) == []
+    assert dm.check(app) == []
 
 
 def test_a_stale_privacy_manifest_is_caught(app: Path) -> None:
@@ -262,7 +265,8 @@ def test_privacy_manifest_uses_apples_keys_and_values() -> None:
 
 def test_policy_draft_says_it_is_a_draft_and_not_legal_advice() -> None:
     text = (ROOT / "privacy" / "PRIVACY_POLICY.md").read_text()
-    assert "(DRAFT)" in text and "not legal advice" in text
+    assert "(DRAFT)" in text
+    assert "not legal advice" in text
 
 
 @pytest.mark.parametrize(
@@ -299,4 +303,5 @@ def test_analytics_parser_reads_inline_types_literals_and_spreads() -> None:
 def test_props_behind_a_named_type_are_refused_not_guessed() -> None:
     src = 'export const analytics = {\n  a: (p: Payload) => capture("a", p),\n};\n'
     _, problems = dm.analytics_events(src)
-    assert problems and "can't read the props of analytics.a" in problems[0]
+    assert problems
+    assert "can't read the props of analytics.a" in problems[0]

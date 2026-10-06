@@ -36,12 +36,16 @@ ALTER_TABLE = re.compile(
 )
 DROP_TABLE = re.compile(r"drop\s+table\s+(?:if\s+exists\s+)?" + _NAME, re.I)
 # One action of an `alter table` (they are comma-separated).
-ADD_COLUMN = re.compile(r'^add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?"?(\w+)"?(.*)$', re.I | re.S)
+ADD_COLUMN = re.compile(
+    r'^add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?"?(\w+)"?(.*)$', re.I | re.S
+)
 DROP_COLUMN = re.compile(r'^drop\s+(?:column\s+)?(?:if\s+exists\s+)?"?(\w+)"?', re.I)
 RENAME_COLUMN = re.compile(r'^rename\s+(?:column\s+)?"?(\w+)"?\s+to\s+"?(\w+)"?', re.I)
 RENAME_TABLE = re.compile(r'^rename\s+to\s+"?(\w+)"?', re.I)
 # A table-level item in a create-table body, not a column.
-_CONSTRAINT = re.compile(r"^(constraint|primary\s+key|foreign\s+key|unique|check|exclude|like)\b", re.I)
+_CONSTRAINT = re.compile(
+    r"^(constraint|primary\s+key|foreign\s+key|unique|check|exclude|like)\b", re.I
+)
 _AUTH_REF = re.compile(r"references\s+auth\.users\b", re.I)
 _CASCADE = re.compile(r"references\s+auth\.users\b.*?on\s+delete\s+cascade", re.I | re.S)
 # `add constraint`, `drop constraint`, `rename constraint`...: not columns.
@@ -95,6 +99,42 @@ def _note_auth_ref(t: Table, text: str) -> None:
         t.deleted_with_account |= bool(_CASCADE.search(text))
 
 
+def _rename_column(t: Table, m: re.Match[str]) -> None:
+    old, new = m.group(1).lower(), m.group(2).lower()
+    if old not in _KEYWORDS and old in t.columns:
+        t.columns[t.columns.index(old)] = new
+
+
+def _add_column(t: Table, m: re.Match[str]) -> None:
+    col = m.group(1).lower()
+    if col in _KEYWORDS:
+        return
+    if col not in t.columns:
+        t.columns.append(col)
+    _note_auth_ref(t, m.group(2))
+
+
+def _drop_column(t: Table, m: re.Match[str]) -> None:
+    col = m.group(1).lower()
+    if col not in _KEYWORDS and col in t.columns:
+        t.columns.remove(col)
+
+
+_COLUMN_ACTIONS = (
+    (RENAME_COLUMN, _rename_column),
+    (ADD_COLUMN, _add_column),
+    (DROP_COLUMN, _drop_column),
+)
+
+
+def _alter_columns(t: Table, action: str) -> None:
+    """Apply one column action (rename, add, drop); the first pattern that matches wins."""
+    for rx, apply in _COLUMN_ACTIONS:
+        if m := rx.match(action):
+            apply(t, m)
+            return
+
+
 def _alter(tables: dict[str, Table], name: str, actions: str) -> None:
     for action in _split_top_level(actions):
         t = tables.get(name)
@@ -104,21 +144,8 @@ def _alter(tables: dict[str, Table], name: str, actions: str) -> None:
             t.name = m.group(1).lower()
             tables[t.name] = tables.pop(name)
             name = t.name
-        elif m := RENAME_COLUMN.match(action):
-            old, new = m.group(1).lower(), m.group(2).lower()
-            if old not in _KEYWORDS and old in t.columns:
-                t.columns[t.columns.index(old)] = new
-        elif m := ADD_COLUMN.match(action):
-            col = m.group(1).lower()
-            if col in _KEYWORDS:
-                continue
-            if col not in t.columns:
-                t.columns.append(col)
-            _note_auth_ref(t, m.group(2))
-        elif m := DROP_COLUMN.match(action):
-            col = m.group(1).lower()
-            if col not in _KEYWORDS and col in t.columns:
-                t.columns.remove(col)
+        else:
+            _alter_columns(t, action)
 
 
 def parse(sql: str) -> dict[str, Table]:
