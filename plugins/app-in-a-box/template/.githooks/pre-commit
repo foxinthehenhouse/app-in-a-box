@@ -60,4 +60,12 @@ if grep -Eqx 'design/tokens.json|DESIGN.md' <<<"$staged" && [ -f scripts/design_
   python3 scripts/design_md.py --check >&2 || {
     echo "pre-commit: DESIGN.md has drifted from design/tokens.json (see above). Run: python3 scripts/design_md.py" >&2; exit 1; }
 fi
+# The privacy data map: a staged migration, analytics event, permission or map edit must
+# leave privacy/data-map.yaml complete and the answers generated from it current. It needs
+# PyYAML, so prefer the repo's venv (scripts/dev-venv.sh) over a bare python3.
+if grep -Eq '^(privacy/|supabase/migrations/|mobile/lib/analytics\.ts$|mobile/app\.json$)' <<<"$staged" && [ -f scripts/check_data_map.py ]; then
+  py=python3; [ -x .venv/bin/python ] && py=.venv/bin/python
+  "$py" scripts/check_data_map.py >&2 || {
+    echo "pre-commit: privacy/data-map.yaml is incomplete or its generated answers are stale (see above)." >&2; exit 1; }
+fi
 exit 0

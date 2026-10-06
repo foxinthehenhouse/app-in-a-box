@@ -22,6 +22,8 @@ Then it generates the per-agent adapters from the shared, agent-neutral sources:
     .codex/hooks.json               <- .claude/settings.json hooks (same scripts)
     mobile/lib/tokens.ts            <- design/tokens.json
     DESIGN.md                       <- design/tokens.json (generated blocks only; prose kept)
+    privacy/data-map.yaml `packs`   <- design/brief.json risk.categories (the map is the app's)
+    privacy/*.md, app.json privacyManifests <- privacy/data-map.yaml (the app's own generator)
     docs/design/TASTE.md            <- KIT/docs/TASTE.md (the taste rubric; never overwritten)
     docs/DEFAULTS.md                <- KIT/docs/DEFAULTS.md (the baked-in product defaults; same)
 
@@ -37,6 +39,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -73,6 +76,7 @@ PROTECTED = {
     "docs/product/VALIDATION.md",
     "docs/design/TASTE.md",
     "docs/DEFAULTS.md",
+    "privacy/data-map.yaml",
 }
 SLUG_RE = re.compile(r"^[a-z][a-z0-9-]{1,38}[a-z0-9]$")
 BUNDLE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*){2,}$")
@@ -405,6 +409,73 @@ def design_doc(target: Path, tokens_file: Path, dry_run: bool) -> list[str]:
     return ["DESIGN.md (from design/tokens.json)"] if changed else []
 
 
+# ---- privacy/data-map.yaml: packs from the risk screen, outputs from the map ------------
+# Category ids (design/brief.json risk.categories) that turn on a guardrail pack of the
+# same name, used when the kit's scripts/risk/categories.json isn't there to say.
+PACKS = ("location", "minors", "health", "ugc", "financial", "biometric")
+
+
+def risk_packs(target: Path) -> list[str] | None:
+    """The guardrail packs design/brief.json's risk block turns on, `baseline` first; None
+    when the brief has no risk block (the map keeps what it has). Read defensively: the
+    block is written by shape's risk screen, and an older brief has none."""
+    try:
+        risk = json.loads((target / "design" / "brief.json").read_text()).get("risk")
+    except (OSError, ValueError, AttributeError):
+        return None
+    if not isinstance(risk, dict) or not isinstance(risk.get("categories"), list):
+        return None
+    ids = [c.get("id") if isinstance(c, dict) else c for c in risk["categories"]]
+    guardrails: dict[str, list[str]] = {}
+    try:
+        cats = json.loads((KIT / "scripts" / "risk" / "categories.json").read_text())
+        entries = cats.get("categories", cats) if isinstance(cats, dict) else cats
+        if isinstance(entries, dict):
+            entries = [{"id": k, **v} for k, v in entries.items() if isinstance(v, dict)]
+        for e in entries:
+            if isinstance(e, dict) and isinstance(e.get("guardrails"), list):
+                guardrails[str(e.get("id"))] = [str(g) for g in e["guardrails"]]
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    packs = {"baseline"}
+    for cid in ids:
+        if not isinstance(cid, str):
+            continue
+        packs.update(guardrails.get(cid, [cid] if cid in PACKS else []))
+    return ["baseline", *sorted(packs - {"baseline"})]
+
+
+def privacy_outputs(target: Path) -> list[str]:
+    """Set `packs` in privacy/data-map.yaml from the risk screen, then regenerate the store
+    answers, PrivacyInfo entries and policy draft with the APP's own generator (the code
+    its CI checks them with). The map itself is the app's: only the packs line changes."""
+    made: list[str] = []
+    dm = target / "privacy" / "data-map.yaml"
+    if not dm.is_file():
+        return made
+    packs = risk_packs(target)
+    if packs is not None:
+        text = dm.read_text()
+        new = re.sub(r"^packs:.*$", f"packs: [{', '.join(packs)}]", text, count=1, flags=re.M)
+        if new != text:
+            dm.write_text(new)
+            made.append("privacy/data-map.yaml (packs from design/brief.json risk.categories)")
+    gen = target / "scripts" / "check_data_map.py"
+    if gen.is_file():
+        r = subprocess.run(
+            [sys.executable, str(gen), "--write"], cwd=target, capture_output=True, text=True
+        )
+        if r.returncode == 0:
+            made += [ln[len("wrote ") :] for ln in r.stdout.splitlines() if ln.startswith("wrote ")]
+        else:
+            print(
+                "Note: couldn't regenerate the privacy answers from privacy/data-map.yaml"
+                f" ({(r.stdout + r.stderr).strip().splitlines()[-1:]}). In the app, run:"
+                " python3 scripts/check_data_map.py --write"
+            )
+    return made
+
+
 def _frontmatter(text: str) -> tuple[dict[str, str], str]:
     m = re.match(r"^---\n(.*?)\n---\n?(.*)$", text, re.S)
     if not m:
@@ -687,6 +758,7 @@ def render(a: argparse.Namespace) -> int:
         written += design_doc(target, tokens_file, a.dry_run)
 
     if not a.dry_run:
+        written += privacy_outputs(target)
         written += adapters(target)
 
     print(f"{'Would write' if a.dry_run else 'Wrote'} {len(written)} file(s) to {target}")

@@ -53,8 +53,7 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 - `mobile/AGENTS.md`: React Native conventions, tokens, analytics, testIDs
 - `backend/AGENTS.md`: FastAPI conventions, auth, feature config, Supabase
 - `docs/decision-log.md`: architectural decisions (append-only)
-- `docs/runbooks/`: release, rollback, incident, secrets rotation
-- `docs/product/`: brief, PRDs, specs
+- `docs/runbooks/`: release, rollback, incident, secrets rotation; `docs/product/`: brief, PRDs, specs
 
 ## Where things live
 
@@ -85,6 +84,7 @@ The source → adapter table and how to regenerate: `.agents/README.md`.
 | `mobile/app/**`, `mobile/components/**`, `mobile/lib/analytics.ts` | `.agents/rules/mobile-a11y.md`, `.agents/rules/analytics-coverage.md` |
 | `mobile/lib/**`, `mobile/app.json`, `mobile/eas.json`, `backend/config.py`, `backend/main.py` | `.agents/rules/env-var-wiring.md` |
 | `docs/product/**`, `mobile/app/**`, `mobile/locales/**`, `mobile/components/**`, and any product call anywhere | `.agents/rules/product-judgement.md` |
+| `supabase/migrations/**`, `mobile/lib/analytics.ts`, `mobile/app.json`, `privacy/**` | `.agents/rules/privacy-data-map.md` |
 <!-- appbox:domain-rules: rows for any .agents/rules/<domain>.md enabled from optional/ -->
 
 ## How work flows here
