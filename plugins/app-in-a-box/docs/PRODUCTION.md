@@ -93,6 +93,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Apple + Google sign-in | Recipe | `recipe-social-auth` |
 | Subscriptions / IAP with server-side entitlements | Recipe | `recipe-payments` |
 | AI feature (fenced, capped, evaluated) | Recipe | `recipe-ai-feature` |
+| Image uploads (private bucket, signed URLs, deleted with the account) | Recipe | `recipe-uploads` |
 
 ## Store review gotchas
 
