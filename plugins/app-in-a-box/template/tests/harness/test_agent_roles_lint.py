@@ -40,15 +40,8 @@ EFFORTS = {"low", "medium", "high", "max"}
 MODELS = {"fable", "opus", "sonnet", "haiku"}
 
 
-def lint_role(text: str, stem: str) -> list[str]:
-    try:
-        meta, body = split_frontmatter(text)
-    except FrontmatterError as exc:
-        return [str(exc)]
+def _identity_problems(meta: dict, stem: str) -> list[str]:
     problems: list[str] = []
-    unknown = sorted(str(k) for k in meta if k not in ALLOWED_KEYS)
-    if unknown:
-        problems.append(f"unknown frontmatter key(s) {unknown}: Claude Code ignores them silently")
     name = meta.get("name")
     if not isinstance(name, str) or not NAME_RE.match(name):
         problems.append("`name` missing or not lowercase-hyphenated")
@@ -59,12 +52,11 @@ def lint_role(text: str, stem: str) -> list[str]:
         problems.append("`description` missing (nothing tells an orchestrator when to use it)")
     elif len(desc) > 1024:
         problems.append(f"description is {len(desc)} chars (> 1024)")
-    tools = meta.get("tools")
-    if tools is not None:
-        names = [t.strip() for t in str(tools).split(",") if t.strip()]
-        unknown = [t for t in names if t not in KNOWN_TOOLS and not t.startswith("mcp__")]
-        if unknown:
-            problems.append(f"`tools:` names unknown tools {unknown}")
+    return problems
+
+
+def _routing_problems(meta: dict) -> list[str]:
+    problems: list[str] = []
     model = meta.get("model")
     if model is not None and not (isinstance(model, str) and model.strip()):
         problems.append("`model:` is present but empty")
@@ -76,6 +68,26 @@ def lint_role(text: str, stem: str) -> list[str]:
     codex_model = meta.get("codex_model")
     if codex_model is not None and not (isinstance(codex_model, str) and codex_model.strip()):
         problems.append("`codex_model:` is present but empty")
+    return problems
+
+
+def lint_role(text: str, stem: str) -> list[str]:
+    try:
+        meta, body = split_frontmatter(text)
+    except FrontmatterError as exc:
+        return [str(exc)]
+    problems: list[str] = []
+    unknown = sorted(str(k) for k in meta if k not in ALLOWED_KEYS)
+    if unknown:
+        problems.append(f"unknown frontmatter key(s) {unknown}: Claude Code ignores them silently")
+    problems += _identity_problems(meta, stem)
+    tools = meta.get("tools")
+    if tools is not None:
+        names = [t.strip() for t in str(tools).split(",") if t.strip()]
+        unknown = [t for t in names if t not in KNOWN_TOOLS and not t.startswith("mcp__")]
+        if unknown:
+            problems.append(f"`tools:` names unknown tools {unknown}")
+    problems += _routing_problems(meta)
     if not body.strip():
         problems.append("no instructions body (Codex gets empty developer_instructions)")
     return problems
@@ -140,7 +152,7 @@ def test_good_role_passes() -> None:
 
 
 @pytest.mark.parametrize(
-    "text, needle",
+    ("text", "needle"),
     [
         (GOOD.replace("description: Reviews things.\n", ""), "`description` missing"),
         (GOOD.replace("name: rev", "name: other"), "does not match the file name"),

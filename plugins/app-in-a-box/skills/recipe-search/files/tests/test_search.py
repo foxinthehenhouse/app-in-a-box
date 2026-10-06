@@ -166,7 +166,8 @@ def test_rejects_bad_parameters(params: dict[str, Any]) -> None:
 def test_a_blank_query_is_an_empty_page_not_a_database_call() -> None:
     client, _, user_db = _client(A)
     resp = client.get("/api/v1/search", params={"q": "   "})
-    assert resp.status_code == 200 and resp.json() == {"items": [], "nextCursor": None}
+    assert resp.status_code == 200
+    assert resp.json() == {"items": [], "nextCursor": None}
     assert user_db.calls == []
 
 
@@ -206,5 +207,5 @@ def test_cursor_round_trips_exactly(rank: float) -> None:
 
 @pytest.mark.parametrize("rank", [math.nan, math.inf])
 def test_cursor_rejects_non_finite_ranks(rank: float) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid cursor"):
         ss.decode_cursor(ss.encode_cursor(rank, _id(7)))

@@ -114,4 +114,5 @@ def test_pointer_rule_can_fail_on_text_alone(tmp_path: Path) -> None:
 
 def test_copy_tool_is_not_the_hook() -> None:
     """Sanity: the hook under test is the one settings.json registers, not a stale copy."""
-    assert HOOK.is_file() and shutil.which("bash")
+    assert HOOK.is_file()
+    assert shutil.which("bash")

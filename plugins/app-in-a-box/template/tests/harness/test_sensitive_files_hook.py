@@ -21,7 +21,8 @@ HOOK = HOOKS_DIR / "warn-sensitive-files.py"
 
 def _load():
     spec = importlib.util.spec_from_file_location("warn_sensitive_files", HOOK)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -45,18 +46,21 @@ def test_migration_edit_asks() -> None:
     out = run_hook(json.dumps({"tool_input": {"file_path": "/r/supabase/migrations/001_x.sql"}}))
     assert out.returncode == 0
     d = json.loads(out.stdout)["hookSpecificOutput"]
-    assert d["permissionDecision"] == "ask" and d["hookEventName"] == "PreToolUse"
+    assert d["permissionDecision"] == "ask"
+    assert d["hookEventName"] == "PreToolUse"
     assert "supabase/migrations/001_x.sql" in d["permissionDecisionReason"]
 
 
 def test_component_edit_is_silent() -> None:
     out = run_hook(json.dumps({"tool_input": {"file_path": "/r/mobile/components/Card.tsx"}}))
-    assert out.returncode == 0 and out.stdout == ""
+    assert out.returncode == 0
+    assert out.stdout == ""
 
 
 def test_garbage_stdin_fails_open() -> None:
     out = run_hook("not json at all")
-    assert out.returncode == 0 and out.stdout == ""
+    assert out.returncode == 0
+    assert out.stdout == ""
 
 
 @pytest.mark.parametrize(
@@ -102,9 +106,9 @@ def test_ordinary_paths_are_silent(rel: str) -> None:
 def test_root_prefix_is_stripped_before_matching() -> None:
     ev = {"tool_input": {"file_path": "/r/.github/workflows/ci.yml"}}
     out = hook.decision(ev, "/r")
+    assert out
     assert (
-        out
-        and "`.github/workflows/ci.yml`" in out["hookSpecificOutput"]["permissionDecisionReason"]
+        "`.github/workflows/ci.yml`" in out["hookSpecificOutput"]["permissionDecisionReason"]
     )
     assert hook.decision({"tool_input": {"path": "./mobile/eas.json"}}, "") is not None
     assert hook.decision({"tool_input": {}}, "/r") is None

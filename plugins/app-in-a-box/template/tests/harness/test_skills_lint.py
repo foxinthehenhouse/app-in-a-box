@@ -37,6 +37,35 @@ ALLOWED_KEYS = {
 }  # fmt: skip
 
 
+def _name_problems(name: object, dirname: str) -> list[str]:
+    if not isinstance(name, str) or not name:
+        return ["`name` missing"]
+    problems = []
+    if name != dirname:
+        problems.append(f"`name: {name}` does not match its directory `{dirname}`")
+    if not NAME_RE.match(name) or len(name) > MAX_NAME:
+        problems.append(f"`name: {name}` must be lowercase-hyphenated and <= {MAX_NAME} chars")
+    if any(word in name for word in RESERVED):
+        problems.append(f"`name: {name}` contains a reserved word ({', '.join(RESERVED)})")
+    return problems
+
+
+def _description_problems(desc: object) -> list[str]:
+    if not isinstance(desc, str) or not desc.strip():
+        return ["`description` missing (the skill can never trigger)"]
+    problems = []
+    if len(desc) > MAX_DESCRIPTION:
+        problems.append(
+            f"description is {len(desc)} chars (> {MAX_DESCRIPTION}); lead with the "
+            "trigger and trim the rest"
+        )
+    if re.search(r"<[A-Za-z/][^>]*>", desc):
+        problems.append("description contains an XML/HTML tag (not allowed by the spec)")
+    if not TRIGGER_RE.search(desc):
+        problems.append("description never says when to use it ('Use when ...')")
+    return problems
+
+
 def lint_skill(text: str, dirname: str) -> list[str]:
     try:
         meta, body = split_frontmatter(text)
@@ -48,29 +77,8 @@ def lint_skill(text: str, dirname: str) -> list[str]:
         problems.append(
             f"unknown frontmatter key(s) {unknown}: ignored silently, so a typo is a no-op"
         )
-    name = meta.get("name")
-    if not isinstance(name, str) or not name:
-        problems.append("`name` missing")
-    else:
-        if name != dirname:
-            problems.append(f"`name: {name}` does not match its directory `{dirname}`")
-        if not NAME_RE.match(name) or len(name) > MAX_NAME:
-            problems.append(f"`name: {name}` must be lowercase-hyphenated and <= {MAX_NAME} chars")
-        if any(word in name for word in RESERVED):
-            problems.append(f"`name: {name}` contains a reserved word ({', '.join(RESERVED)})")
-    desc = meta.get("description")
-    if not isinstance(desc, str) or not desc.strip():
-        problems.append("`description` missing (the skill can never trigger)")
-    else:
-        if len(desc) > MAX_DESCRIPTION:
-            problems.append(
-                f"description is {len(desc)} chars (> {MAX_DESCRIPTION}); lead with the "
-                "trigger and trim the rest"
-            )
-        if re.search(r"<[A-Za-z/][^>]*>", desc):
-            problems.append("description contains an XML/HTML tag (not allowed by the spec)")
-        if not TRIGGER_RE.search(desc):
-            problems.append("description never says when to use it ('Use when ...')")
+    problems += _name_problems(meta.get("name"), dirname)
+    problems += _description_problems(meta.get("description"))
     if not body.strip():
         problems.append("SKILL.md has no body")
     if text.count("\n") + 1 > MAX_LINES:
@@ -118,7 +126,7 @@ def test_good_skill_passes() -> None:
 
 
 @pytest.mark.parametrize(
-    "text, dirname, needle",
+    ("text", "dirname", "needle"),
     [
         ("---\nname: ok\n---\nBody\n", "ok", "description` missing"),
         ("---\ndescription: Use when x.\n---\nBody\n", "ok", "`name` missing"),

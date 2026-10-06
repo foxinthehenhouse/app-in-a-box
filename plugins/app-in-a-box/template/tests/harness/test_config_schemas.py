@@ -45,6 +45,27 @@ SLUG_RE = re.compile(r"^[a-z][a-z0-9-]+$")
 BUNDLE_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*){2,}$")
 
 
+def _hook_group_problems(event: str, g: dict[str, Any]) -> list[str]:
+    problems = []
+    matcher = g.get("matcher")
+    if matcher is not None:
+        if event not in MATCHER_EVENTS:
+            problems.append(f"hooks.{event}: `matcher` is ignored on this event")
+        try:
+            re.compile(matcher)
+        except re.error:
+            problems.append(f"hooks.{event}: matcher {matcher!r} is not a valid regex")
+    hooks = g.get("hooks")
+    if not isinstance(hooks, list) or not hooks:
+        return [*problems, f"hooks.{event}: group without a `hooks` list"]
+    for h in hooks:
+        if h.get("type") != "command" or not isinstance(h.get("command"), str):
+            problems.append(f"hooks.{event}: entry needs type=command and a command")
+        if "timeout" in h and not isinstance(h["timeout"], int):
+            problems.append(f"hooks.{event}: timeout must be an integer (seconds)")
+    return problems
+
+
 def claude_settings_problems(s: dict[str, Any]) -> list[str]:
     problems = []
     for event, groups in (s.get("hooks") or {}).items():
@@ -52,23 +73,7 @@ def claude_settings_problems(s: dict[str, Any]) -> list[str]:
             problems.append(f"hooks: unknown event `{event}` (it will never fire)")
             continue
         for g in groups:
-            matcher = g.get("matcher")
-            if matcher is not None:
-                if event not in MATCHER_EVENTS:
-                    problems.append(f"hooks.{event}: `matcher` is ignored on this event")
-                try:
-                    re.compile(matcher)
-                except re.error:
-                    problems.append(f"hooks.{event}: matcher {matcher!r} is not a valid regex")
-            hooks = g.get("hooks")
-            if not isinstance(hooks, list) or not hooks:
-                problems.append(f"hooks.{event}: group without a `hooks` list")
-                continue
-            for h in hooks:
-                if h.get("type") != "command" or not isinstance(h.get("command"), str):
-                    problems.append(f"hooks.{event}: entry needs type=command and a command")
-                if "timeout" in h and not isinstance(h["timeout"], int):
-                    problems.append(f"hooks.{event}: timeout must be an integer (seconds)")
+            problems += _hook_group_problems(event, g)
     for kind in ("allow", "deny", "ask"):
         for rule in (s.get("permissions") or {}).get(kind, []):
             if not PERMISSION_RE.match(rule):
@@ -232,7 +237,7 @@ def test_railway_healthcheck_is_health() -> None:
 
 
 @pytest.mark.parametrize(
-    "settings, needle",
+    ("settings", "needle"),
     [
         ({"hooks": {"PreToolUze": []}}, "unknown event"),
         (
@@ -302,7 +307,8 @@ def test_eas_rules_can_fail() -> None:
         "build": {"development": {}, "preview": {"channel": "preview"}, "production": {"env": {}}}
     }
     problems = eas_problems(bad)
-    assert any("preview.env" in p for p in problems) and any(
+    assert any("preview.env" in p for p in problems)
+    assert any(
         "production.channel" in p for p in problems
     )
 
@@ -322,7 +328,8 @@ def test_app_json_rules_can_fail() -> None:
 
 def test_dependabot_rules_can_fail() -> None:
     problems = dependabot_problems({"version": 1, "updates": [{"package-ecosystem": "pip"}]})
-    assert "version must be 2" in problems and any("`npm`" in p for p in problems)
+    assert "version must be 2" in problems
+    assert any("`npm`" in p for p in problems)
     assert any("schedule.interval" in p for p in problems)
     assert any("pip: cooldown.default-days" in p for p in problems)
     sched = {"directory": "/", "schedule": {"interval": "weekly"}}

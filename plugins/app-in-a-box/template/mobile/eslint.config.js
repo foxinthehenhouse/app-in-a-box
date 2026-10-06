@@ -12,6 +12,15 @@ module.exports = defineConfig([
     files: ["**/*.ts", "**/*.tsx"],
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
+      // Complexity: split a function that trips these; don't raise the numbers. ESLint
+      // counts every &&, ||, ??, ?. and default parameter as a branch (Python's mccabe
+      // doesn't), so a component's JSX conditionals and prop defaults cost more here
+      // than the same logic in the backend's ruff C90 (max 10).
+      complexity: ["error", 15],
+      "max-depth": ["error", 4],
+      "max-nested-callbacks": ["error", 4],
+      // TanStack Query's mutation callbacks take five; nothing of ours should need more.
+      "max-params": ["error", 5],
       "no-restricted-syntax": [
         "error",
         {

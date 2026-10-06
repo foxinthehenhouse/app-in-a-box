@@ -229,14 +229,14 @@ def unpaired_body_models(app: Any, listed: set[type]) -> list[str]:
 PAIRS = dict(WIRE_PAIRS)
 
 
-@pytest.mark.parametrize("model, interface", RESPONSE_PAIRS, ids=[i for _, i in RESPONSE_PAIRS])
+@pytest.mark.parametrize(("model", "interface"), RESPONSE_PAIRS, ids=[i for _, i in RESPONSE_PAIRS])
 def test_wire_mirrors_mobile_types(model: type[BaseModel], interface: str) -> None:
     iface = ts_interface(API_TS.read_text(encoding="utf-8"), interface)
     problems = compare(model, iface, PAIRS, "response")
     assert not problems, "\n".join(problems)
 
 
-@pytest.mark.parametrize("model, interface", REQUEST_PAIRS, ids=[i for _, i in REQUEST_PAIRS])
+@pytest.mark.parametrize(("model", "interface"), REQUEST_PAIRS, ids=[i for _, i in REQUEST_PAIRS])
 def test_request_bodies_mirror_mobile_types(model: type[BaseModel], interface: str) -> None:
     iface = ts_interface(API_TS.read_text(encoding="utf-8"), interface)
     problems = compare(model, iface, PAIRS, "request")
@@ -297,7 +297,7 @@ def test_baseline_sample_is_clean() -> None:
 
 
 @pytest.mark.parametrize(
-    "edit, needle",
+    ("edit", "needle"),
     [
         (("streakDays: number;", ""), "missing from the TS interface"),
         (("tags: string[];", "tags: string[];\n  mood: string;"), "never sent by the API"),
@@ -352,7 +352,7 @@ def test_baseline_request_sample_is_clean() -> None:
 
 
 @pytest.mark.parametrize(
-    "edit, needle",
+    ("edit", "needle"),
     [
         (("displayName?: string | null;", ""), "missing from the TS type"),
         (("confirm: \"DELETE\";", "confirm: \"DELETE\";\n  userId: string;"), "rejected by the API"),

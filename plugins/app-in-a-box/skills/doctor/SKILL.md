@@ -54,7 +54,7 @@ script can't do:
   ```
   gh api "repos/<owner>/<slug>/branches/main/protection" --jq '.required_status_checks.contexts'
   ```
-  All five ids (`python`, `mobile`, `migrations-rls`, `gitleaks`, `ticket`) must be
+  All six ids (`python`, `mobile`, `migrations-rls`, `gitleaks`, `ticket`, `pr-title`) must be
   listed. A 403 on a private repo means the GitHub plan has no branch protection:
   record `resources.github.protection: unavailable (plan)` in `appbox.yaml`, say so,
   and count the row as done (the git hooks still refuse commits on `main`). Record

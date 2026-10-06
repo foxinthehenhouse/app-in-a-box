@@ -38,7 +38,8 @@ def test_scrub_removes_identity_and_payloads() -> None:
         "type": "ValueError",
         "value": "Details removed by privacy policy",
     }
-    assert "a@example.com" not in repr(out) and "hunter2" not in repr(out)
+    assert "a@example.com" not in repr(out)
+    assert "hunter2" not in repr(out)
 
 
 def test_scrub_without_error_id_drops_all_tags() -> None:
@@ -46,7 +47,8 @@ def test_scrub_without_error_id_drops_all_tags() -> None:
     event["tags"] = {"email": "a@example.com"}
     event["request"] = {"url": "https://x/y?email=a@example.com"}
     out = observability.scrub_event(event, {})
-    assert "tags" not in out and out["request"] == {}
+    assert "tags" not in out
+    assert out["request"] == {}
 
 
 def test_sentry_is_off_in_dev_and_without_a_dsn(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -143,14 +145,16 @@ def test_transactions_are_scrubbed_like_errors() -> None:
     }
     out = observability.scrub_transaction(txn, {})
     assert out["transaction"] == "/api/v1/me"
-    assert out["request"] == {"method": "GET"} and "user" not in out
+    assert out["request"] == {"method": "GET"}
+    assert "user" not in out
     assert out["tags"] == {"request_id": "r-1"}
     assert out["contexts"]["trace"]["trace_id"] == "c" * 32
     assert out["spans"][0] == {
         "op": "http.client",
         "description": "GET https://x.supabase.co/rest/v1/profiles",
     }
-    assert "a@example.com" not in repr(out) and "u1" not in repr(out)
+    assert "a@example.com" not in repr(out)
+    assert "u1" not in repr(out)
 
 
 def test_cors_lets_a_web_client_send_the_trace_headers() -> None:
@@ -168,4 +172,5 @@ def test_cors_lets_a_web_client_send_the_trace_headers() -> None:
     )
     assert resp.status_code == 200
     allowed = resp.headers["access-control-allow-headers"].lower()
-    assert "traceparent" in allowed and "sentry-trace" in allowed
+    assert "traceparent" in allowed
+    assert "sentry-trace" in allowed

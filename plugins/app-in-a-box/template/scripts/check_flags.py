@@ -108,6 +108,21 @@ def read_mobile(text: str) -> dict[str, dict[str, Any]]:
     return flags
 
 
+def _backend_flag(call: ast.expr) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    if isinstance(call, ast.Call):
+        fields.update(zip(_BACKEND_FIELDS, call.args, strict=False))
+        fields.update({kw.arg: kw.value for kw in call.keywords if kw.arg})
+    out: dict[str, Any] = {}
+    for name in _BACKEND_FIELDS:
+        try:
+            out[name] = ast.literal_eval(fields[name]) if name in fields else None
+        except ValueError:
+            out[name] = None
+    out["kill_switch"] = out["kill_switch"] is True
+    return out
+
+
 def read_backend(text: str) -> dict[str, dict[str, Any]]:
     """FLAGS from flags.py: `"name": Flag(default=..., owner=..., ...)` entries."""
     for node in ast.parse(text).body:
@@ -123,19 +138,7 @@ def read_backend(text: str) -> dict[str, dict[str, Any]]:
         for key, call in zip(value.keys, value.values, strict=True):
             if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
                 raise ValueError("every FLAGS key must be a string literal")
-            fields: dict[str, Any] = {}
-            if isinstance(call, ast.Call):
-                for name, arg in zip(_BACKEND_FIELDS, call.args, strict=False):
-                    fields[name] = arg
-                fields.update({kw.arg: kw.value for kw in call.keywords if kw.arg})
-            out = {}
-            for name in _BACKEND_FIELDS:
-                try:
-                    out[name] = ast.literal_eval(fields[name]) if name in fields else None
-                except ValueError:
-                    out[name] = None
-            out["kill_switch"] = out["kill_switch"] is True
-            flags[key.value] = out
+            flags[key.value] = _backend_flag(call)
         return flags
     raise ValueError("no FLAGS registry found")
 
@@ -161,29 +164,27 @@ def _date(value: Any) -> dt.date | None:
         return None
 
 
-def flag_problems(name: str, spec: dict[str, Any], today: dt.date) -> list[str]:
-    problems = []
-    if not NAME_RE.match(name):
-        problems.append("name must be lowercase-hyphenated, e.g. `new-onboarding`")
-    if spec.get("default") is None:
-        problems.append("no `default` (the value every user gets without PostHog)")
-    owner = spec.get("owner")
+def _owner_problems(owner: Any) -> list[str]:
     if not isinstance(owner, str) or not owner.strip():
-        problems.append('no owner (who decides when it goes, e.g. "@alex")')
-    elif not OWNER_RE.match(owner):
-        problems.append(f'owner {owner!r} must be a "@handle"')
-    expires = spec.get("expires")
+        return ['no owner (who decides when it goes, e.g. "@alex")']
+    if not OWNER_RE.match(owner):
+        return [f'owner {owner!r} must be a "@handle"']
+    return []
+
+
+def _expiry_problems(expires: Any, today: dt.date) -> list[str]:
     when = _date(expires)
     if expires in (None, ""):
-        problems.append('no expiry (add `expires: "YYYY-MM-DD"`: when to remove or extend it)')
-    elif when is None:
-        problems.append(f"expires {expires!r} is not a YYYY-MM-DD date")
-    elif (when - today).days > MAX_DAYS:
-        problems.append(
-            f"expires {expires} is more than a year out; pick a date within {MAX_DAYS} days"
-        )
-    if not isinstance(spec.get("description"), str) or not spec["description"].strip():
-        problems.append("no description (what it gates, in one line)")
+        return ['no expiry (add `expires: "YYYY-MM-DD"`: when to remove or extend it)']
+    if when is None:
+        return [f"expires {expires!r} is not a YYYY-MM-DD date"]
+    if (when - today).days > MAX_DAYS:
+        return [f"expires {expires} is more than a year out; pick a date within {MAX_DAYS} days"]
+    return []
+
+
+def _kill_switch_problems(name: str, spec: dict[str, Any]) -> list[str]:
+    problems = []
     kill = spec.get("kill_switch") is True
     if name.startswith("kill-") and not kill:
         problems.append("is named kill-* but is not marked as a kill switch")
@@ -195,6 +196,19 @@ def flag_problems(name: str, spec: dict[str, Any], today: dt.date) -> list[str]:
             "missing, deleted or down)"
         )
     return problems
+
+
+def flag_problems(name: str, spec: dict[str, Any], today: dt.date) -> list[str]:
+    problems = []
+    if not NAME_RE.match(name):
+        problems.append("name must be lowercase-hyphenated, e.g. `new-onboarding`")
+    if spec.get("default") is None:
+        problems.append("no `default` (the value every user gets without PostHog)")
+    problems += _owner_problems(spec.get("owner"))
+    problems += _expiry_problems(spec.get("expires"), today)
+    if not isinstance(spec.get("description"), str) or not spec["description"].strip():
+        problems.append("no description (what it gates, in one line)")
+    return problems + _kill_switch_problems(name, spec)
 
 
 def problems(root: Path, today: dt.date) -> list[str]:

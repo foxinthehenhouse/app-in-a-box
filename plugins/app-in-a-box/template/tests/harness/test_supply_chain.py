@@ -28,7 +28,8 @@ from harness_lib import ROOT, WORKFLOWS
 
 def _load(name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -202,7 +203,8 @@ def test_npm_audit_untriaged_high_fails() -> None:
     found = check_npm_audit.advisories(ADV)
     assert list(found) == ["GHSA-aaaa-bbbb-cccc"]  # moderate is not blocking
     problems, _ = check_npm_audit.check(found, {}, TODAY)
-    assert problems and problems[0].startswith("high GHSA-aaaa-bbbb-cccc in braces")
+    assert problems
+    assert problems[0].startswith("high GHSA-aaaa-bbbb-cccc in braces")
 
 
 def test_npm_audit_triaged_passes_until_it_expires() -> None:
@@ -224,7 +226,8 @@ def test_npm_audit_allowlist_rules(entry: dict[str, str], needle: str) -> None:
 
 def test_npm_audit_stale_entry_is_noted_not_failed() -> None:
     problems, notes = check_npm_audit.check({}, _allow(), TODAY)
-    assert problems == [] and "no longer reported" in notes[0]
+    assert problems == []
+    assert "no longer reported" in notes[0]
 
 
 def test_npm_audit_that_could_not_run_fails() -> None:
