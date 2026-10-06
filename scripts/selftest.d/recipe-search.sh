@@ -117,7 +117,14 @@ flow = a / "mobile/.maestro/search.yaml"
 flow.write_text(flow.read_text().replace("__BUNDLE_ID__", re.search(r"^appId: (.+)$", (a / "mobile/.maestro/home.yaml").read_text(), re.M).group(1)))
 edit("AGENTS.md", "| Data export |",
      "| Search | `app/(app)/search.tsx` | `routers/search.py` | `services/search_service.py` | `items` |\n| Data export |")
+# The privacy data map: each snippet block under its section, then regenerate.
+dm = (rs / "snippets/data-map.yaml").read_text().split("\n## ")[1:]
+for part in dm:
+    section, block = part.split("\n", 1)
+    block = block.rstrip("\n") + "\n"
+    edit("privacy/data-map.yaml", f"\n{section}:\n", f"\n{section}:\n{block}")
 PYEOF
+  (cd "$a" && python3 scripts/check_data_map.py --write >/dev/null)
 }
 _rs_fresh_copy() {
   rm -rf "$RS_APP" && mkdir -p "$RS_APP" \

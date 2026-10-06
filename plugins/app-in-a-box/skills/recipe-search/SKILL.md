@@ -99,6 +99,10 @@ Everything you copy is in this skill's folder (`$KIT/skills/recipe-search/`, whe
      text**: people search for personal things.
    Wire each row's `onPress` to your item's detail route, and set the flow's `appId`
    to the one your other flows in `.maestro/` use.
+   Then declare the table and both events in `privacy/data-map.yaml` (the blocks in
+   `snippets/data-map.yaml`, renamed to your table) and run
+   `python3 scripts/check_data_map.py --write`: CI fails on unmapped columns and props,
+   and the store answers and policy draft are regenerated from the map.
 
 5. **Hybrid (optional).** Copy `sql/search_hybrid.sql` (after the search migration)
    and `sql/search_hybrid.test.sql`. It adds `embedding vector(1024)` (match your

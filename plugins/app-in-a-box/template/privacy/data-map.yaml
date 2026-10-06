@@ -1,0 +1,170 @@
+# Privacy data map: every piece of personal data this app touches, why, for how long,
+# and who else handles it. One file, kept true by a guard.
+#
+# scripts/check_data_map.py (CI and pre-commit) fails when a migration column, an
+# analytics prop (mobile/lib/analytics.ts) or a permission (mobile/app.json) is missing
+# here, when sensitive data has no retention or is sent to analytics, and when a
+# permission's purpose is too vague for a reviewer (or a user) to believe.
+#
+# The store answers and the policy are GENERATED from this file, so they can't drift:
+#   privacy/APP_STORE.md         App Store Connect -> App Privacy answers
+#   privacy/PLAY_DATA_SAFETY.md  Play Console -> Data safety answers
+#   privacy/PRIVACY_POLICY.md    a plain-language policy draft (review it; not legal advice)
+#   mobile/app.json              expo.ios.privacyManifests (PrivacyInfo.xcprivacy at build)
+# After an edit here: python3 scripts/check_data_map.py --write
+#
+# Vocabulary (the guard rejects anything else):
+#   category   none | identifier | contact | location | health | financial | biometric
+#              | ugc | minor | usage | device | diagnostics
+#              Sensitive (needs a retention, never goes to analytics): contact, location,
+#              health, financial, biometric, ugc, minor.
+#   type       narrows a category for the store forms: contact: name|email|phone|address;
+#              location: precise|coarse; health: health|fitness;
+#              financial: payment|credit|purchases|other; ugc: photos|videos|audio|
+#              messages|support|other; diagnostics: crash|performance|other
+#   retention  account (deleted with the account: the table must cascade from auth.users)
+#              or an ISO-8601 duration (P30D, PT24H, P1Y)
+#   uses       why it's collected: app_functionality (the default for tables) | analytics
+#              | personalization | account_management | fraud_prevention
+#              | developer_communications | developer_advertising | third_party_advertising
+#   shared_with  third parties (listed under third_parties) that get it for THEIR own
+#              purposes. Processors below act for you, so they aren't "sharing". Default [].
+#   optional   true when the user can choose not to give it (Play asks). Default false.
+
+# Guardrail packs this app runs (.agents/rules, lints, tests). Set at scaffold from
+# design/brief.json -> risk.categories; `baseline` is always on.
+packs: [baseline]
+
+# Cross-app tracking (IDFA, data brokers, ad networks). The template does none.
+tracking: false
+
+# Service providers that handle data on your behalf. `collects` is what their SDK
+# gathers by itself, beyond the columns and events below.
+processors:
+  supabase:
+    role: "stores your account and app data, and signs you in"
+  railway:
+    role: "runs the app's API server"
+  expo:
+    role: "delivers push notifications to Apple and Google"
+  posthog:
+    role: "product analytics: which screens and actions get used (you can turn it off in Settings)"
+    uses: [analytics]
+    optional: true
+    collects:
+      - {category: usage}
+      - {category: device}
+      - {category: identifier}
+  sentry:
+    role: "crash reports, with no personal details attached"
+    uses: [app_functionality]
+    collects:
+      - {category: diagnostics, type: crash, linked: false}
+
+third_parties: {}
+
+tables:
+  auth.users:
+    owner: user
+    external: "Supabase Auth keeps the sign-in email here; no migration creates it"
+    columns:
+      email: {category: contact, type: email, purpose: "send your sign-in code", retention: account, uses: [app_functionality, account_management]}
+  profiles:
+    owner: user
+    columns:
+      id: {category: identifier, purpose: "ties your profile to your account", retention: account}
+      display_name: {category: contact, type: name, purpose: "the name the app shows you", retention: account, optional: true}
+      onboarded: {category: usage, purpose: "skip the welcome steps once you've done them", retention: account}
+      created_at: none
+      updated_at: none
+  push_tokens:
+    owner: user
+    columns:
+      id: none
+      user_id: {category: identifier, purpose: "ties a device to your account", retention: account}
+      token: {category: device, purpose: "deliver the notifications you turned on to this device", retention: account}
+      platform: none  # ios / android / web: not personal on its own
+      created_at: none
+      last_seen_at: none
+  push_tickets:
+    owner: user
+    columns:
+      ticket_id: none
+      user_id: {category: identifier, purpose: "check a notification was delivered", retention: PT24H}
+      token: {category: device, purpose: "remove a device that no longer accepts notifications", retention: PT24H}
+      created_at: none
+  rate_limits:
+    owner: system
+    columns:
+      key: {category: identifier, purpose: "count requests per account to stop abuse", retention: P1D, uses: [fraud_prevention]}
+      window_start: none
+      count: none
+  idempotency_keys:
+    owner: user
+    columns:
+      user_id: {category: identifier, purpose: "makes sure a retried save from your phone happens once", retention: PT24H}
+      key: none
+      fingerprint: none
+      created_at: none
+      response_status: none
+      response_body: {category: ugc, purpose: "replay the answer to a save your phone retried, instead of saving twice", retention: PT24H}
+      response_content_type: none
+      completed_at: none
+  audit_events:
+    owner: user
+    columns:
+      id: none
+      actor_id: {category: identifier, purpose: "a record of who deleted or exported an account's data, kept after the account is gone (it holds no name, email or content)", uses: [fraud_prevention]}
+      action: none
+      target: none
+      request_id: none
+      at: none
+  job_runs:
+    owner: system
+    columns:
+      job: none
+      run_key: none
+      started_at: none
+      finished_at: none
+      stats: none
+  keep_alive:
+    owner: system
+    columns:
+      id: none
+      last_ping_at: none
+
+# Every event in mobile/lib/analytics.ts and every prop it sends. "*" covers the extra
+# props a helper accepts (screen_viewed spreads its caller's props).
+analytics:
+  screen_viewed: {props: {screen: usage, "*": usage}}
+  sign_in_requested: {props: {method: usage}}
+  sign_in_code_sent: {props: {success: usage, error_code: diagnostics, duration_ms: usage}}
+  sign_in_completed: {props: {method: usage, success: usage, error_code: diagnostics, duration_ms: usage}}
+  profile_updated: {props: {success: usage, error_code: diagnostics, duration_ms: usage}}
+  api_failed: {props: {path: diagnostics, status: diagnostics, duration_ms: diagnostics}}
+  analytics_opt_changed: {props: {opt_in: usage}}
+  theme_changed: {props: {preference: usage}}
+  sheet_opened: {props: {sheet: usage}}
+  account_deleted: {props: {success: usage, error_code: diagnostics, duration_ms: usage}}
+  data_exported: {props: {success: usage, error_code: diagnostics, duration_ms: usage}}
+  push_changed: {props: {enabled: usage, outcome: usage, success: usage, error_code: diagnostics, duration_ms: usage}}
+  push_opened: {props: {route: usage}}
+  deep_link_opened: {props: {route: usage, matched: usage}}
+  update_prompted: {props: {}}
+  update_restarted: {props: {}}
+  error_reference_copied: {props: {}}
+
+# Every permission mobile/app.json asks for, and what the user gets for it, in their
+# words. Apple rejects vague purposes ("needed for app functionality"); so does this guard.
+permissions:
+  notifications: "send the reminders and updates you switch on in Settings"
+
+# Apple's required-reason APIs (PrivacyInfo.xcprivacy). React Native and the Expo
+# modules the template ships read user defaults, file timestamps, the boot clock and
+# free disk space; these are the reasons Apple accepts for how they use them.
+ios:
+  required_reason_apis:
+    UserDefaults: [CA92.1]
+    FileTimestamp: [C617.1]
+    SystemBootTime: [35F9.1]
+    DiskSpace: [E174.1]

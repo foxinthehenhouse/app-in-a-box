@@ -1,0 +1,18 @@
+# recipe-search: entries for privacy/data-map.yaml, one block per top-level section
+# (paste each under its `tables:` / `analytics:` key). Rename `items` and its columns to
+# your table's; with the hybrid step, also add
+#   embedding: {category: ugc, purpose: "find your items by meaning (a numeric form of their text)", retention: account}
+# Then run `python3 scripts/check_data_map.py --write`.
+## tables
+  items:
+    owner: user
+    columns:
+      id: none
+      user_id: {category: identifier, purpose: "keeps your items visible only to you", retention: account}
+      title: {category: ugc, purpose: "the items you save, and what search finds", retention: account}
+      body: {category: ugc, purpose: "the items you save, and what search finds", retention: account}
+      created_at: none
+      search_tsv: {category: ugc, purpose: "an index of your items' words so search is fast", retention: account}
+## analytics
+  search_performed: {props: {query_length: usage, results: usage, has_more: usage, success: usage, duration_ms: usage}}
+  search_failed: {props: {query_length: usage, page: usage, success: usage, error_code: diagnostics, duration_ms: usage}}

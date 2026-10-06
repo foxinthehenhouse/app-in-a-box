@@ -39,7 +39,9 @@ avatar needs its own bucket and its own policy review), and how long files are k
    current time, and makes the wiring edits listed in the table above, plus the
    wire-contract pairs in `tests/test_wire_contract.py`, the row in AGENTS.md's
    `## Where things live`, the `expo-image-picker` config plugin in `mobile/app.json`
-   (photo library only: camera and microphone permissions off), and, for an app made
+   (photo library only: camera and microphone permissions off), the `uploads` table,
+   `image_uploaded` event and photo-library permission in `privacy/data-map.yaml` (then
+   it regenerates the store answers and policy draft from it), and, for an app made
    before the kit stubbed Storage, the Storage stubs in `supabase/ci/platform_stubs.sql`
    and the Storage fake in `tests/test_prod_fakes.py`. Re-running is safe. If the app
    has reworked one of those files, it writes nothing and names each edit to make by hand.

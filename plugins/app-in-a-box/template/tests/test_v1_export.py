@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import random
-import re
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from backend.main import create_app
 from backend.routers import export as export_router
+from scripts.schema_sql import all_sql, user_owned_tables
 from tests.test_prod_fakes import FakeDB, clear_prod_env, client_for
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -166,21 +166,12 @@ def test_export_is_rate_limited() -> None:
 
 # ---- every user-owned table is exported ---------------------------------------------
 
-_TABLE = re.compile(
-    r"create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?(\w+)\s*\((.*?)\n\);",
-    re.I | re.S,
-)
-
-
-def user_owned_tables(sql: str) -> set[str]:
-    """Tables with a column referencing auth.users: the caller's data, by definition."""
-    return {
-        name for name, body in _TABLE.findall(sql) if re.search(r"references\s+auth\.users", body)
-    }
+# The one migration parser (scripts/schema_sql.py), shared with the privacy data map
+# guard (scripts/check_data_map.py), so the two can't disagree about what a table is.
 
 
 def _all_sql() -> str:
-    return "\n".join(p.read_text(encoding="utf-8") for p in sorted(MIGRATIONS.glob("*.sql")))
+    return all_sql(MIGRATIONS)
 
 
 def test_every_user_owned_table_is_exported() -> None:

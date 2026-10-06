@@ -10,8 +10,10 @@
    bucket in erasure_service.USER_FILE_BUCKETS so account deletion empties it, data
    export, wire-contract pairs, AGENTS.md map row, the DB negative control, the mobile
    API adapters, analytics event, demo routes, strings, the expo-image-picker config
-   plugin; and, for an app rendered before the kit stubbed Storage, the Storage stubs
-   and test fake). Snippets live in `snippets/`.
+   plugin, the privacy data map entries; and, for an app rendered before the kit
+   stubbed Storage, the Storage stubs and test fake). Snippets live in `snippets/`.
+3. Regenerates the privacy answers from the data map (the app's own
+   `scripts/check_data_map.py --write`), so its CI sees them current.
 
 Every edit is idempotent: a file that already has it is skipped, so re-running is
 safe. Each edit is anchored on text the template ships; if the app has reworked that
@@ -25,6 +27,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import subprocess
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -289,6 +292,21 @@ def edit_app_json(t: str) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
+def edit_data_map(t: str) -> str:
+    """The uploads table, its analytics event and the photo-library permission, each under
+    its section of privacy/data-map.yaml (the app's guard fails until they're there)."""
+    blocks = re.split(r"^## (\w+)\n", snippet("data-map.yaml"), flags=re.M)[1:]
+    for section, block in zip(blocks[::2], blocks[1::2], strict=True):
+        m = re.search(rf"^{section}:[^\n]*\n", t, re.M)
+        if not m:
+            raise Missing(f"privacy/data-map.yaml: add the recipe's {section} entries (snippets/data-map.yaml)")
+        line = m.group(0)
+        if line.strip() != f"{section}:":  # `analytics: {}` and friends: make it a block
+            line = f"{section}:\n"
+        t = t[: m.start()] + line + block + t[m.end() :]
+    return t
+
+
 # (path, already-applied marker, edit). A file containing its marker (a substring, or a
 # pattern that matches) is skipped.
 EDITS: list[tuple[str, str | re.Pattern[str], Callable[[str], str]]] = [
@@ -311,6 +329,10 @@ EDITS: list[tuple[str, str | re.Pattern[str], Callable[[str], str]]] = [
     ("mobile/components/ui/index.ts", "./ImageUpload", edit_ui_index),
     ("mobile/app.json", '"expo-image-picker"', edit_app_json),
 ]
+# Edits to files an app made before that file existed won't have: skipped, not missing.
+OPTIONAL_EDITS: list[tuple[str, str | re.Pattern[str], Callable[[str], str]]] = [
+    ("privacy/data-map.yaml", "image_uploaded", edit_data_map),
+]
 
 
 def plan_copies(app: Path) -> list[tuple[Path, Path]]:
@@ -325,6 +347,20 @@ def plan_copies(app: Path) -> list[tuple[Path, Path]]:
             rel = rel.with_name(rel.name.replace("TIMESTAMP", stamp, 1))
         copies.append((src, app / rel))
     return copies
+
+
+def regenerate_privacy(app: Path) -> list[str]:
+    """Re-run the app's privacy generator: the new table, event and permission change the
+    store answers, PrivacyInfo entries and policy draft. Returns what it rewrote."""
+    gen = app / "scripts" / "check_data_map.py"
+    if not (gen.is_file() and (app / "privacy" / "data-map.yaml").is_file()):
+        return []
+    r = subprocess.run([sys.executable, str(gen), "--write"], cwd=app, capture_output=True, text=True)
+    if r.returncode != 0:
+        print("recipe-uploads: couldn't regenerate the privacy answers; run `python3 scripts/check_data_map.py --write`:")
+        print(r.stdout + r.stderr)
+        return []
+    return [ln.split("wrote ", 1)[1] for ln in r.stdout.splitlines() if ln.startswith("wrote ")]
 
 
 def main(argv: list[str]) -> int:
@@ -345,10 +381,11 @@ def main(argv: list[str]) -> int:
     writes: dict[Path, str] = {}
     missing: list[str] = []
     skipped: list[str] = []
-    for rel, marker, edit in EDITS:
+    for rel, marker, edit in EDITS + OPTIONAL_EDITS:
         path = app / rel
         if not path.is_file():
-            missing.append(f"{rel}: file not found")
+            if (rel, marker, edit) not in OPTIONAL_EDITS:
+                missing.append(f"{rel}: file not found")
             continue
         text = path.read_text(encoding="utf-8")
         if marker.search(text) if isinstance(marker, re.Pattern) else marker in text:
@@ -376,10 +413,11 @@ def main(argv: list[str]) -> int:
         copied.append(dst.relative_to(app).as_posix())
     for path, text in writes.items():
         path.write_text(text, encoding="utf-8")
+    regenerated = regenerate_privacy(app)
 
     for label, items in (
         ("added", copied),
-        ("edited", [p.relative_to(app).as_posix() for p in writes]),
+        ("edited", [p.relative_to(app).as_posix() for p in writes] + regenerated),
         ("already there, left alone", kept + skipped),
     ):
         for item in items:
