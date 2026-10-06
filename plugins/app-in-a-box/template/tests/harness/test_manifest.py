@@ -196,7 +196,9 @@ def test_wrapper_reports_a_missing_hook_and_exits_zero(cmd: str, tmp_path: Path)
     m = WRAPPER_RE.match(cmd)
     assert m is not None
     assert out.returncode == 0, out.stderr
-    assert '"systemMessage"' in out.stdout and m.group("name") in out.stdout and "OFF" in out.stdout
+    assert '"systemMessage"' in out.stdout
+    assert m.group("name") in out.stdout
+    assert "OFF" in out.stdout
 
 
 def test_wrapper_runs_the_hook_when_present(tmp_path: Path) -> None:
@@ -204,7 +206,13 @@ def test_wrapper_runs_the_hook_when_present(tmp_path: Path) -> None:
     cmd = next(c for ev, c in all_hook_commands(load_json(SETTINGS)) if "session-start.sh" in c)
     out = _run_wrapper(cmd, ROOT, tmp_path)
     assert (
-        out.returncode == 0 and "Session start" in out.stdout and "systemMessage" not in out.stdout
+        out.returncode == 0
+    )
+    assert (
+        "Session start" in out.stdout
+    )
+    assert (
+        "systemMessage" not in out.stdout
     )
 
 

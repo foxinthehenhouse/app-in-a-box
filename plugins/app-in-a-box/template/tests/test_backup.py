@@ -52,33 +52,41 @@ def secret_names(doc: dict) -> set[str]:
     return names
 
 
-def leaks(workflow_raw: str, script: str) -> list[str]:
-    """Every way the backup could print a secret or read a backup, as messages."""
-    doc = yaml.safe_load(workflow_raw)
+def _prints_secret(line: str, names: set[str]) -> bool:
+    return bool(PRINTS.search(line)) and any(re.search(rf"\${{?{n}\b", line) for n in names)
+
+
+def _workflow_leaks(doc: dict, workflow_raw: str, names: set[str]) -> list[str]:
     problems: list[str] = []
-    names = secret_names(doc)
     for st in _steps(doc):
         run = str(st.get("run", ""))
         if "secrets." in run:
             problems.append(
                 f"backup.yml: a `run:` block expands a secret inline; pass it through `env:`: {run.strip()[:80]}"
             )
-        for line in run.splitlines():
-            if PRINTS.search(line) and any(re.search(rf"\${{?{n}\b", line) for n in names):
-                problems.append(f"backup.yml: a step prints a secret: {line.strip()}")
+        problems += [
+            f"backup.yml: a step prints a secret: {line.strip()}"
+            for line in run.splitlines()
+            if _prints_secret(line, names)
+        ]
     if DECRYPT.search(workflow_raw):
         problems.append(
             "backup.yml: references a decryption key; GitHub gets the PUBLIC key only (BACKUP_AGE_RECIPIENT)"
         )
+    return problems
+
+
+def _script_leaks(script: str, names: set[str]) -> list[str]:
+    problems: list[str] = []
     if XTRACE.search(script):
         problems.append(
             "backup-db.sh: turns on xtrace, which prints every command with its secret values"
         )
-    for i, line in enumerate(script.splitlines(), 1):
-        if line.lstrip().startswith("#"):
-            continue
-        if PRINTS.search(line) and any(re.search(rf"\${{?{n}\b", line) for n in names):
-            problems.append(f"backup-db.sh:{i}: prints a secret: {line.strip()}")
+    problems += [
+        f"backup-db.sh:{i}: prints a secret: {line.strip()}"
+        for i, line in enumerate(script.splitlines(), 1)
+        if not line.lstrip().startswith("#") and _prints_secret(line, names)
+    ]
     if not re.search(r"age_cli\[@\]\}?\"?\s+\"\$\{recipients\[@\]\}\"", script):
         problems.append(
             "backup-db.sh: doesn't encrypt with age to BACKUP_AGE_RECIPIENT before upload"
@@ -86,6 +94,13 @@ def leaks(workflow_raw: str, script: str) -> list[str]:
     if re.search(r"--decrypt|\s-d\s+-i\b", script):
         problems.append("backup-db.sh: decrypts; the backup side holds the public key only")
     return problems
+
+
+def leaks(workflow_raw: str, script: str) -> list[str]:
+    """Every way the backup could print a secret or read a backup, as messages."""
+    doc = yaml.safe_load(workflow_raw)
+    names = secret_names(doc)
+    return _workflow_leaks(doc, workflow_raw, names) + _script_leaks(script, names)
 
 
 def test_backup_never_prints_a_secret_or_holds_a_private_key() -> None:
@@ -96,11 +111,13 @@ def test_backup_never_prints_a_secret_or_holds_a_private_key() -> None:
 def test_backup_workflow_is_nightly_gated_and_runs_the_script() -> None:
     doc = yaml.safe_load(WORKFLOW.read_text())
     on = doc.get("on", doc.get(True))
-    assert on["schedule"] and "workflow_dispatch" in on
+    assert on["schedule"]
+    assert "workflow_dispatch" in on
     job = doc["jobs"]["backup"]
     assert "vars.BACKUP_AGE_RECIPIENT" in job["if"], "off until provision sets the recipient"
     assert any(s.get("run", "").strip() == "scripts/backup-db.sh" for s in job["steps"])
-    assert os.access(SCRIPT, os.X_OK) and os.access(ROOT / "scripts" / "restore-drill.sh", os.X_OK)
+    assert os.access(SCRIPT, os.X_OK)
+    assert os.access(ROOT / "scripts" / "restore-drill.sh", os.X_OK)
 
 
 # ---- negative controls: each static rule must be able to fail -------------------
@@ -246,29 +263,34 @@ def test_backup_uploads_ciphertext_and_prints_no_secret(tmp_path: Path) -> None:
 def test_a_failing_dump_that_echoes_the_url_is_scrubbed(tmp_path: Path) -> None:
     proc, _ = _run(tmp_path, FAKE_SUPABASE_FAIL="1")
     assert proc.returncode == 1
-    assert "dumping roles failed" in proc.stderr and "***" in proc.stderr
+    assert "dumping roles failed" in proc.stderr
+    assert "***" in proc.stderr
     _assert_no_secret(proc.stdout + proc.stderr)
 
 
 def test_refuses_plaintext_an_empty_schema_and_a_private_key(tmp_path: Path) -> None:
     proc, s3 = _run(tmp_path, FAKE_AGE_PLAINTEXT="1")
-    assert proc.returncode == 1 and "isn't age output; refusing to upload" in proc.stderr
+    assert proc.returncode == 1
+    assert "isn't age output; refusing to upload" in proc.stderr
     assert not (s3 / "penny-backups").exists()
 
     proc, _ = _run(tmp_path, FAKE_EMPTY_SCHEMA="1")
-    assert proc.returncode == 1 and "no CREATE TABLE" in proc.stderr
+    assert proc.returncode == 1
+    assert "no CREATE TABLE" in proc.stderr
 
     # Joined at run time too: a `+` of literals is constant-folded into the .pyc.
     private = "-".join(["AGE", "SECRET", "KEY", "1" + "Q" * 58])
     proc, _ = _run(tmp_path, BACKUP_AGE_RECIPIENT=private)
-    assert proc.returncode == 2 and "PRIVATE key" in proc.stderr
+    assert proc.returncode == 2
+    assert "PRIVATE key" in proc.stderr
     assert private not in proc.stdout + proc.stderr
 
 
 def test_missing_config_is_named(tmp_path: Path) -> None:
     proc, _ = _run(tmp_path, SUPABASE_DB_URL="<unset>", AWS_SECRET_ACCESS_KEY="<unset>")
     assert proc.returncode == 2
-    assert "SUPABASE_DB_URL" in proc.stderr and "AWS_SECRET_ACCESS_KEY" in proc.stderr
+    assert "SUPABASE_DB_URL" in proc.stderr
+    assert "AWS_SECRET_ACCESS_KEY" in proc.stderr
 
 
 def test_out_mode_writes_locally_and_needs_no_bucket(tmp_path: Path) -> None:
@@ -277,5 +299,6 @@ def test_out_mode_writes_locally_and_needs_no_bucket(tmp_path: Path) -> None:
         tmp_path, "--out", str(out), BACKUP_S3_BUCKET="<unset>", AWS_SECRET_ACCESS_KEY="<unset>"
     )
     assert proc.returncode == 0, proc.stderr
-    assert len(list(out.glob("db-*.tar.age"))) == 1 and not (s3 / "argv.log").exists()
+    assert len(list(out.glob("db-*.tar.age"))) == 1
+    assert not (s3 / "argv.log").exists()
     _assert_no_secret(proc.stdout + proc.stderr)

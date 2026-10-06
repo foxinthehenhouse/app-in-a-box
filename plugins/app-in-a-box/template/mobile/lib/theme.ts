@@ -41,6 +41,7 @@ import {
 } from "./tokens";
 import { fontFace } from "./fonts";
 
+/** @public `ColorName` types a colour-token prop; screens import theme types from here. */
 export type { ColorName, ColorScheme, Palette } from "./tokens";
 export { font, minTapTarget, motion, opacity, radius, size, space };
 

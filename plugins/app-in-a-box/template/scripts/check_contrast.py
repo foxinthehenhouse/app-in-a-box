@@ -115,71 +115,78 @@ def text_tokens(tokens_path: Path | str | None) -> tuple[str, ...]:
     return tuple(sorted(found))
 
 
-def _schema(tokens: dict, pals: dict[str, dict]) -> list[str]:
+def _num(v: object) -> bool:
+    return isinstance(v, (int, float))
+
+
+def _schema_color(tokens: dict, pals: dict[str, dict]) -> list[str]:
     errs: list[str] = []
     is_v2 = any(isinstance(v, dict) for v in tokens.get("color", {}).values())
     if is_v2:
-        for m in MODES:
-            if m not in pals:
-                errs.append(f"color.{m} is missing (tokens v2 need both light and dark)")
+        errs += [f"color.{m} is missing (tokens v2 need both light and dark)" for m in MODES if m not in pals]
         if len(pals) == 2 and set(pals["light"]) != set(pals["dark"]):
             diff = sorted(set(pals["light"]) ^ set(pals["dark"]))
             errs.append(f"color.light and color.dark have different keys: {diff}")
     for m, pal in pals.items():
-        for key in REQUIRED:
-            if key not in pal:
-                errs.append(f"color.{m}.{key} is missing")
-        for key, val in pal.items():
-            if not isinstance(val, str) or not HEX.match(val):
-                errs.append(f"color.{m}.{key} must be #RRGGBB, got {val!r}")
-    motion = tokens.get("motion")
-    if motion is not None:
-        for name, ms in motion.get("duration", {}).items():
-            if not isinstance(ms, int) or not 0 <= ms <= 5000:
-                errs.append(f"motion.duration.{name} must be an int of ms in 0..5000")
-        for name, pts in motion.get("easing", {}).items():
-            if not (
-                isinstance(pts, list)
-                and len(pts) == 4
-                and all(isinstance(x, (int, float)) for x in pts)
-            ):
-                errs.append(f"motion.easing.{name} must be a cubic-bezier [x1, y1, x2, y2]")
-            elif not (0 <= pts[0] <= 1 and 0 <= pts[2] <= 1):
-                errs.append(f"motion.easing.{name}: x1 and x2 must be within 0..1")
-        for name, cfg in motion.get("spring", {}).items():
-            for k in ("damping", "stiffness", "mass"):
-                if not isinstance(cfg.get(k), (int, float)) or cfg[k] <= 0:
-                    errs.append(f"motion.spring.{name}.{k} must be a positive number")
+        errs += [f"color.{m}.{key} is missing" for key in REQUIRED if key not in pal]
+        errs += [
+            f"color.{m}.{key} must be #RRGGBB, got {val!r}"
+            for key, val in pal.items()
+            if not isinstance(val, str) or not HEX.match(val)
+        ]
+    return errs
+
+
+def _schema_motion(motion: dict) -> list[str]:
+    errs: list[str] = []
+    for name, ms in motion.get("duration", {}).items():
+        if not isinstance(ms, int) or not 0 <= ms <= 5000:
+            errs.append(f"motion.duration.{name} must be an int of ms in 0..5000")
+    for name, pts in motion.get("easing", {}).items():
+        if not (isinstance(pts, list) and len(pts) == 4 and all(_num(x) for x in pts)):
+            errs.append(f"motion.easing.{name} must be a cubic-bezier [x1, y1, x2, y2]")
+        elif not (0 <= pts[0] <= 1 and 0 <= pts[2] <= 1):
+            errs.append(f"motion.easing.{name}: x1 and x2 must be within 0..1")
+    for name, cfg in motion.get("spring", {}).items():
+        for k in ("damping", "stiffness", "mass"):
+            if not _num(cfg.get(k)) or cfg[k] <= 0:
+                errs.append(f"motion.spring.{name}.{k} must be a positive number")
+    return errs
+
+
+def _schema_type_role(role: str, spec: dict, fonts: dict) -> list[str]:
+    errs = [
+        f"type.{role}.{k} must be a positive number"
+        for k in ("size", "lineHeight")
+        if not _num(spec.get(k)) or spec[k] <= 0
+    ]
+    if _num(spec.get("size")) and _num(spec.get("lineHeight")) and spec["lineHeight"] < spec["size"]:
+        errs.append(f"type.{role}.lineHeight < size clips descenders")
+    if spec.get("font", "body") not in fonts:
+        errs.append(f"type.{role}.font must name a key of `font`")
+    if "maxScale" in spec and not (_num(spec["maxScale"]) and spec["maxScale"] >= 1):
+        errs.append(f"type.{role}.maxScale must be >= 1 (it caps Dynamic Type, never shrinks)")
+    return errs
+
+
+def _schema(tokens: dict, pals: dict[str, dict]) -> list[str]:
+    errs = _schema_color(tokens, pals)
+    if tokens.get("motion") is not None:
+        errs += _schema_motion(tokens["motion"])
     type_ = tokens.get("type")
     if type_ is not None:
+        fonts = tokens.get("font", {"display": 1, "body": 1, "mono": 1})
         for role in TYPE_ROLES:
             spec = type_.get(role)
             if not isinstance(spec, dict):
                 errs.append(f"type.{role} is missing")
-                continue
-            for k in ("size", "lineHeight"):
-                if not isinstance(spec.get(k), (int, float)) or spec[k] <= 0:
-                    errs.append(f"type.{role}.{k} must be a positive number")
-            if isinstance(spec.get("size"), (int, float)) and isinstance(
-                spec.get("lineHeight"), (int, float)
-            ):
-                if spec["lineHeight"] < spec["size"]:
-                    errs.append(f"type.{role}.lineHeight < size clips descenders")
-            if spec.get("font", "body") not in tokens.get(
-                "font", {"display": 1, "body": 1, "mono": 1}
-            ):
-                errs.append(f"type.{role}.font must name a key of `font`")
-            if "maxScale" in spec and not (
-                isinstance(spec["maxScale"], (int, float)) and spec["maxScale"] >= 1
-            ):
-                errs.append(
-                    f"type.{role}.maxScale must be >= 1 (it caps Dynamic Type, never shrinks)"
-                )
+            else:
+                errs += _schema_type_role(role, spec, fonts)
     for name, val in (tokens.get("opacity") or {}).items():
-        if not isinstance(val, (int, float)) or not 0 <= val <= 1:
+        if not _num(val) or not 0 <= val <= 1:
             errs.append(f"opacity.{name} must be within 0..1")
     for name, spec in (tokens.get("elevation") or {}).items():
-        if not isinstance(spec, dict) or not isinstance(spec.get("elevation", 0), (int, float)):
+        if not isinstance(spec, dict) or not _num(spec.get("elevation", 0)):
             errs.append(f"elevation.{name} must be an object with numeric fields")
     return errs
 

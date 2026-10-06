@@ -164,7 +164,9 @@ def test_every_guard_is_run_by_something() -> None:
 def test_ci_runs_the_mobile_gates_and_the_harness() -> None:
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
     assert "npm run gates" in ci, "ci.yml no longer runs the mobile gates"
-    assert "pytest" in ci and "pyright" in ci and "ruff" in ci
+    assert "pytest" in ci
+    assert "pyright" in ci
+    assert "ruff" in ci
     assert "run: lint-imports" in ci, "ci.yml no longer checks the architecture boundaries"
 
 
@@ -224,6 +226,9 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "supabase/ci/schema_snapshot.sql",
         "supabase/schema-snapshot.txt",
         ".squawk.toml",
+        "tests/harness/test_code_health.py",
+        ".github/CODEOWNERS",
+        "mobile/knip.jsonc",
     ],
 )
 def test_named_guards_still_exist(guard: str) -> None:

@@ -20,6 +20,24 @@ REQUIRED = {"availability", "latency_p95", "crash_free"}
 UNITS = {"percent", "ms"}
 
 
+def _slo_entry_problems(label: str, slo: dict) -> list[str]:
+    problems = [
+        f"{label}: no {key}"
+        for key in ("description", "source")
+        if not isinstance(slo.get(key), str) or not slo[key].strip()
+    ]
+    unit, objective = slo.get("unit"), slo.get("objective")
+    if unit not in UNITS:
+        problems.append(f"{label}: unit must be one of {sorted(UNITS)} (got {unit!r})")
+    if isinstance(objective, bool) or not isinstance(objective, (int, float)):
+        problems.append(f"{label}: objective must be a number (got {objective!r})")
+    elif unit == "percent" and not 0 < objective < 100:
+        problems.append(f"{label}: objective {objective}% leaves no error budget; pick below 100")
+    elif unit == "ms" and objective <= 0:
+        problems.append(f"{label}: objective must be a positive number of ms")
+    return problems
+
+
 def slo_problems(doc: Any) -> list[str]:
     if not isinstance(doc, dict):
         return ["docs/slo.yaml is not a mapping"]
@@ -40,20 +58,7 @@ def slo_problems(doc: Any) -> list[str]:
         if label in seen:
             problems.append(f"{label}: listed twice")
         seen.add(label)
-        for key in ("description", "source"):
-            if not isinstance(slo.get(key), str) or not slo[key].strip():
-                problems.append(f"{label}: no {key}")
-        unit, objective = slo.get("unit"), slo.get("objective")
-        if unit not in UNITS:
-            problems.append(f"{label}: unit must be one of {sorted(UNITS)} (got {unit!r})")
-        if isinstance(objective, bool) or not isinstance(objective, (int, float)):
-            problems.append(f"{label}: objective must be a number (got {objective!r})")
-        elif unit == "percent" and not 0 < objective < 100:
-            problems.append(
-                f"{label}: objective {objective}% leaves no error budget; pick below 100"
-            )
-        elif unit == "ms" and objective <= 0:
-            problems.append(f"{label}: objective must be a positive number of ms")
+        problems += _slo_entry_problems(label, slo)
     for missing in sorted(REQUIRED - seen):
         problems.append(f"{missing}: required SLO is missing (the weekly report reads it)")
     return problems

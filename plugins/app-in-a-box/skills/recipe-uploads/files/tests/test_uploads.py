@@ -108,7 +108,7 @@ ROUTES = [
 ]
 
 
-@pytest.mark.parametrize("method, path", ROUTES)
+@pytest.mark.parametrize(("method", "path"), ROUTES)
 def test_every_route_requires_auth(method: str, path: str) -> None:
     assert TestClient(create_app()).request(method, path).status_code == 401
 
@@ -204,7 +204,8 @@ def test_complete_is_idempotent() -> None:
         _complete(db, A, upload_id).json(),
         _complete(db, A, upload_id).json(),
     )
-    assert first["id"] == again["id"] and len(db.tables["uploads"]) == 1
+    assert first["id"] == again["id"]
+    assert len(db.tables["uploads"]) == 1
 
 
 def test_complete_before_the_bytes_land_is_a_404() -> None:
@@ -221,7 +222,7 @@ def test_cannot_claim_another_users_upload() -> None:
 
 
 @pytest.mark.parametrize(
-    "size, mimetype",
+    ("size", "mimetype"),
     [(MAX_BYTES + 1, "image/jpeg"), (2048, "image/gif"), (2048, "text/html")],
 )
 def test_complete_rejects_and_removes_what_should_never_have_landed(
@@ -275,7 +276,8 @@ def test_cannot_delete_another_users_upload() -> None:
     db = UploadsDB()
     _, theirs = _two_users_uploads(db)
     assert client_for(db, A).delete(f"/api/v1/uploads/{theirs}").status_code == 404
-    assert f"{B}/{theirs}" in db.files and db.ops("remove") == []
+    assert f"{B}/{theirs}" in db.files
+    assert db.ops("remove") == []
     assert len(db.tables["uploads"]) == 2
 
 

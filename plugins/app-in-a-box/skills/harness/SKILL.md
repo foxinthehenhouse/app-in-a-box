@@ -35,23 +35,24 @@ git config core.hooksPath .githooks
 
 Branch protection on `main` (require PR + the CI checks). The required contexts are
 the **job ids** from the workflows, every one of which runs on every PR: `python` and
-`mobile` (`ci.yml`), `migrations-rls` (`db.yml`), `gitleaks` (`security.yml`) and
-`ticket` (`ticket.yml`). Five ids; the marker below, the `gh` command and the kit
-selftest all carry the same five, so a sixth job joins all four places or none.
+`mobile` (`ci.yml`), `migrations-rls` (`db.yml`), `gitleaks` (`security.yml`),
+`ticket` (`ticket.yml`) and `pr-title` (`pr-title.yml`). Six ids; the marker below,
+the `gh` command and the kit selftest all carry the same six, so a seventh job joins
+all four places or none.
 Never require a job that can be skipped by a path filter or an `if:` condition
 (`codeql`, `review`), or PRs wait forever on a check that never reports. The kit
 selftest fails if this list names a job that doesn't exist.
 
-<!-- required-checks: python mobile migrations-rls gitleaks ticket -->
+<!-- required-checks: python mobile migrations-rls gitleaks ticket pr-title -->
 
 ```
-gh api -X PUT "repos/<owner>/<slug>/branches/main/protection" -F "required_status_checks[strict]=true" -F "required_status_checks[contexts][]=python" -F "required_status_checks[contexts][]=mobile" -F "required_status_checks[contexts][]=migrations-rls" -F "required_status_checks[contexts][]=gitleaks" -F "required_status_checks[contexts][]=ticket" -F "enforce_admins=false" -F "required_pull_request_reviews=null" -F "restrictions=null"
+gh api -X PUT "repos/<owner>/<slug>/branches/main/protection" -F "required_status_checks[strict]=true" -F "required_status_checks[contexts][]=python" -F "required_status_checks[contexts][]=mobile" -F "required_status_checks[contexts][]=migrations-rls" -F "required_status_checks[contexts][]=gitleaks" -F "required_status_checks[contexts][]=ticket" -F "required_status_checks[contexts][]=pr-title" -F "enforce_admins=false" -F "required_pull_request_reviews=null" -F "restrictions=null"
 ```
 
 GitHub only offers checks it has seen, so this call is **deferred to phase 7**: the
 doctor's Full mode runs it after the first PR's CI has reported, then verifies with
 `gh api "repos/<owner>/<slug>/branches/main/protection" --jq '.required_status_checks.contexts'`
-(all five ids listed). This phase's exit check only needs the hooks on and the
+(all six ids listed). This phase's exit check only needs the hooks on and the
 command ready. Private repos on a free GitHub plan can't use branch protection: if
 the call returns 403, record `resources.github.protection: unavailable (plan)` in
 `appbox.yaml`, say so, and rely on the git hooks.

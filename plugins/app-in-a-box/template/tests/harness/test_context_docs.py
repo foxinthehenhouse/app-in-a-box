@@ -105,7 +105,8 @@ def _exempt() -> set[str]:
 
 
 def test_there_are_docs_to_check() -> None:
-    assert (ROOT / "AGENTS.md").exists() and len(AGENTS_DOCS) >= 2
+    assert (ROOT / "AGENTS.md").exists()
+    assert len(AGENTS_DOCS) >= 2
 
 
 def chain_overflow(root: Path, doc: Path) -> int:
@@ -147,10 +148,12 @@ def test_agents_md_line_budget_warns_not_fails() -> None:
 @pytest.mark.parametrize("doc", AGENTS_DOCS, ids=lambda p: p.relative_to(ROOT).as_posix())
 def test_claude_md_imports_agents_md(doc: Path) -> None:
     claude = doc.with_name("CLAUDE.md")
-    assert claude.exists() and "@AGENTS.md" in claude.read_text(encoding="utf-8"), (
+    why = (
         f"{claude.relative_to(ROOT)} must exist and contain `@AGENTS.md`, or Claude Code "
         "never reads this AGENTS.md"
     )
+    assert claude.exists(), why
+    assert "@AGENTS.md" in claude.read_text(encoding="utf-8"), why
 
 
 @pytest.mark.parametrize("doc", CONTEXT_DOCS, ids=lambda p: p.relative_to(ROOT).as_posix())

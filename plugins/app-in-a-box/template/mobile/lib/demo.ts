@@ -49,12 +49,14 @@ function freshState(): DemoState {
 const state: DemoState = freshState();
 
 /** Reset between tests: every field back to its seed, except the auth listeners. Adding
- * demo state? Add it to DemoState and freshState() only; this picks it up. */
+ * demo state? Add it to DemoState and freshState() only; this picks it up.
+ * @public Tests reach it through `require()` (after setting the demo env), which knip can't follow. */
 export function resetDemo(): void {
   Object.assign(state, freshState(), { listeners: state.listeners });
 }
 
-/** Read-only view for tests and the gallery. */
+/** Read-only view for tests and the gallery.
+ * @public Tests reach it through `require()`, which knip can't follow. */
 export function demoSnapshot(): { profile: ProfileWire; pushTokens: { token: string; platform: string | null }[] } {
   return { profile: { ...state.profile }, pushTokens: state.pushTokens.map((t) => ({ ...t })) };
 }

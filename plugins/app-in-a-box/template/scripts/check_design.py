@@ -98,13 +98,12 @@ def check(tokens: dict) -> list[str]:
             isinstance(pts, list)
             and len(pts) == 4
             and all(isinstance(x, (int, float)) for x in pts)
-        ):
-            if not (-0.1 <= pts[1] <= 1.1 and -0.1 <= pts[3] <= 1.1):
-                errs.append(
-                    f"overshoot-easing: motion.easing.{name} {pts} bounces past its end. "
-                    "Content and screens decelerate; overshoot belongs to springs on small "
-                    "elements (TASTE.md, Motion)."
-                )
+        ) and not (-0.1 <= pts[1] <= 1.1 and -0.1 <= pts[3] <= 1.1):
+            errs.append(
+                f"overshoot-easing: motion.easing.{name} {pts} bounces past its end. "
+                "Content and screens decelerate; overshoot belongs to springs on small "
+                "elements (TASTE.md, Motion)."
+            )
     return errs
 
 

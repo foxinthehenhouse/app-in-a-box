@@ -68,7 +68,9 @@ def test_register_caps_tokens_per_user() -> None:
     for i in range(12):
         assert client.post("/api/v1/me/push-token", json={"token": tok(i)}).status_code == 204
     mine = [r["token"] for r in db.tables["push_tokens"] if r["user_id"] == "me"]
-    assert len(mine) == 10 and tok(0) not in mine and tok(11) in mine
+    assert len(mine) == 10
+    assert tok(0) not in mine
+    assert tok(11) in mine
 
 
 @pytest.mark.parametrize(
@@ -111,7 +113,7 @@ def test_unregister_only_removes_the_callers_token() -> None:
 
 def test_chunks_respect_batch_size() -> None:
     assert [len(c) for c in ps.chunks(list(range(250)), 100)] == [100, 100, 50]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="size must be >= 1"):
         list(ps.chunks([1], 0))
 
 
@@ -124,7 +126,8 @@ def test_parse_tickets_maps_errors_to_tokens() -> None:
         ]
     }
     res = ps.parse_tickets(["A", "B", "C"], body)
-    assert res.sent == 1 and res.tickets == [("t1", "A")]
+    assert res.sent == 1
+    assert res.tickets == [("t1", "A")]
     assert res.dead_tokens == ["B"]
     assert res.errors == ["DeviceNotRegistered", "MessageRateExceeded"]
 
@@ -146,7 +149,8 @@ def test_parse_receipts() -> None:
             }
         }
     )
-    assert done == {"t1", "t2", "t3"} and dead == {"t2"}
+    assert done == {"t1", "t2", "t3"}
+    assert dead == {"t2"}
 
 
 # --- HTTP client + service with a fake transport ----------------------------------
