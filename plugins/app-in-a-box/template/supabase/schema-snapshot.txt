@@ -1,3 +1,21 @@
+table audit_events rls=on
+  column id bigint not null generated always as identity
+  column actor_id uuid
+  column action text not null
+  column target text
+  column request_id text
+  column at timestamp with time zone not null default now()
+  constraint audit_events_action_check: CHECK ((action ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text))
+  constraint audit_events_pkey: PRIMARY KEY (id)
+  constraint audit_events_request_id_check: CHECK ((char_length(request_id) <= 128))
+  constraint audit_events_target_check: CHECK ((char_length(target) <= 200))
+  index CREATE INDEX audit_events_actor_idx ON public.audit_events USING btree (actor_id, id)
+  index CREATE UNIQUE INDEX audit_events_pkey ON public.audit_events USING btree (id)
+  trigger CREATE TRIGGER audit_events_no_truncate BEFORE TRUNCATE ON public.audit_events FOR EACH STATEMENT EXECUTE FUNCTION public.audit_events_append_only()
+  trigger CREATE TRIGGER audit_events_no_update_delete BEFORE DELETE OR UPDATE ON public.audit_events FOR EACH ROW EXECUTE FUNCTION public.audit_events_append_only()
+  grant anon: none
+  grant authenticated: none
+  grant service_role: select,insert
 table idempotency_keys rls=on
   column user_id uuid not null
   column key text not null
@@ -97,6 +115,8 @@ table rate_limits rls=on
   grant anon: none
   grant authenticated: none
   grant service_role: select,insert,update,delete
+function audit_events_append_only() returns trigger language plpgsql set search_path="" body:a8bf85321df185d998fdba5a269fb957
+  execute: anon,authenticated,service_role
 function handle_new_user() returns trigger language plpgsql security definer set search_path="" body:3519e3cb192208fc036f5a9d6bb2f1d5
   execute: anon,authenticated,service_role
 function idempotency_claim(p_user_id uuid, p_key text, p_fingerprint text, p_stale_seconds integer, p_ttl_seconds integer) returns TABLE(claimed boolean, stored_fingerprint text, stored_status integer, stored_body text, stored_content_type text) language plpgsql security definer set search_path="" body:8f354fa64218da1875521a441054415c

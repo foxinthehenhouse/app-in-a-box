@@ -59,7 +59,7 @@ _ru_copy() {  # _ru_copy <dir>: the rendered app without git history or node_mod
 _ru_applied() {
   _ru_copy "$RU_APP" || return 1
   python3 "$RU/apply.py" "$RU_APP" > "$T/ru-apply.out" || { cat "$T/ru-apply.out"; return 1; }
-  grep -q 'edited: backend/routers/me.py' "$T/ru-apply.out" && grep -q 'added: backend/routers/uploads.py' "$T/ru-apply.out" \
+  grep -q 'edited: backend/services/erasure_service.py' "$T/ru-apply.out" && grep -q 'added: backend/routers/uploads.py' "$T/ru-apply.out" \
     && ls "$RU_APP"/supabase/migrations/2*_uploads.sql >/dev/null || return 1
   # Idempotent: a second run copies and edits nothing.
   python3 "$RU/apply.py" "$RU_APP" > "$T/ru-apply2.out" && ! grep -qE 'added|edited' "$T/ru-apply2.out" \
@@ -75,12 +75,14 @@ check "recipe-uploads: the applied app's mobile guards pass (analytics coverage,
    && node scripts/check-hardcoded-strings.js && node scripts/check-design-tells.js && node scripts/check-maestro-coverage.js \
    && node scripts/check-eas-shipping-env.js"
 
-_ru_refuses_anchor() {  # an app whose me.py was reworked: nothing written, the edit named
-  local c="$T/ru-anchor"
+_ru_refuses_anchor() {  # an app whose erasure_service.py was reworked: nothing written, the edit named
+  local c="$T/ru-anchor" f
   _ru_copy "$c" || return 1
-  sed -i.bak 's/^def _delete_user_files(db: Any, user_id: str) -> None:/def _purge(db: Any, user_id: str) -> None:/' "$c/backend/routers/me.py" && rm -f "$c/backend/routers/me.py.bak"
+  f="$c/backend/services/erasure_service.py"
+  sed -i.bak 's/^USER_FILE_BUCKETS: tuple\[str, ...\] = ()$/USER_FILE_BUCKETS = load_buckets()/' "$f" && rm -f "$f.bak"
+  grep -q '^USER_FILE_BUCKETS = load_buckets()$' "$f" || { echo "plant did not apply; update recipe-uploads.sh"; return 1; }
   python3 "$RU/apply.py" "$c" > "$T/ru-anchor.out" 2>&1 && return 1
-  grep -q 'nothing written' "$T/ru-anchor.out" && grep -q 'backend/routers/me.py: call `uploads_service.delete_user_files' "$T/ru-anchor.out" \
+  grep -q 'nothing written' "$T/ru-anchor.out" && grep -q 'backend/services/erasure_service.py: add "uploads" to USER_FILE_BUCKETS' "$T/ru-anchor.out" \
     && [ ! -e "$c/backend/routers/uploads.py" ] && ! grep -q uploads "$c/backend/main.py"
 }
 check "recipe-uploads: apply.py writes nothing and names the edit when an app reworked a file it edits" _ru_refuses_anchor
@@ -125,7 +127,7 @@ if [ -f "$RU_APP/backend/routers/uploads.py" ]; then
     backend/services/uploads_service.py '/def list_uploads/,/execute/ s/\.eq("user_id", user_id)//' \
     "$RU_PT tests/test_uploads.py" "test_list_returns_only_the_callers_uploads"
   _ru_plant "recipe-uploads: tests fail when account deletion stops emptying the folder" \
-    backend/routers/me.py '/^    uploads_service.delete_user_files(db, user_id)$/d' \
+    backend/services/erasure_service.py '/^USER_FILE_BUCKETS:/ s/"uploads",\{0,1\}//' \
     "$RU_PT tests/test_uploads.py" "test_account_deletion_empties_the_callers_folder_first"
   _ru_plant "recipe-uploads: tests fail when a rejected object is left in Storage" \
     backend/services/uploads_service.py '/landed, but too big/,+1 s/_bucket(db).remove(\[object_path(user_id, upload_id)\])/pass/' \
