@@ -27,6 +27,7 @@ collects, why, how long it's kept, and the choices you have.
 | Device information | Remove a device that no longer accepts notifications | Up to 24 hours |
 | Account identifiers | Count requests per account to stop abuse | Up to 1 day |
 | Content you create | Replay the answer to a save your phone retried, instead of saving twice | Up to 24 hours |
+| Account identifiers | A record of who deleted or exported an account's data, kept after the account is gone (it holds no name, email or content) | As long as the app needs it |
 
 We don't sell your personal information, and we don't use it for advertising. We don't track you across other companies' apps or websites.
 

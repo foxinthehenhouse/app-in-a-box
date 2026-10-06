@@ -27,4 +27,4 @@ don't count as sharing; only `third_parties` do.
 | Device or other IDs | Device or other IDs | Yes | No | No | Required | Analytics, App functionality | `posthog SDK`, `push_tickets.token`, `push_tokens.token` |
 | Personal info | Email address | Yes | No | No | Required | Account management, App functionality | `auth.users.email` |
 | Personal info | Name | Yes | No | No | Optional | App functionality | `profiles.display_name` |
-| Personal info | User IDs | Yes | No | No | Required | Analytics, App functionality, Fraud prevention, security, and compliance | `idempotency_keys.user_id`, `posthog SDK`, `profiles.id`, `push_tickets.user_id`, `push_tokens.user_id`, `rate_limits.key` |
+| Personal info | User IDs | Yes | No | No | Required | Analytics, App functionality, Fraud prevention, security, and compliance | `audit_events.actor_id`, `idempotency_keys.user_id`, `posthog SDK`, `profiles.id`, `push_tickets.user_id`, `push_tokens.user_id`, `rate_limits.key` |

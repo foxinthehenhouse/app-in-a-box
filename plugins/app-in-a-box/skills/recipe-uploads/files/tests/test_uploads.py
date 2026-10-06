@@ -20,11 +20,10 @@ from fastapi.testclient import TestClient
 
 from backend.main import create_app
 from backend.routers import uploads as uploads_router
-from backend.services import uploads_service
+from backend.services import erasure_service, uploads_service
 from backend.services.uploads_service import ALLOWED_TYPES, BUCKET, MAX_BYTES
 from tests.test_prod_fakes import (
     FakeAPIError,
-    FakeBucket,
     FakeDB,
     clear_prod_env,
     client_for,
@@ -291,7 +290,7 @@ def _delete_account(db: UploadsDB, user: str) -> Any:
 
 def test_account_deletion_empties_the_callers_folder_first() -> None:
     db = UploadsDB()
-    for i in range(uploads_service.LIST_PAGE * 2 + 5):  # more than one list() page
+    for i in range(erasure_service.STORAGE_PAGE * 2 + 5):  # more than one list() page
         db.put(A, f"{i:04d}")
     db.put(A, "never-completed")
     db.put(B, "keep-me")
@@ -308,14 +307,11 @@ def test_account_survives_when_its_files_cannot_be_removed() -> None:
     assert db.auth.admin.deleted == [], "the account went, its files stayed"
 
 
-def test_delete_user_files_stops_when_storage_removes_nothing(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    db = UploadsDB()
-    db.put(A, "stuck")
-    monkeypatch.setattr(FakeBucket, "remove", lambda self, paths: [])
-    with pytest.raises(RuntimeError, match="did not remove"):
-        uploads_service.delete_user_files(db, A)
+def test_the_bucket_is_emptied_by_account_deletion() -> None:
+    assert BUCKET in erasure_service.USER_FILE_BUCKETS, (
+        "account deletion would leave every photo behind: add the bucket to "
+        "USER_FILE_BUCKETS in backend/services/erasure_service.py"
+    )
 
 
 def test_export_lists_the_callers_files_with_download_links() -> None:

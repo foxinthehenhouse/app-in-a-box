@@ -110,6 +110,15 @@ tables:
       response_body: {category: ugc, purpose: "replay the answer to a save your phone retried, instead of saving twice", retention: PT24H}
       response_content_type: none
       completed_at: none
+  audit_events:
+    owner: user
+    columns:
+      id: none
+      actor_id: {category: identifier, purpose: "a record of who deleted or exported an account's data, kept after the account is gone (it holds no name, email or content)", uses: [fraud_prevention]}
+      action: none
+      target: none
+      request_id: none
+      at: none
   job_runs:
     owner: system
     columns:

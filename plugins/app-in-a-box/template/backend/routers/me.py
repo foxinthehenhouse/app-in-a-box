@@ -13,6 +13,7 @@ from backend.auth import CurrentUser, get_current_user
 from backend.db import get_db
 from backend.idempotency import idempotent
 from backend.ratelimit import rate_limit
+from backend.services import audit_service, erasure_service
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +87,23 @@ class AccountDeletion(WireIn):
     confirm: Literal["DELETE"]
 
 
-def _delete_user_files(db: Any, user_id: str) -> None:
-    """Storage objects do NOT cascade from auth.users. If the app stores files, delete
-    this user's objects here (e.g. `db.storage.from_("avatars").remove([...])` for the
-    paths under f"{user_id}/") BEFORE the auth user goes. No-op until there's a bucket."""
+def _erase_from_vendors(db: Any, user_id: str) -> None:
+    """PostHog + Sentry, best effort: each is a no-op until configured, and a failure is
+    logged and audited (`account.erasure_failed`, target = vendor) instead of keeping
+    the user from deleting their account. See backend/services/erasure_service.py."""
+    steps = (
+        ("posthog", erasure_service.delete_posthog_person),
+        ("sentry", erasure_service.purge_sentry_user),
+    )
+    for vendor, erase in steps:
+        try:
+            erase(user_id)
+        except Exception as exc:
+            # ErasureError's message is safe to log (vendor + status); anything else, the type.
+            safe = isinstance(exc, erasure_service.ErasureError)
+            detail = str(exc) if safe else type(exc).__name__
+            logger.warning("account erasure: %s failed: %s", vendor, detail)
+            audit_service.record(db, user_id, "account.erasure_failed", target=vendor)
 
 
 @router.delete(
@@ -108,8 +122,15 @@ def delete_me(
     (profiles, push_tokens, ...). The id comes from the verified token only. Idempotent:
     an already-deleted user gets 204. The access token stays cryptographically valid
     until it expires (~1 h), so the client must sign out immediately after a 204.
+
+    Order matters, because the auth user is the one step that can't be retried after it
+    succeeds: the audit row first (fail closed), then the user's Storage files (a
+    failure stops here with a 500 and the retry finishes it), then PostHog and Sentry
+    (best effort), and the auth user last.
     """
-    _delete_user_files(db, user.id)
+    audit_service.record(db, user.id, "account.delete")
+    erasure_service.purge_storage(db, user.id)
+    _erase_from_vendors(db, user.id)
     try:
         db.auth.admin.delete_user(user.id)
     except Exception as exc:

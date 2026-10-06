@@ -50,7 +50,8 @@ create policy "uploads_delete_own" on storage.objects
 
 -- One row per completed upload: what the app lists and the data export includes.
 -- Rows cascade with the account; the objects themselves are removed by the backend
--- (uploads_service.delete_user_files) before the auth user is deleted.
+-- (erasure_service.purge_storage, which empties every USER_FILE_BUCKETS bucket) before
+-- the auth user is deleted.
 create table if not exists public.uploads (
   id uuid primary key,
   user_id uuid not null references auth.users (id) on delete cascade,

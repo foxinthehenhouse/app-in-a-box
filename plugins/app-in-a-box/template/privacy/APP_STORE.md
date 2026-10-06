@@ -18,7 +18,7 @@ developer responsible for their accuracy.
 | Crash Data | Diagnostics | No | No | App Functionality | `sentry SDK` |
 | Other Diagnostic Data | Diagnostics | Yes | No | Analytics | analytics events: `account_deleted`, `api_failed`, `data_exported`, `profile_updated`, `push_changed`, `sign_in_code_sent`, `sign_in_completed` |
 | Device ID | Identifiers | Yes | No | Analytics, App Functionality | `posthog SDK`, `push_tickets.token`, `push_tokens.token` |
-| User ID | Identifiers | Yes | No | Analytics, App Functionality | `idempotency_keys.user_id`, `posthog SDK`, `profiles.id`, `push_tickets.user_id`, `push_tokens.user_id`, `rate_limits.key` |
+| User ID | Identifiers | Yes | No | Analytics, App Functionality | `audit_events.actor_id`, `idempotency_keys.user_id`, `posthog SDK`, `profiles.id`, `push_tickets.user_id`, `push_tokens.user_id`, `rate_limits.key` |
 | Product Interaction | Usage Data | Yes | No | Analytics, App Functionality | `posthog SDK`, `profiles.onboarded`, analytics events: `account_deleted`, `analytics_opt_changed`, `data_exported`, `deep_link_opened`, `profile_updated`, `push_changed`, `push_opened`, `screen_viewed`, `sheet_opened`, `sign_in_code_sent`, `sign_in_completed`, `sign_in_requested`, `theme_changed` |
 | Other User Content | User Content | Yes | No | App Functionality | `idempotency_keys.response_body` |
 

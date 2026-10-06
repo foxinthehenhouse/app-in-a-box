@@ -4,7 +4,8 @@ Every filter really filters, so a handler that forgets `.eq("user_id", ...)` tou
 other users' rows and the test fails. `rpc()` dispatches to Python stand-ins for the
 Postgres functions (the SQL itself is exercised by test_prod_migrations.py's
 integration test against a real Postgres). `storage` is an in-memory Storage whose
-`list()` returns only the folder asked for, so a path built from the wrong id misses.
+`list()` returns only the folder asked for (files, plus sub-folders with `id: None`, as
+the real API does), so a path built from the wrong id misses.
 """
 
 from __future__ import annotations
@@ -276,18 +277,24 @@ class FakeBucket:
     def list(
         self, path: str | None = None, options: dict[str, Any] | None = None
     ) -> list[dict[str, Any]]:
+        """The folder's direct children, sorted by name like the real API: files with
+        their metadata, and each sub-folder once as `{"name": ..., "id": None}`."""
         if self.storage.error:
             raise self.storage.error
         opts = options or {}
         prefix = f"{path}/" if path else ""
-        names = sorted(
-            k[len(prefix) :]
-            for k in self.objects
-            if k.startswith(prefix) and "/" not in k[len(prefix) :]
-        )
+        children: dict[str, dict[str, Any]] = {}
+        for key in self.objects:
+            if not key.startswith(prefix):
+                continue
+            head, sep, _ = key[len(prefix) :].partition("/")
+            if sep:
+                children[head] = {"name": head, "id": None, "metadata": None}
+            else:
+                children[head] = {"name": head, "id": head, "metadata": self.objects[key]}
         start = int(opts.get("offset", 0))
-        page = names[start : start + int(opts.get("limit", 100))]
-        return [{"name": n, "id": n, "metadata": self.objects[prefix + n]} for n in page]
+        page = [children[n] for n in sorted(children)]
+        return page[start : start + int(opts.get("limit", 100))]
 
     def remove(self, paths: list[str]) -> list[dict[str, Any]]:
         if self.storage.error:
@@ -414,10 +421,13 @@ def test_fake_enforces_job_runs_primary_key() -> None:
 
 def test_fake_storage_lists_only_the_folder_asked_for() -> None:
     bucket = FakeDB().storage.from_("files")
-    bucket.objects.update({"a/1": {}, "b/2": {}, "a/sub/3": {}})
-    assert [e["name"] for e in bucket.list("a")] == ["1"]
-    bucket.remove(["b/2"])
-    assert set(bucket.objects) == {"a/1", "a/sub/3"}
+    bucket.objects.update({"a/1": {"size": 1}, "b/2": {}, "a/sub/3": {}, "a/sub/4": {}})
+    sub = {"name": "sub", "id": None, "metadata": None}  # a folder, listed once
+    assert bucket.list("a") == [{"name": "1", "id": "1", "metadata": {"size": 1}}, sub]
+    assert bucket.list("a", {"limit": 1, "offset": 1}) == [sub]
+    assert [e["name"] for e in bucket.list("a/sub")] == ["3", "4"]
+    assert bucket.remove(["b/2", "a/missing"]) == [{"name": "b/2"}]
+    assert set(bucket.objects) == {"a/1", "a/sub/3", "a/sub/4"}
 
 
 def test_fake_order_breaks_ties_with_later_keys() -> None:
