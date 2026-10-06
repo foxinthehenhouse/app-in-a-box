@@ -44,8 +44,12 @@ fonts    checks the type library (scripts/proto/fonts.json): every family OFL-1.
          archetype table naming only listed (or built-in) families.
 
 A direction's `tokens` is a tokens v2 object. Its `color` must be complete (light AND
-dark); any other top-level key it leaves out (type, space, elevation...) is taken from
-template/design/tokens.json, so the frozen file always has every key.
+dark), unless the direction gives a `palette` instead: {"accent": "#RRGGBB",
+"neutralHue": 0..360, "neutralChroma": 4..24} (only accent is required), from which
+scripts/palette.py derives both modes contrast-safe by construction; any keys
+`tokens.color` still sets override the derived ones. Any other top-level key it leaves
+out (type, space, elevation...) is taken from template/design/tokens.json, so the
+frozen file always has every key.
 
 Exit codes: 0 ok, 1 problems found / refused, 2 usage. Standard library only.
 """
@@ -72,6 +76,7 @@ sys.path.insert(0, str(HERE))
 import check_contrast as cc  # noqa: E402  (sibling module; shared contrast gate)
 import check_design as dc  # noqa: E402  (sibling module; shared design-tells gate)
 import design_md as dm  # noqa: E402  (sibling module; DESIGN.md from tokens.json)
+import palette as pl  # noqa: E402  (sibling module; HCT palette from one accent)
 
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 FONT_RE = re.compile(r"^[A-Za-z0-9 ]{1,40}$")
@@ -260,7 +265,8 @@ def deep_merge(base: dict, over: dict) -> dict:
 
 
 def merged_tokens(direction: dict) -> dict:
-    """The direction's tokens over the template's (colour is never inherited)."""
+    """The direction's tokens over the template's (colour is never inherited). A
+    `palette` derives the colours; keys the direction's own `color` sets win."""
     base = load_json(str(TEMPLATE_TOKENS))
     base.pop("color", None)
     base.pop("$schema", None)
@@ -268,7 +274,34 @@ def merged_tokens(direction: dict) -> dict:
     # own palette (a direction gets fresh ones from atmo_lights), so they stay behind.
     if isinstance(base.get("atmosphere"), dict):
         base["atmosphere"] = {k: v for k, v in base["atmosphere"].items() if k in ATMO_DEFAULT}
-    return deep_merge(base, direction.get("tokens") or {})
+    out = deep_merge(base, direction.get("tokens") or {})
+    src = direction.get("palette")
+    if isinstance(src, dict) and not palette_errors(src):
+        derived = pl.derive_palette(
+            src["accent"], src.get("neutralHue"), src.get("neutralChroma", pl.NEUTRAL_CHROMA)
+        )
+        own = out.get("color") if isinstance(out.get("color"), dict) else {}
+        out["color"] = {
+            m: {**derived[m], **(own[m] if isinstance(own.get(m), dict) else {})} for m in MODES
+        }
+    return out
+
+
+def palette_errors(src) -> list[str]:
+    """What's wrong with a direction's `palette` (empty when it can be derived)."""
+    if not isinstance(src, dict):
+        return ["must be an object: {accent, neutralHue?, neutralChroma?}"]
+    errs = [f"unknown key {k!r}" for k in sorted(src) if k not in ("accent", "neutralHue", "neutralChroma")]
+    if not (isinstance(src.get("accent"), str) and cc.HEX.match(src["accent"])):
+        errs.append("accent: must be #RRGGBB")
+    nh = src.get("neutralHue")
+    if nh is not None and not (_is_num(nh) and 0 <= nh <= 360):
+        errs.append("neutralHue: must be a number of degrees in 0..360")
+    lo, hi = pl.NEUTRAL_CHROMA_RANGE
+    nc = src.get("neutralChroma")
+    if nc is not None and not (_is_num(nc) and lo <= nc <= hi):
+        errs.append(f"neutralChroma: must be a number in {lo:g}..{hi:g} (lower rounds to pure grey)")
+    return errs
 
 
 def block_lists(spec: dict):
@@ -445,11 +478,22 @@ def _schema(spec: dict, p: list) -> None:
             p.append(f"{w}.tokens: must be a tokens v2 object")
             continue
         col = tok.get("color")
-        if not (isinstance(col, dict) and all(isinstance(col.get(m), dict) for m in MODES)):
-            p.append(f"{w}.tokens.color: needs both color.light and color.dark (tokens v2)")
+        derived = "palette" in d
+        if derived:
+            p.extend(f"{w}.palette: {e}" for e in palette_errors(d["palette"]))
+        if derived and col is not None and not (
+            isinstance(col, dict) and set(col) <= set(MODES) and all(isinstance(v, dict) for v in col.values())
+        ):
+            p.append(f"{w}.tokens.color: with a palette, may only override keys in color.light / color.dark")
+        elif not derived and not (
+            isinstance(col, dict) and all(isinstance(col.get(m), dict) for m in MODES)
+        ):
+            p.append(f"{w}.tokens.color: needs both color.light and color.dark (tokens v2), or a palette")
         else:
             for m in MODES:
-                for k in cc.REQUIRED:
+                if not isinstance((col or {}).get(m), dict):
+                    continue
+                for k in () if derived else cc.REQUIRED:
                     if k not in col[m]:
                         p.append(f"{w}.tokens.color.{m}.{k}: required")
                 for k, val in col[m].items():
