@@ -13,8 +13,7 @@ import { AccessibilityInfo, View } from "react-native";
 
 import { useT } from "../../lib/i18n";
 import { makeStyles } from "../../lib/theme";
-import { useImageUpload } from "../../lib/uploads";
-import type { Upload } from "../../lib/api";
+import { type Upload, useImageUpload } from "../../lib/uploads";
 import { Button } from "./Button";
 import { ErrorNotice } from "./ErrorNotice";
 import { ProgressBar } from "./Feedback";
