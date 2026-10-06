@@ -22,7 +22,8 @@ template says src/app; this kit doesn't use it).
 - `app/gallery.tsx`: dev-only component gallery (Settings → Developer). Add every new
   component there. It renders both colour modes side by side.
 - `components/ui/`: the component library, imported from `components/ui` only:
-  `Screen` `Card` `Section` · `Text variant=` / `Display` `Title` `Heading` `Body` `Meta`
+  `Screen` `Card` `Section` · `ScreenAtmosphere` (the frozen light behind every `Screen`) ·
+  `Text variant=` / `Display` `Title` `Heading` `Body` `Meta`
   `ErrorText` · `Button` `IconButton` `PressableScale` · `Field` · `Chip`
   `SegmentedControl` (native via @expo/ui on iOS / Android) · `ListRow` · `EmptyState`
   `Skeleton` `SkeletonCard` · `Toast` (`useToast`) · `Badge` `Avatar` `ProgressBar`
@@ -30,14 +31,18 @@ template says src/app; this kit doesn't use it).
   `SheetHeader` · `Icon` · `FormField` (Field bound to react-hook-form) · `ErrorNotice`
   (error + copyable support reference + retry) · `OfflineBanner` · `UpdateBanner`.
 - `lib/tokens.ts`: **generated** from `../design/tokens.json` (both palettes, type
-  roles, motion, elevation, opacity). Never hand-edit it. Change the JSON, run
+  roles, motion, elevation, opacity, atmosphere, and the `settle` spring). Never hand-edit it. Change the JSON, run
   `python3 scripts/check_contrast.py design/tokens.json` (repo root; `npm run gates`
   runs it too), then re-render.
 - `lib/theme.ts`: `useTheme()` (colours for the current mode, `type`, `space`,
   `radius`, `elevation`…), `makeStyles((t) => ({...}))` for themed StyleSheets,
   `useThemePreference()` for the System/Light/Dark setting.
-- `lib/motion.ts`: `animateTo`, `springTo`, `timing`, `spring`, `entrance`,
-  `useReducedMotion`, and `haptic.*`.
+- `lib/motion.ts`: `animateTo`, `springTo`, `timing`, `spring` (token springs plus
+  `settle`), `entrance`, `screenEntrance`, `useReducedMotion`, `haptic.*` and the
+  `hapticFor` map (control role → haptic).
+- `lib/atmosphere.ts`: the frozen atmosphere as a gradient (`atmosphereGradient`), the
+  grain, `useReducedTransparency()`, and `useGlassChrome()` (glass surfaces + iOS 26 +
+  Reduce Transparency off; otherwise solid).
 - `lib/api.ts`: the only backend client, and the only file that calls `fetch`. `*Wire` types mirror Pydantic models; adapters
   map wire → UI types. A generic cast is not validation. Every call sends an
   `X-Request-ID`; an `ApiError` carries `requestId` / `errorId`, and
@@ -76,6 +81,12 @@ template says src/app; this kit doesn't use it).
 
 ## Design system rules
 
+- **Read `../DESIGN.md` before any UI work.** It is the design system in one page
+  (palette in both modes, type roles, spacing, radius, motion, component recipes, the
+  do's and don'ts), generated from `../design/tokens.json`. Change tokens through the
+  design flow, never by hand in DESIGN.md or `lib/tokens.ts`: edit the JSON with the
+  owner's yes, run `python3 scripts/design_md.py` (repo root), re-render. CI and
+  pre-commit run `python3 scripts/design_md.py --check`.
 - **Theme through hooks.** Read colours from `useTheme()` / `makeStyles`, never from a
   module-level `StyleSheet` with a fixed palette: that silently ignores dark mode.
 - **Type through `<Text variant>`.** It applies the font, size, weight, line height and
@@ -83,6 +94,13 @@ template says src/app; this kit doesn't use it).
   `fontSize` in screens.
 - **Motion through `lib/motion.ts`.** No raw `withTiming(v, { duration: 300 })`.
   Every preset honours reduce motion; decorative loops/entrances render static.
+  Screens and content arrive on `settle` (critically damped: no overshoot); only small
+  elements (chips, thumbs, presses) may use a spring that overshoots.
+- **Atmosphere and glass come from the prototype.** `Screen` paints the frozen
+  `atmosphere` behind content; never put text-bearing colour on top of it or re-derive
+  its colours (they are contrast-capped at freeze). Glass is chrome only (tab bar,
+  `SheetHeader`, via expo-glass-effect) and only through `useGlassChrome()`; content
+  cards stay solid.
   Use Reanimated's `.get()`/`.set()` on shared values (React Compiler-safe). **The React
   Compiler is ON** (`experiments.reactCompiler` in app.json, `babel-plugin-react-compiler`
   installed by the kit; ⚖️ Kyle 2026-10-02): keep components pure, no mutation of values
