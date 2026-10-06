@@ -43,6 +43,7 @@ import re
 import sys
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import TypeGuard
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKS = ("baseline", "location", "minors", "health", "ugc", "financial", "biometric")
@@ -406,7 +407,7 @@ _LOGGERS = {"logger", "log", "logging", "_logger", "_log", "LOGGER", "LOG"}
 _LOG_KWARGS = {"exc_info", "stack_info", "stacklevel"}
 
 
-def _is_log_call(node: ast.AST) -> bool:
+def _is_log_call(node: ast.AST) -> TypeGuard[ast.Call]:
     return (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
