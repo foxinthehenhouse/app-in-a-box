@@ -1,7 +1,7 @@
 ---
 name: design-directions
 user-invocable: false
-description: App in a Box's design-direction reference: the six archetypes, how to derive a dark palette from a light one (and back), and the tokens v2 format with motion, type roles and elevation, contrast-checked in both modes. The prototype phase's visual designer follows it; also use it for a quick re-skin of an existing app.
+description: App in a Box's design-direction reference: the six archetypes, colour by construction (both palettes derived from one accent and one neutral hue with scripts/palette.py), and the tokens v2 format with motion, type roles and elevation, contrast-checked in both modes. The prototype phase's visual designer follows it; also use it for a quick re-skin of an existing app.
 ---
 
 # Design directions (reference)
@@ -55,11 +55,33 @@ Helvetica). The phone's own system font is always fine. They also fail pure-grey
 neutrals, an accent that is the stock AI violet, and an easing curve that overshoots
 (`scripts/check_design.py`).
 
-**Deriving the other mode** (don't just invert): keep the accent's hue, and shift
-lightness so it still reads (a light-mode accent usually needs to be *darker* to clear
-3:1 on a pale background; a dark-mode accent *lighter*). Dark surfaces step **up** in
-lightness as they elevate (bg < surface < surfaceRaised) because shadows vanish on
-dark grounds. Tint neutrals toward the brand hue rather than pure grey.
+**Colour by construction: derive the palette, don't hand-tune it.** Choose two things
+per direction, an **accent** (the hue that means something in the product's world) and
+a **neutral hue** (usually the accent's, or a warm or cool step off it), and let the
+kit build both modes:
+
+```
+python3 "$KIT/scripts/palette.py" derive --accent "#BE400C" --neutral-hue 60
+```
+
+It prints `{"light": {...}, "dark": {...}}` with every key below. Each colour is a tone
+of an HCT tonal palette (Google's colour space for Material You, `scripts/hct.py`), and
+tone is the lightness contrast is measured from, so the pairs the validator checks are
+set roughly 50 tones apart: they pass `check_contrast.py` on the first try, for any hue.
+In a prototype spec, skip the hexes entirely: give the direction `"palette": {"accent":
+"#BE400C", "neutralHue": 60}` (optionally `"neutralChroma"`, 4–24, default 6, for
+greyer or more tinted neutrals) and `prototype.py` derives the colours itself; any
+key you still set in `tokens.color` overrides just that colour. `palette.py ramp`
+prints the tonal palettes when you want to see the steps.
+
+What it does for you is what this section used to ask you to do by hand: it keeps the
+accent's hue and shifts its lightness per mode (*darker* on a pale ground, *lighter*
+on a dark one); dark surfaces step **up** in lightness as they elevate (bg < surface <
+surfaceRaised) because shadows vanish on dark grounds; neutrals are tinted toward the
+neutral hue, never pure grey. An accent on the stock AI violet is turned a few degrees
+away and `derive` says so: if that happens, pick a hue with a reason instead. Hand
+colours (a brand's exact hex) are still allowed, and the same validator holds them to
+the same rules.
 
 ## Step 2: show the three coats of paint (re-skin only)
 
@@ -94,7 +116,8 @@ Otherwise give them the file path to open. Then ask (structured):
 This is the single source of truth. The renderer generates `mobile/lib/tokens.ts`
 (both palettes + types), themes `app.json` (splash background per mode) and draws a
 placeholder icon from it. Start from the kit's `template/design/tokens.json` and
-change values; keep every key.
+change values; keep every key. For the colours, `palette.py derive --accent <hex>
+--neutral-hue <deg> --into design/tokens.json` replaces `color` and leaves the rest.
 
 ```json
 {
@@ -172,8 +195,8 @@ Validate:
 python3 "$KIT/scripts/check_contrast.py" design/tokens.json
 ```
 
-If it fails, adjust the failing colour's lightness (in the mode it names) until it
-passes. **Don't drop the requirement.** Show the user the before/after only if the
+A derived palette passes as it comes. If a hand-set colour fails, adjust its lightness
+(in the mode it names) until it passes, or derive it. **Don't drop the requirement.** Show the user the before/after only if the
 change is visible.
 
 Set `appbox.yaml` → `design.direction: <name>`. Leave `progress.design` as it is.
