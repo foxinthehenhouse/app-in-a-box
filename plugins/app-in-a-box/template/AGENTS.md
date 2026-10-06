@@ -45,9 +45,9 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
    never by hand. 48px taps, `accessibilityLabel` on every control, never colour alone.
 8. **LLM use is fenced.** <!-- appbox:ai-fence: "No LLM calls anywhere." OR "Claude API
    only in backend/services/<module>*." --> `lint-imports` fails an SDK import elsewhere.
-9. **Write endpoints are rate-limited; multi-row writes are atomic.** `Depends(rate_limit(...))`
-   on every POST/PATCH/DELETE; more than one row → a Postgres function via `db.rpc()`
-   (see `backend/AGENTS.md`).
+9. **Writes are rate-limited, atomic and idempotent.** `Depends(rate_limit(...))` on every
+   write, `Depends(idempotent())` on every POST; multi-row → a Postgres function (`db.rpc()`).
+   Outbound HTTP only via `backend/http.py`; lists page by keyset (`Page[T]`). See `backend/AGENTS.md`.
 
 ## Where to look
 
@@ -68,7 +68,7 @@ fails CI when a screen, router, service or table is missing here.
 | Profile, settings, account | `app/(app)/settings.tsx`, `app/edit-name.tsx`, `app/delete-account.tsx` | `routers/me.py` | | `profiles` |
 | Data export | | `routers/export.py` | | |
 | Push notifications | | `routers/push.py` | `services/push_service.py` | `push_tokens`, `push_tickets` |
-| Scheduled jobs, rate limits | | `routers/internal.py` | `services/jobs_service.py` | `job_runs`, `rate_limits`, `keep_alive` |
+| Scheduled jobs, rate limits, idempotent writes | | `routers/internal.py` | `services/jobs_service.py`, `idempotency.py` | `job_runs`, `rate_limits`, `idempotency_keys`, `keep_alive` |
 | Dev only | `app/gallery.tsx` | | | |
 
 ## Agent setup (works in Claude Code and Codex)

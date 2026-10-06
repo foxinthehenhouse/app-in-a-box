@@ -95,7 +95,9 @@ it("offline: applies optimistically, queues, and replays on reconnect", async ()
   expect(api.updateMe).not.toHaveBeenCalled();
 
   await act(async () => onlineManager.setOnline(true));
-  await waitFor(() => expect(api.updateMe).toHaveBeenCalledWith({ displayName: "Riley" }));
+  await waitFor(() =>
+    expect(api.updateMe).toHaveBeenCalledWith({ displayName: "Riley" }, { idempotencyKey: expect.any(String) }),
+  );
   await waitFor(() => expect(result.current.isSuccess).toBe(true));
 });
 

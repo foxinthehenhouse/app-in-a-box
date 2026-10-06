@@ -55,8 +55,11 @@ item, a suggestion), follow the steps and keep the same shape.
    the route. The reference ships this migration. Each migration changes the schema:
    refresh the snapshot with `DATABASE_URL=... scripts/db-test.sh --write-snapshot` and
    commit `supabase/schema-snapshot.txt` with it.
-6. **Route** `POST /api/v1/<feature>` with the guard, rate limit, cap, and a response
-   `Wire` model mirrored in `mobile/lib/api.ts`.
+6. **Route** `POST /api/v1/<feature>` with the guard, rate limit, `Depends(idempotent())`
+   (a retry gets the stored answer, not a second paid call), cap, and a response `Wire`
+   model mirrored in `mobile/lib/api.ts`. Calls to an embeddings or tracing API go
+   through `backend/http.py` (`outbound.post(...)`), never a bare `httpx`; the model SDK
+   brings its own timeout and retries.
 7. **Evals** `tests/evals/<feature>/cases.jsonl`: 10-30 real-ish inputs with assertions
    (schema valid, must/must-not contain, length). The default suite runs them against
    recorded outputs, so prompt-building and parsing stay covered for free; a live run

@@ -214,6 +214,8 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "tests/test_wire_contract.py",
         "tests/test_scoping_static.py",
         "tests/test_migrations_static.py",
+        "tests/test_idempotency.py",
+        "tests/test_outbound_http.py",
         "tests/harness/test_workflow_lint.py",
         "tests/harness/test_skills_lint.py",
         "tests/harness/test_hook_scripts.py",

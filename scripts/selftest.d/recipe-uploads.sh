@@ -131,7 +131,7 @@ if [ -f "$RU_APP/backend/routers/uploads.py" ]; then
     backend/services/uploads_service.py '/landed, but too big/,+1 s/_bucket(db).remove(\[object_path(user_id, upload_id)\])/pass/' \
     "$RU_PT tests/test_uploads.py" "test_complete_rejects_and_removes_what_should_never_have_landed"
   _ru_plant "recipe-uploads: tests fail when minting upload URLs loses its rate limit" \
-    backend/routers/uploads.py 's/dependencies=\[Depends(rate_limit("uploads.create", 20))\],//' \
+    backend/routers/uploads.py 's/Depends(rate_limit("uploads.create", 20)), //' \
     "$RU_PT tests/test_uploads.py" "test_every_upload_route_is_rate_limited"
   _ru_plant "recipe-uploads: tests fail when the export reader drops its user filter" \
     backend/routers/export.py '/def _read_uploads/,/execute/ s/\.eq("user_id", user_id)//' \
