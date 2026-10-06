@@ -72,6 +72,7 @@ b = {
     {"id": "name", "question": "Final name and bundle ID?", "answer": None, "status": "deferred", "ask_at": "scaffold", "why": "the bundle ID is permanent"},
     {"id": "pricing", "question": "Price and paywall?", "answer": None, "status": "deferred", "ask_at": "pre-launch", "why": "cheap to change, best set with usage"}
   ],
+  "risk": {"tier": "standard", "categories": [], "questions": [], "abuse_cases": [], "accepted": [], "screened_at": "shape", "declined": []},
   "open_questions": []
 }
 exec(sys.argv[2])
