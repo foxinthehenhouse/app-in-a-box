@@ -43,6 +43,8 @@ LATER_PHASE = {
     "docs/product/VALIDATION.md": "written by the idea check (phase 1a)",
     "docs/product/": "created with BRIEF.md by the interview phase",
     "appbox.yaml": "the setup record, written by the interview phase",
+    "design/brief.json": "the brief and its risk screen, written by the interview phase",
+    "docs/product/SCREENS.md": "written by the prototype freeze (design phase)",
 }
 # Conventions named before their folder exists. Keep this tiny and justified.
 CONVENTIONS = {

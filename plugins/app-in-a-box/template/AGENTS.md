@@ -85,6 +85,7 @@ The source → adapter table and how to regenerate: `.agents/README.md`.
 | `mobile/app/**`, `mobile/components/**`, `mobile/lib/analytics.ts` | `.agents/rules/mobile-a11y.md`, `.agents/rules/analytics-coverage.md` |
 | `mobile/lib/**`, `mobile/app.json`, `mobile/eas.json`, `backend/config.py`, `backend/main.py` | `.agents/rules/env-var-wiring.md` |
 | `docs/product/**`, `mobile/app/**`, `mobile/locales/**`, `mobile/components/**`, and any product call anywhere | `.agents/rules/product-judgement.md` |
+| `docs/product/SCREENS.md`, `docs/product/specs/**` | `.agents/rules/risk-rescreen.md` |
 <!-- appbox:domain-rules: rows for any .agents/rules/<domain>.md enabled from optional/ -->
 
 ## How work flows here
@@ -97,8 +98,7 @@ Skills are invoked as `/name` in Claude Code and `$name` in Codex; both agents a
    moment you find them** (sub-issues of the current ticket, or new related tickets),
    never "later" in chat.
 2. **New feature → `feature-discovery` first** (brief + PRD + tech spec), then `build-feature` builds it against the spec.
-3. **One unit of work = one branch = one worktree = one PR.** `new-worktree` skill.
-   Never commit on `main`; `.githooks/` enforces it for every agent.
+3. **One unit of work = one branch = one worktree = one PR** (`new-worktree` skill). Never commit on `main`; `.githooks/` enforces it.
 4. **Verify before claiming done.** Run the gate and report real output. A test you
    didn't run doesn't count.
 5. **`pr-review` reviews each PR; the `land` skill drives it to merged** (CI, every

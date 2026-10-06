@@ -125,6 +125,25 @@ def decisions_due(prog: dict) -> list[dict]:
     return sorted(due, key=lambda d: DECISION_PHASES.index(d["ask_at"]))
 
 
+def risk_open() -> list[str]:
+    """Open risk items, from the same gate `ship` runs (scripts/risk_gate.py), so next and
+    ship can't disagree. Empty until the idea has a risk screen; fails open."""
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("risk_gate", ROOT / "scripts" / "risk_gate.py")
+        if spec is None or spec.loader is None:
+            return []
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        brief, _ = gate.load_brief(ROOT)
+        if not isinstance((brief or {}).get("risk"), dict):
+            return []
+        return gate.blockers(ROOT, gate.load_categories(None))
+    except Exception:
+        return []
+
+
 def local() -> dict:
     box = appbox()
     prog = box["progress"]
@@ -147,6 +166,7 @@ def local() -> dict:
         "analytics": box["stack"].get("analytics", ""),
         "overdue_rituals": rituals(),
         "decisions_due": decisions_due(prog),
+        "risk_open": risk_open(),
         "brief": (ROOT / "docs" / "product" / "BRIEF.md").is_file(),
     }
 
@@ -196,6 +216,10 @@ def line(sig: dict) -> str:
     if overdue:
         r = max(overdue, key=lambda x: x["days_since"] - x["cadence_days"])
         return f"the `{r['ritual']}` ritual is overdue ({r['days_since']}d, cadence {r['cadence_days']}d)"
+    risk = sig.get("risk_open") or []
+    if risk:
+        return (f"{len(risk)} risk item(s) are open and `ship` will refuse until they're "
+                f"answered or accepted, starting with: {risk[0].split(': ')[0].split('. ')[0]}")  # fmt: skip
     due = sig["decisions_due"]
     if due:
         return (f"{len(due)} product decision(s) are due, starting with `{due[0]['id']}` "
