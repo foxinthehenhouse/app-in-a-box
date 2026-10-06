@@ -362,6 +362,7 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
+/** @public The adapter every list endpoint's pager uses (mobile/AGENTS.md); the template has no paged screen yet. */
 export function toPage<W, T>(w: { items: W[]; nextCursor: string | null }, adapt: (item: W) => T): Page<T> {
   return { items: (w.items ?? []).map(adapt), nextCursor: w.nextCursor ?? null };
 }
@@ -369,6 +370,7 @@ export function toPage<W, T>(w: { items: W[]; nextCursor: string | null }, adapt
 /**
  * `path?cursor=...&limit=...`, leaving out what isn't set. Built by hand: React Native's
  * URLSearchParams has no `set`.
+ * @public For the paged list screens you add (mobile/AGENTS.md); the template has none yet.
  */
 export function pagePath(path: string, cursor: string | null, limit?: number): string {
   const parts: string[] = [];
