@@ -8,7 +8,11 @@
 later phase reads (schema in docs/COST.md -> "The brief"). A brief without them reads
 as "nothing was decided", and the phases that should ask a deferred decision never
 see it. It also caps the questions shape actually asked at 7: the rest are stated
-defaults or deferred to the phase where they matter.
+defaults or deferred to the phase where they matter. And it validates the `risk` block
+with risk_screen.py's own rules (one implementation): every sensitive category's
+must-answer questions in the ledger, an abuse case for every elevated idea, the owner's
+acknowledgment for every high-tier category, and a tier no lower than the keyword
+backstop's.
 
 `defaults`: every row of docs/DEFAULTS.md names where the default lives (backticked
 paths, relative to the app root) or says it is "on the roadmap". A path that doesn't
@@ -23,6 +27,9 @@ import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import risk_screen  # noqa: E402  (the risk block's rules live with the screen)
 
 STATUSES = ("asked", "default", "deferred")
 PHASES = (
@@ -60,6 +67,7 @@ def check_brief(brief: object) -> list[str]:
         out.append(
             f"brief: money.model {money.get('model')!r} is not one of {', '.join(MONEY)}"
         )
+    out += risk_screen.validate(brief)
     decisions = brief.get("decisions")
     if not isinstance(decisions, list):
         return [

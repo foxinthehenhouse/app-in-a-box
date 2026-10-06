@@ -1,0 +1,45 @@
+{
+  "app": {"name": "Sample Steps", "one_liner": "Parents see where their kids are on a map after school"},
+  "users": [{"who": "parents of primary-school children", "moment": "3:30pm, wondering if they got to after-school club", "pain": "texting other parents to ask"}],
+  "context": {"frequency": "school days", "where": "at work, on the phone"},
+  "core_loop": {"trigger": "school ends", "action": "the child checks in at a place", "feedback": "the parent sees the check-in", "return": "peace of mind every afternoon"},
+  "payoff": {"first_session": "relief: the first check-in lands", "moment": "the check-in appearing"},
+  "social": {"shape": "shared", "cold_start": "useful with one parent and one child"},
+  "distribution": {"first_100": "school parent groups", "channels": ["invite"]},
+  "money": {"model": "free"},
+  "v1_features": ["child checks in at a saved place", "parent sees the last check-in"],
+  "constraints": {"platforms": ["ios", "android"], "accounts": "email_otp", "sensitive": ["children", "location"]},
+  "decisions": [
+    {"id": "platforms", "question": "Which phones?", "answer": "iPhone and Android", "status": "default", "ask_at": "shape", "why": "build profiles"},
+    {"id": "minors.age", "question": "Will children use it themselves?", "answer": "yes, ages 8-12, on their own phone", "status": "asked", "ask_at": "shape", "why": "COPPA consent and the account model"},
+    {"id": "risk.consent", "question": "Who agrees, and can the child see it's on?", "answer": "a parent sets up the child's profile; the child always sees who can see their check-ins", "status": "asked", "ask_at": "shape", "why": "the account model and stalkerware line"},
+    {"id": "location.visibility", "question": "Live location or last check-in?", "answer": "last check-in only, at saved places, visible to the parents the guardian added", "status": "default", "ask_at": "shape", "why": "no background location"},
+    {"id": "location.retention", "question": "How long is a location kept?", "answer": null, "status": "deferred", "ask_at": "first-feature", "why": "latest point only unless there's a reason"},
+    {"id": "minors.contact", "question": "Can anyone else contact the child?", "answer": null, "status": "deferred", "ask_at": "first-feature", "why": "default no"}
+  ],
+  "risk": {
+    "tier": "high",
+    "categories": [
+      {"id": "minors", "why": "children aged 8-12 use it", "source": "inferred"},
+      {"id": "location", "why": "shows a child's check-in location to parents", "source": "inferred"}
+    ],
+    "questions": [
+      {"id": "minors.age", "category": "minors", "status": "asked", "answer": "ages 8-12, on their own phone"},
+      {"id": "minors.consent", "category": "minors", "status": "asked", "answer": "a parent sets up the child's profile", "decision": "risk.consent"},
+      {"id": "location.consent", "category": "location", "status": "asked", "answer": "the child always sees who can see their check-ins", "decision": "risk.consent"},
+      {"id": "location.visibility", "category": "location", "status": "default", "answer": "last check-in only, at saved places"},
+      {"id": "location.retention", "category": "location", "status": "deferred"},
+      {"id": "minors.contact", "category": "minors", "status": "deferred"}
+    ],
+    "abuse_cases": [
+      {"actor": "a non-custodial parent", "harm": "locates the child against a court order", "mitigation": "only the guardian who set up the profile adds viewers; every viewer is listed on the child's screen and to the other guardian"}
+    ],
+    "accepted": [
+      {"item": "minors", "by": "owner", "on": "2026-10-06", "note": "children use it with a parent-owned profile and verifiable consent"},
+      {"item": "location", "by": "owner", "on": "2026-10-06", "note": "check-ins only, no background location"}
+    ],
+    "screened_at": "shape",
+    "declined": []
+  },
+  "open_questions": []
+}
