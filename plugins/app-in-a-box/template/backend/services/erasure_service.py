@@ -27,7 +27,11 @@ so a failure is logged and written to the audit trail as `account.erasure_failed
 (target: the vendor), which is the to-do list for a manual follow-up. Each vendor call
 is idempotent, so a retried deletion repeats them safely.
 
-The HTTP client takes an injectable httpx transport so tests never hit a real vendor.
+Both go through backend/http.py (timeout, jittered retries, a circuit breaker per
+vendor), with an injectable transport so tests never hit a real vendor. A 5xx is retried
+for every call here: Sentry's search is a GET and its delete a DELETE, and PostHog's
+bulk_delete is a POST that is safe to repeat (deleting a person who is already gone is a
+no-op we treat as success), so it is sent with `idempotent=True`.
 """
 
 from __future__ import annotations
@@ -35,8 +39,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import httpx
-
+from backend import http as outbound
 from backend.config import env, feature_missing
 
 logger = logging.getLogger(__name__)
@@ -104,22 +107,25 @@ def purge_storage(db: Any, user_id: str) -> int:
 # ---- PostHog + Sentry ---------------------------------------------------------------
 
 
-def _client(transport: httpx.BaseTransport | None, base_url: str, token: str) -> httpx.Client:
-    return httpx.Client(
+def _client(
+    transport: outbound.Transport | None, name: str, base_url: str, token: str
+) -> outbound.Client:
+    return outbound.client(
+        name,
+        timeout=TIMEOUT,
         base_url=base_url.rstrip("/"),
         headers={"Authorization": f"Bearer {token}"},
-        timeout=TIMEOUT,
         transport=transport,
     )
 
 
-def _check(vendor: str, resp: httpx.Response, *, ok_404: bool = False) -> None:
+def _check(vendor: str, resp: outbound.Response, *, ok_404: bool = False) -> None:
     if resp.is_success or (ok_404 and resp.status_code == 404):
         return
     raise ErasureError(f"{vendor} answered HTTP {resp.status_code}")
 
 
-def delete_posthog_person(user_id: str, transport: httpx.BaseTransport | None = None) -> bool:
+def delete_posthog_person(user_id: str, transport: outbound.Transport | None = None) -> bool:
     """Delete the PostHog person with this distinct id, and their events.
 
     False (and no request) when the feature is unconfigured; True once PostHog accepted
@@ -127,19 +133,23 @@ def delete_posthog_person(user_id: str, transport: httpx.BaseTransport | None = 
     if feature_missing(POSTHOG_FEATURE):
         return False
     project = env("POSTHOG_PROJECT_ID")
-    with _client(transport, env("POSTHOG_API_HOST"), env("POSTHOG_ERASURE_KEY")) as http:
+    with _client(
+        transport, "posthog-erasure", env("POSTHOG_API_HOST"), env("POSTHOG_ERASURE_KEY")
+    ) as http:
         try:
+            # A POST, but repeating it is harmless: a 5xx may be retried.
             resp = http.post(
                 f"/api/projects/{project}/persons/bulk_delete/",
                 json={"distinct_ids": [user_id], "delete_events": True},
+                idempotent=True,
             )
-        except httpx.HTTPError as exc:
+        except outbound.HTTPError as exc:
             raise ErasureError(f"PostHog unreachable ({type(exc).__name__})") from exc
         _check("PostHog", resp, ok_404=True)
     return True
 
 
-def purge_sentry_user(user_id: str, transport: httpx.BaseTransport | None = None) -> int | None:
+def purge_sentry_user(user_id: str, transport: outbound.Transport | None = None) -> int | None:
     """Delete every Sentry issue tagged with this user, in each configured project.
 
     None (and no request) when unconfigured; else the number of issues deleted."""
@@ -149,7 +159,10 @@ def purge_sentry_user(user_id: str, transport: httpx.BaseTransport | None = None
     projects = [p.strip() for p in env("SENTRY_PROJECTS").split(",") if p.strip()]
     deleted = 0
     with _client(
-        transport, env("SENTRY_API_URL") or "https://sentry.io", env("SENTRY_ERASURE_TOKEN")
+        transport,
+        "sentry-erasure",
+        env("SENTRY_API_URL") or "https://sentry.io",
+        env("SENTRY_ERASURE_TOKEN"),
     ) as http:
         for project in projects:
             deleted += _purge_sentry_project(
@@ -158,7 +171,7 @@ def purge_sentry_user(user_id: str, transport: httpx.BaseTransport | None = None
     return deleted
 
 
-def _purge_sentry_project(http: httpx.Client, path: str, user_id: str) -> int:
+def _purge_sentry_project(http: outbound.Client, path: str, user_id: str) -> int:
     """Search, delete what the page held, search again: the list is paged (100 a page)
     and a deleted issue drops out of the next search. Sentry deletes asynchronously, so
     an issue it accepted may still be listed: a page with nothing new means done. And
@@ -173,8 +186,8 @@ def _purge_sentry_project(http: httpx.Client, path: str, user_id: str) -> int:
             ids = [str(i["id"]) for i in found.json() if "id" in i and str(i["id"]) not in seen]
             if not ids:
                 return len(seen)
-            _check("Sentry", http.delete(path, params=[("id", i) for i in ids]))
+            _check("Sentry", http.request("DELETE", path, params=[("id", i) for i in ids]))
             seen.update(ids)
-    except httpx.HTTPError as exc:
+    except outbound.HTTPError as exc:
         raise ErasureError(f"Sentry unreachable ({type(exc).__name__})") from exc
     raise ErasureError(f"Sentry still lists issues for the user after {SENTRY_MAX_PAGES} pages")

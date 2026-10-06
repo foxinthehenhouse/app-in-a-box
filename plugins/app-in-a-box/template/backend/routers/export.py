@@ -104,7 +104,14 @@ EXPORTERS: dict[str, Reader] = {
 }
 
 # Tables keyed to auth.users that are deliberately NOT exported, with the reason.
-NOT_EXPORTED: dict[str, str] = {}
+NOT_EXPORTED: dict[str, str] = {
+    "idempotency_keys": (
+        "a day-long replay cache of the caller's own recent write responses "
+        "(backend/idempotency.py): request bookkeeping, not something the user created, and "
+        "every value in a stored response is a copy of a row already exported from its own "
+        "table. Deleted with the account (cascade) and pruned daily."
+    ),
+}
 
 
 def _read_all(reader: Reader, db: Any, user_id: str) -> list[dict[str, Any]]:

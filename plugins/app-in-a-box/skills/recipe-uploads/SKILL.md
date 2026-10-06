@@ -21,7 +21,7 @@ avatar needs its own bucket and its own policy review), and how long files are k
 | Piece | Where (in the app) |
 |---|---|
 | Bucket + RLS | `supabase/migrations/<now>_uploads.sql`: private `uploads` bucket with `file_size_limit` + `allowed_mime_types`; `storage.objects` policies (select/insert/update/delete only where `bucket_id = 'uploads'` and the first folder is `auth.uid()`); `public.uploads` table (RLS, read-own); `record_upload()` (service role only) records size and type from `storage.objects.metadata`, never from the client |
-| API | `backend/routers/uploads.py`: `POST /api/v1/uploads` (ticket), `POST /api/v1/uploads/{id}/complete`, `GET /api/v1/uploads`, `DELETE /api/v1/uploads/{id}`, each rate limited; logic in `backend/services/uploads_service.py` |
+| API | `backend/routers/uploads.py`: `POST /api/v1/uploads` (ticket), `POST /api/v1/uploads/{id}/complete`, `GET /api/v1/uploads`, `DELETE /api/v1/uploads/{id}`, each rate limited, the POSTs idempotent; logic in `backend/services/uploads_service.py` |
 | Account deletion | `"uploads"` added to `USER_FILE_BUCKETS` in `backend/services/erasure_service.py`, so `DELETE /api/v1/me` (`purge_storage()`) lists the user's folder in Storage and removes every object (completed or not) BEFORE the auth user goes; a Storage error fails the deletion instead of orphaning files |
 | Data export | an `uploads` reader in `backend/routers/export.py`: every row, each with a signed download link valid for a week |
 | Mobile | `lib/uploads.ts` (`useImageUpload()`: pick with expo-image-picker, PUT with progress, retry from the step that failed, `imageUploaded` success/failure analytics), `components/ui/ImageUpload.tsx`, adapters + `*Wire` types in `lib/api.ts`, demo routes, `uploads.*` strings |

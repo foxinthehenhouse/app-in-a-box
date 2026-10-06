@@ -103,6 +103,16 @@ def test_posthog_unreachable_raises(monkeypatch: pytest.MonkeyPatch) -> None:
         es.delete_posthog_person("u1", transport=httpx.MockTransport(down))
 
 
+def test_posthog_5xx_is_retried_because_the_delete_is_safe_to_repeat(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _posthog_env(monkeypatch)
+    answers = iter([502, 202])
+    vendor = Vendor(lambda r: httpx.Response(next(answers)))
+    assert es.delete_posthog_person("u1", transport=vendor.transport) is True
+    assert [r.method for r in vendor.requests] == ["POST", "POST"]
+
+
 # ---- Sentry -------------------------------------------------------------------------
 
 
@@ -185,6 +195,24 @@ def test_sentry_search_that_never_runs_dry_is_bounded(monkeypatch: pytest.Monkey
     assert len(endless.requests) == 2 * es.SENTRY_MAX_PAGES
 
 
+def test_sentry_delete_5xx_is_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    _sentry_env(monkeypatch)
+    monkeypatch.setenv("SENTRY_PROJECTS", "penny-api")
+    api = SentryAPI({"penny-api": [("1", "u1")]})
+    failed: list[bool] = []
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        if request.method == "DELETE" and not failed:
+            failed.append(True)
+            return httpx.Response(503)
+        return api.respond(request)
+
+    vendor = Vendor(flaky)
+    assert es.purge_sentry_user("u1", transport=vendor.transport) == 1
+    assert [r.method for r in vendor.requests] == ["GET", "DELETE", "DELETE", "GET"]
+    assert api.issues["penny-api"] == []
+
+
 def test_sentry_region_url_is_honoured(monkeypatch: pytest.MonkeyPatch) -> None:
     _sentry_env(monkeypatch)
     monkeypatch.setenv("SENTRY_API_URL", "https://de.sentry.io")
@@ -259,7 +287,9 @@ def test_storage_refuses_anything_but_a_bare_user_id(buckets: FakeDB, bad: str) 
 def _wire_vendors(monkeypatch: pytest.MonkeyPatch, transport: httpx.BaseTransport) -> None:
     """Route the service's real HTTP client to a fake transport."""
     real = es._client
-    monkeypatch.setattr(es, "_client", lambda _t, base, token: real(transport, base, token))
+    monkeypatch.setattr(
+        es, "_client", lambda _t, name, base, token: real(transport, name, base, token)
+    )
 
 
 def _delete(db: FakeDB, user: str = "u1") -> httpx.Response:

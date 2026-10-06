@@ -3,7 +3,7 @@
     audit_service.record(db, user.id, "data.export")
     audit_service.record(db, admin.id, "role.change", target=member_id)
 
-Rows land in `public.audit_events` (supabase/migrations/20261005120000_audit_events.sql):
+Rows land in `public.audit_events` (supabase/migrations/20261005120100_audit_events.sql):
 service role only, and a trigger refuses every UPDATE, DELETE and TRUNCATE, so what is
 written here stays written. Each row carries the actor (the verified caller's id, or
 None for a system job), the action, an optional target, the request id (the same one

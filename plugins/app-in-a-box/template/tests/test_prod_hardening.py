@@ -249,6 +249,47 @@ def test_rate_limiter_can_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
     assert client_for(db).patch("/api/v1/me", json={}).status_code == 503
 
 
+def test_429_carries_ratelimit_and_policy_headers() -> None:
+    db = FakeDB({"profiles": []})
+    client = client_for(db, "u1")
+    ok = client.patch("/api/v1/me", json={})
+    assert "ratelimit" not in ok.headers  # only on the 429
+    for _ in range(30):
+        client.patch("/api/v1/me", json={})
+    h = client.patch("/api/v1/me", json={}).headers
+    assert h["ratelimit-policy"] == '"me.update";q=30;w=60'
+    m = re.fullmatch(r'"me\.update";r=0;t=(\d+)', h["ratelimit"])
+    assert m and m.group(1) == h["retry-after"]
+
+
+def test_ratelimit_header_names_are_structured_field_strings() -> None:
+    h = ratelimit.limit_headers('we"ird\\name', 5, 3600, 12)
+    assert h == {
+        "Retry-After": "12",
+        "RateLimit-Policy": '"we\\"ird\\\\name";q=5;w=3600',
+        "RateLimit": '"we\\"ird\\\\name";r=0;t=12',
+    }
+
+
+def test_cors_lets_a_browser_client_send_and_read_the_reliability_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CORS_ORIGINS", "https://app.example.com")
+    client = TestClient(create_app())
+    pre = client.options(
+        "/api/v1/me",
+        headers={
+            "Origin": "https://app.example.com",
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": "idempotency-key",
+        },
+    )
+    assert pre.status_code == 200, pre.text
+    exposed = client.get("/health", headers={"Origin": "https://app.example.com"}).headers
+    for name in ("RateLimit", "RateLimit-Policy", "Retry-After", "Idempotent-Replayed"):
+        assert name in exposed["access-control-expose-headers"], name
+
+
 def test_retry_after_counts_to_window_end() -> None:
     assert ratelimit.retry_after(60, now=120.0) == 60
     assert ratelimit.retry_after(60, now=179.5) == 1
@@ -310,6 +351,11 @@ CACHED_SINGLETONS: dict[str, str] = {
     "backend/db.py:_client": (
         "one Supabase client per worker: a connection object carrying the service key and "
         "nothing about any request or user"
+    ),
+    "backend/http.py:_breaker": (
+        "one circuit breaker per upstream per worker: it counts this process's recent "
+        "failures calling that host and nothing about any user or request; a worker that "
+        "hasn't seen the failures learns them itself within FAILURE_THRESHOLD calls"
     ),
 }
 

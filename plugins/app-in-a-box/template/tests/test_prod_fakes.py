@@ -50,6 +50,58 @@ class FakeAPIError(Exception):
         self.message = message or code
 
 
+def _split(expr: str) -> list[str]:
+    """Split on top-level commas (not inside parentheses or double quotes)."""
+    parts, depth, quoted, cur = [], 0, False, ""
+    i = 0
+    while i < len(expr):
+        c = expr[i]
+        if c == "\\" and quoted:
+            cur += expr[i : i + 2]
+            i += 2
+            continue
+        if c == '"':
+            quoted = not quoted
+        elif not quoted and c in "()":
+            depth += 1 if c == "(" else -1
+        if c == "," and depth == 0 and not quoted:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += c
+        i += 1
+    return [*parts, cur]
+
+
+def _parse_or(expr: str) -> list[Any]:
+    """-> a list of terms; a term is (col, op, value) or ("and", [terms])."""
+    terms: list[Any] = []
+    for part in _split(expr):
+        if part.startswith("and(") and part.endswith(")"):
+            terms.append(("and", _parse_or(part[4:-1])))
+            continue
+        col, op, value = part.split(".", 2)
+        if value.startswith('"'):
+            value = value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+        terms.append((col, op, value))
+    return terms
+
+
+def _term(row: dict[str, Any], term: Any) -> bool:
+    if term[0] == "and":
+        return all(_term(row, t) for t in term[1])
+    col, op, value = term
+    have = row.get(col)
+    if have is None:
+        return False
+    a, b = str(have), str(value)
+    return {"eq": a == b, "gt": a > b, "lt": a < b}[op]
+
+
+def _any_term(row: dict[str, Any], terms: Any) -> bool:
+    return any(_term(row, t) for t in terms)
+
+
 class Result:
     def __init__(self, data: Any) -> None:
         self.data = data
@@ -100,6 +152,15 @@ class FakeQuery:
         self.filters.append(("lt", col, val))
         return self
 
+    def gt(self, col: str, val: Any) -> FakeQuery:
+        self.filters.append(("gt", col, val))
+        return self
+
+    def or_(self, expr: str) -> FakeQuery:
+        """PostgREST's `or=(...)`: `a.gt."x",and(a.eq."x",b.gt."y")` (what keyset() sends)."""
+        self.filters.append(("or", "", _parse_or(expr)))
+        return self
+
     def is_(self, col: str, val: str) -> FakeQuery:
         self.filters.append(("is", col, val))
         return self
@@ -125,6 +186,10 @@ class FakeQuery:
             if kind == "lt" and not (row.get(col) is not None and str(row[col]) < str(val)):
                 return False
             if kind == "is" and val == "null" and row.get(col) is not None:
+                return False
+            if kind == "gt" and not (row.get(col) is not None and str(row[col]) > str(val)):
+                return False
+            if kind == "or" and not _any_term(row, val):
                 return False
         return True
 
@@ -278,6 +343,33 @@ class FakeDB:
     def _rpc_rate_limit_hit(self, p_key: str, p_window_seconds: int) -> int:
         self.counters[p_key] = self.counters.get(p_key, 0) + 1
         return self.counters[p_key]
+
+    def _rpc_idempotency_claim(
+        self,
+        p_user_id: str,
+        p_key: str,
+        p_fingerprint: str,
+        p_stale_seconds: int,
+        p_ttl_seconds: int,
+    ) -> list[dict[str, Any]]:
+        """No clock here: expiry and stale takeover are covered by the SQL integration test."""
+        rows = self.tables.setdefault("idempotency_keys", [])
+        row = next((r for r in rows if r["user_id"] == p_user_id and r["key"] == p_key), None)
+        if row is None:
+            rows.append({"user_id": p_user_id, "key": p_key, "fingerprint": p_fingerprint,
+                         "response_status": None, "response_body": None,
+                         "response_content_type": None})  # fmt: skip
+            return [{"claimed": True, "stored_fingerprint": p_fingerprint, "stored_status": None,
+                     "stored_body": None, "stored_content_type": None}]  # fmt: skip
+        return [
+            {
+                "claimed": False,
+                "stored_fingerprint": row["fingerprint"],
+                "stored_status": row.get("response_status"),
+                "stored_body": row.get("response_body"),
+                "stored_content_type": row.get("response_content_type"),
+            }
+        ]
 
     def _rpc_register_push_token(
         self, p_user_id: str, p_token: str, p_platform: str | None, p_max_tokens: int

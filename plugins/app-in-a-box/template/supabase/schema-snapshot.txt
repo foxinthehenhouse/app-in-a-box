@@ -16,6 +16,25 @@ table audit_events rls=on
   grant anon: none
   grant authenticated: none
   grant service_role: select,insert
+table idempotency_keys rls=on
+  column user_id uuid not null
+  column key text not null
+  column fingerprint text not null
+  column created_at timestamp with time zone not null default now()
+  column response_status integer
+  column response_body text
+  column response_content_type text
+  column completed_at timestamp with time zone
+  constraint idempotency_keys_fingerprint_check: CHECK ((char_length(fingerprint) = 64))
+  constraint idempotency_keys_key_check: CHECK (((char_length(key) >= 8) AND (char_length(key) <= 128)))
+  constraint idempotency_keys_pkey: PRIMARY KEY (user_id, key)
+  constraint idempotency_keys_response_status_check: CHECK (((response_status >= 200) AND (response_status <= 299)))
+  constraint idempotency_keys_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+  index CREATE INDEX idempotency_keys_created_idx ON public.idempotency_keys USING btree (created_at)
+  index CREATE UNIQUE INDEX idempotency_keys_pkey ON public.idempotency_keys USING btree (user_id, key)
+  grant anon: none
+  grant authenticated: none
+  grant service_role: select,insert,update,delete
 table job_runs rls=on
   column job text not null
   column run_key text not null
@@ -100,6 +119,8 @@ function audit_events_append_only() returns trigger language plpgsql set search_
   execute: anon,authenticated,service_role
 function handle_new_user() returns trigger language plpgsql security definer set search_path="" body:3519e3cb192208fc036f5a9d6bb2f1d5
   execute: anon,authenticated,service_role
+function idempotency_claim(p_user_id uuid, p_key text, p_fingerprint text, p_stale_seconds integer, p_ttl_seconds integer) returns TABLE(claimed boolean, stored_fingerprint text, stored_status integer, stored_body text, stored_content_type text) language plpgsql security definer set search_path="" body:8f354fa64218da1875521a441054415c
+  execute: service_role
 function rate_limit_hit(p_key text, p_window_seconds integer) returns integer language plpgsql security definer set search_path="" body:c84dd3892747ab3495b7b7388c335151
   execute: service_role
 function register_push_token(p_user_id uuid, p_token text, p_platform text, p_max_tokens integer) returns void language plpgsql security definer set search_path="" body:d9888fc6187921e69c2e2efaeb5a7a1e
