@@ -834,13 +834,19 @@ def _column_waived(sql: str, col: str, pack: str) -> bool:
 # ---- ugc ---------------------------------------------------------------------------
 
 
+# Template tables the data map files under `ugc` for the store answers, but that hold no
+# content other users can see: idempotency_keys.response_body replays a save's own answer
+# to the phone that retried it, for 24 hours. Reporting and blocking have nothing to act on.
+_NOT_SHARED_CONTENT = {"idempotency_keys"}
+
+
 def ugc_tables(root: Path, data_map: dict) -> list[str]:
     found = set()
     for table in tables(root):
         if UGC_TABLE.match(table):
             found.add(table)
     for table, cols in mapped_columns(data_map).items():
-        if "ugc" in cols.values():
+        if "ugc" in cols.values() and table not in _NOT_SHARED_CONTENT:
             found.add(table)
     return sorted(found)
 
