@@ -20,6 +20,11 @@ from backend.config import (  # noqa: E402
     feature_missing,
     is_production,
 )
+from backend.idempotency import (  # noqa: E402
+    IdempotencyMiddleware,
+    IdempotentReplay,
+    replay_response,
+)
 from backend.middleware import RequestContextMiddleware  # noqa: E402
 from backend.observability import (  # noqa: E402
     capture_exception,
@@ -74,13 +79,24 @@ def create_app() -> FastAPI:
             "Authorization",
             "Content-Type",
             "X-Request-ID",
+            "Idempotency-Key",
             "traceparent",
             "sentry-trace",
         ],
-        expose_headers=["X-Request-ID", "Retry-After"],
+        expose_headers=[
+            "X-Request-ID",
+            "Retry-After",
+            "RateLimit",
+            "RateLimit-Policy",
+            "Idempotent-Replayed",
+        ],
         allow_credentials=False,
     )
+    # Inside the request-id middleware: holds a claimed idempotent write's response until
+    # it is stored (backend/idempotency.py). Untouched requests pass straight through.
+    app.add_middleware(IdempotencyMiddleware)
     app.add_middleware(RequestContextMiddleware, hsts=prod)  # outermost: ids every request
+    app.add_exception_handler(IdempotentReplay, replay_response)
 
     @app.exception_handler(Exception)
     async def unhandled(request: Request, exc: Exception) -> JSONResponse:

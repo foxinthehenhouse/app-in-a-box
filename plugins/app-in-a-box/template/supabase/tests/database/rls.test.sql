@@ -11,7 +11,7 @@
 -- cases here and bump plan().
 begin;
 create extension if not exists pgtap;
-select plan(13);
+select plan(15);
 
 insert into auth.users (id, email) values
   ('11111111-1111-4111-8111-111111111111', 'a@example.com'),
@@ -67,6 +67,13 @@ select throws_ok(
   'an authenticated user cannot read keep_alive (service role only)'
 );
 
+select throws_ok(
+  $$ select * from public.idempotency_keys $$,
+  '42501',
+  null,
+  'an authenticated user cannot read idempotency_keys (service role only)'
+);
+
 -- ---- as anon (the key inside every app binary) --------------------------------------------
 reset role;
 set local role anon;
@@ -86,6 +93,14 @@ select throws_ok(
   '42501',
   null,
   'anon cannot write keep_alive'
+);
+
+select throws_ok(
+  $$ insert into public.idempotency_keys (user_id, key, fingerprint)
+     values ('11111111-1111-4111-8111-111111111111', 'anon-key-1', repeat('a', 64)) $$,
+  '42501',
+  null,
+  'anon cannot write idempotency_keys'
 );
 
 -- ---- back as the superuser: check what the attempts above actually changed ----------------

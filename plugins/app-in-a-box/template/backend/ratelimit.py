@@ -12,6 +12,12 @@ this dependency's signature so call sites don't change.
 
     @router.post("/things", dependencies=[Depends(rate_limit("things.create", 30))])
 
+A 429 says when to come back, three ways: `Retry-After` (seconds, the classic), and the
+IETF RateLimit fields (draft-ietf-httpapi-ratelimit-headers), `RateLimit-Policy:
+"things.create";q=30;w=60` (the quota and window) and `RateLimit: "things.create";r=0;t=12`
+(remaining, and seconds until it resets). Only on the 429: putting them on every
+response would cost a header per write for numbers nobody reads until they're blocked.
+
 ⚖️ Fail-open: if the counter itself errors (DB hiccup), the request is allowed and a
 warning is logged, because a limiter outage shouldn't take down every write. Flip
 `FAIL_OPEN` to fail closed if abuse costs you more than downtime does.
@@ -48,6 +54,21 @@ def retry_after(window_seconds: int, now: float | None = None) -> int:
     return max(1, window_seconds - int(now) % window_seconds)
 
 
+def _sf_string(value: str) -> str:
+    """An RFC 9651 structured-field string: quoted, with `\\` and `"` escaped."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def limit_headers(bucket: str, limit: int, window_seconds: int, reset: int) -> dict[str, str]:
+    """The 429's headers: Retry-After plus the IETF RateLimit / RateLimit-Policy fields."""
+    name = _sf_string(bucket)
+    return {
+        "Retry-After": str(reset),
+        "RateLimit-Policy": f"{name};q={limit};w={window_seconds}",
+        "RateLimit": f"{name};r=0;t={reset}",
+    }
+
+
 def rate_limit(bucket: str, limit: int, window_seconds: int = 60) -> Callable[..., None]:
     """Dependency factory: at most `limit` calls per user per `window_seconds`."""
     if limit < 1 or window_seconds < 1:
@@ -76,7 +97,7 @@ def rate_limit(bucket: str, limit: int, window_seconds: int = 60) -> Callable[..
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 "rate_limited",
-                headers={"Retry-After": str(retry_after(window_seconds))},
+                headers=limit_headers(bucket, limit, window_seconds, retry_after(window_seconds)),
             )
 
     return dependency

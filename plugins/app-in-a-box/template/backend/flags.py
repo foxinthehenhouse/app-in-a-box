@@ -12,7 +12,10 @@ Resolution, first answer wins:
    is the problem. A Railway variable change redeploys in a minute or two.
 2. PostHog, when POSTHOG_API_KEY is set and the call names a user. One HTTP call per
    `flag()` (no cache: the API runs several workers, and a per-process cache would
-   disagree with itself), with a short timeout. Call it once per request, not in a loop.
+   disagree with itself) through backend/http.py with a 1s timeout and no retry, so a
+   dead PostHog costs a request at most about a second; after a few failures the
+   circuit opens and lookups skip PostHog entirely. Call it once per request, not in a
+   loop.
 3. The registered default. Without a key (dev, demo, an app without analytics) every
    flag is its default, so nothing depends on PostHog being reachable.
 
@@ -27,14 +30,17 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
-import httpx
-
+from backend import http as outbound
 from backend.config import env, feature_missing
 
 logger = logging.getLogger(__name__)
 
 FEATURE: Final = "feature flags (PostHog)"
 TIMEOUT_SECONDS: Final = 1.0
+UPSTREAM: Final = "posthog-flags"  # the circuit breaker's name in backend/http.py
+
+# Tests set this to an httpx.MockTransport; None sends for real.
+_transport: outbound.Transport | None = None
 
 
 @dataclass(frozen=True)
@@ -81,14 +87,17 @@ def _coerce(spec: Flag, value: object) -> bool | str | None:
 def _from_posthog(name: str, distinct_id: str) -> object:
     host = (env("POSTHOG_HOST") or "https://us.i.posthog.com").rstrip("/")
     try:
-        resp = httpx.post(
+        resp = outbound.post(
+            UPSTREAM,
             f"{host}/flags/?v=2",
             json={"api_key": env("POSTHOG_API_KEY"), "distinct_id": distinct_id},
             timeout=TIMEOUT_SECONDS,
+            attempts=1,  # a flag is never worth a retry: the default is a fine answer
+            transport=_transport,
         )
         resp.raise_for_status()
         detail = (resp.json().get("flags") or {}).get(name)
-    except Exception as exc:  # PostHog down must never take the API down
+    except Exception as exc:  # PostHog down (or its circuit open) must never take the API down
         logger.warning(
             "flag %s: PostHog unavailable (%s); using the default", name, type(exc).__name__
         )

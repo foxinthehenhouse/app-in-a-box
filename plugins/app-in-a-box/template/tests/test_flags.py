@@ -13,6 +13,7 @@ import httpx
 import pytest
 
 from backend import flags
+from backend import http as outbound
 from backend.services import push_service as ps
 from tests.test_prod_fakes import FakeDB
 
@@ -31,14 +32,18 @@ TODAY = dt.date(2026, 10, 5)
 def _posthog(monkeypatch: pytest.MonkeyPatch, handler: Any) -> list[dict[str, Any]]:
     """Route flags.py's PostHog call through `handler(request) -> httpx.Response`."""
     seen: list[dict[str, Any]] = []
-    transport = httpx.MockTransport(handler)
 
-    def post(url: str, **kw: Any) -> httpx.Response:
-        seen.append({"url": url, **kw})
-        with httpx.Client(transport=transport) as client:
-            return client.post(url, json=kw.get("json"), timeout=kw.get("timeout"))
+    def record(request: httpx.Request) -> httpx.Response:
+        seen.append(
+            {
+                "url": str(request.url),
+                "json": json.loads(request.content),
+                "timeout": request.extensions.get("timeout", {}).get("read"),
+            }
+        )
+        return handler(request)
 
-    monkeypatch.setattr(flags.httpx, "post", post)
+    monkeypatch.setattr(flags, "_transport", httpx.MockTransport(record))
     monkeypatch.setenv("POSTHOG_API_KEY", "phc_test")
     return seen
 
@@ -84,6 +89,24 @@ def test_posthog_down_falls_back_to_the_default(
 ) -> None:
     _posthog(monkeypatch, handler)
     assert flags.flag("kill-push", "u1") is False
+
+
+def test_a_dead_posthog_is_tried_once_not_retried(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(r: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("refused", request=r)
+
+    seen = _posthog(monkeypatch, refuse)
+    assert flags.flag("kill-push", "u1") is False
+    assert len(seen) == 1, "a flag lookup must cost at most one timeout"
+
+
+def test_an_open_circuit_falls_back_without_calling(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen = _posthog(monkeypatch, lambda _r: httpx.Response(503))
+    for _ in range(outbound.FAILURE_THRESHOLD):
+        assert flags.flag("kill-push", "u1") is False
+    calls = len(seen)
+    assert flags.flag("kill-push", "u1") is False
+    assert len(seen) == calls, "the open circuit should skip PostHog"
 
 
 def test_no_user_means_no_posthog_call(monkeypatch: pytest.MonkeyPatch) -> None:

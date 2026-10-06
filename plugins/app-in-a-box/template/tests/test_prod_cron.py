@@ -208,8 +208,13 @@ def test_prune_rate_limits_deletes_only_old_windows(monkeypatch: pytest.MonkeyPa
             "rate_limits": [
                 {"key": "a", "window_start": "2020-01-01T00:00:00+00:00", "count": 1},
                 {"key": "b", "window_start": "2999-01-01T00:00:00+00:00", "count": 1},
-            ]
+            ],
+            "idempotency_keys": [
+                {"user_id": "u1", "key": "old-key-1", "created_at": "2020-01-01T00:00:00+00:00"},
+                {"user_id": "u1", "key": "new-key-1", "created_at": "2999-01-01T00:00:00+00:00"},
+            ],
         }
     )
     assert _cron(db).post(JOBS[2], headers={"X-Cron-Secret": SECRET}).status_code == 200
     assert [r["key"] for r in db.tables["rate_limits"]] == ["b"]
+    assert [r["key"] for r in db.tables["idempotency_keys"]] == ["new-key-1"]
