@@ -1,0 +1,30 @@
+# Search (recipe-search): typing finds the demo items, a miss says so, and clearing the
+# field goes back to the idle hint. Runs against demo mode's seeded items (lib/demo.ts).
+appId: __BUNDLE_ID__
+tags:
+  - demo
+---
+- runFlow: common/signin-demo.yaml
+- tapOn:
+    id: "tab-search"
+- assertVisible:
+    id: "search-screen"
+- assertVisible:
+    id: "search-idle"
+- tapOn:
+    id: "search-input"
+- inputText: "garden"
+- extendedWaitUntil:
+    visible:
+      id: "search-results"
+    timeout: 5000
+- eraseText: 20
+- inputText: "zzqx"
+- extendedWaitUntil:
+    visible:
+      id: "search-empty"
+    timeout: 5000
+- eraseText: 20
+- assertVisible:
+    id: "search-idle"
+- takeScreenshot: search

@@ -97,6 +97,7 @@ Run through it before the first TestFlight/Play build, and again before public l
 | Subscriptions / IAP with server-side entitlements | Recipe | `recipe-payments` |
 | AI feature (fenced, capped, evaluated) | Recipe | `recipe-ai-feature` |
 | Image uploads (private bucket, signed URLs, deleted with the account) | Recipe | `recipe-uploads` |
+| Search (Postgres full-text, RLS-scoped; optional pgvector hybrid) | Recipe | `recipe-search` |
 
 ## Store review gotchas
 
