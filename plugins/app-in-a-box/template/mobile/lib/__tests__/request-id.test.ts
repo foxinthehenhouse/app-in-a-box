@@ -98,3 +98,39 @@ it("has no reference to show when offline (nothing reached the server)", async (
   expect(api.errorReference(err)).toBeNull();
   expect(api.errorReference(new Error("x"))).toBeNull();
 });
+
+// ---- W3C trace context ------------------------------------------------------
+
+const TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-00$/;
+
+it("sends a W3C traceparent whose trace id is the request id, unsampled", async () => {
+  const api = loadApi();
+  fetchMock.mockResolvedValue(respond(200, { id: "u1", displayName: "Sam", onboarded: true }));
+  await api.getMe();
+  const h = sentHeaders();
+  const m = TRACEPARENT.exec(h.traceparent ?? "");
+  expect(m).not.toBeNull();
+  expect(m?.[1]).toBe(h["X-Request-ID"]?.replace(/-/g, ""));
+  expect(m?.[2]).not.toBe("0000000000000000");
+  // The same ids in the form Sentry's Python SDK continues, with no sampling decision.
+  expect(h["sentry-trace"]).toBe(`${m?.[1]}-${m?.[2]}`);
+});
+
+it("a fresh span per request, and a caller can't override the trace", async () => {
+  const api = loadApi();
+  fetchMock.mockResolvedValue(respond(204, undefined));
+  await api.apiFetch("/api/v1/x", { method: "POST", headers: { traceparent: "00-mine-mine-01" }, body: "{}" });
+  await api.apiFetch("/api/v1/x", { method: "POST", body: "{}" });
+  const [a, b] = [sentHeaders(0).traceparent, sentHeaders(1).traceparent];
+  expect(a).toMatch(TRACEPARENT);
+  expect(b).toMatch(TRACEPARENT);
+  expect(a).not.toBe(b);
+});
+
+it("traceHeaders never sends an invalid trace id, even for an odd request id", () => {
+  const api = loadApi();
+  for (const rid of ["not-a-uuid", "00000000-0000-4000-8000-000000000000".replace(/[48]/g, "0")]) {
+    expect(api.traceHeaders(rid).traceparent).toMatch(TRACEPARENT);
+    expect(api.traceHeaders(rid).traceparent).not.toContain("0".repeat(32));
+  }
+});

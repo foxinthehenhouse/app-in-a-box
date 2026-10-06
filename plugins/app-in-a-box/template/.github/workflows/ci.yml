@@ -60,6 +60,10 @@ jobs:
         # projection of tokens.json: a hand edit there, or a token change nobody
         # regenerated, would tell every later session the wrong design.
         run: python3 scripts/design_md.py --check
+      - name: Feature flags have an owner and an expiry (mobile/lib/flags.ts, backend/flags.py)
+        # A flag nobody owns, with no date to remove it, lives forever. Expired flags only
+        # warn here (a passing date is not a code change); the `next` skill surfaces them.
+        run: python3 scripts/check_flags.py
       - name: Ruff
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)

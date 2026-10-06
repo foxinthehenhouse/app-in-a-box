@@ -115,6 +115,7 @@ export const en = {
     pushOn: "Notifications are on.",
     pushOff: "Notifications are off.",
     pushFailed: "Couldn't change notifications. Try again.",
+    pushPaused: "Notifications are paused for everyone right now. Your setting is kept.",
     privacy: "Privacy",
     analytics: "Share anonymous usage data",
     analyticsSubtitle: "Helps us improve the app. Never includes what you type.",
