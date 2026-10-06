@@ -6,11 +6,12 @@
 1. Copies `files/` into the app: new files only (an existing one is left alone and
    reported), with the migration named for the current UTC time so it sorts after
    every migration the app already has.
-2. Makes the wiring edits in files the app already has (router registration,
-   account deletion, data export, wire-contract pairs, AGENTS.md map row, the DB
-   negative control, the mobile API adapters, analytics event, demo routes, strings,
-   the expo-image-picker config plugin; and, for an app rendered before the kit
-   stubbed Storage, the Storage stubs and test fake). Snippets live in `snippets/`.
+2. Makes the wiring edits in files the app already has (router registration, the
+   bucket in erasure_service.USER_FILE_BUCKETS so account deletion empties it, data
+   export, wire-contract pairs, AGENTS.md map row, the DB negative control, the mobile
+   API adapters, analytics event, demo routes, strings, the expo-image-picker config
+   plugin; and, for an app rendered before the kit stubbed Storage, the Storage stubs
+   and test fake). Snippets live in `snippets/`.
 
 Every edit is idempotent: a file that already has it is skipped, so re-running is
 safe. Each edit is anchored on text the template ships; if the app has reworked that
@@ -103,41 +104,38 @@ def edit_main(t: str) -> str:
     )
 
 
-def edit_me(t: str) -> str:
-    t = insert_after(
-        t,
-        "from backend.ratelimit import rate_limit\n",
-        "from backend.services import uploads_service\n",
-        "backend/routers/me.py: import uploads_service",
-    )
-    m = re.search(
-        r'def _delete_user_files\(db: Any, user_id: str\) -> None:\n    """.*?"""\n',
-        t,
-        re.S,
-    )
+USER_FILE_BUCKETS = re.compile(
+    r"^USER_FILE_BUCKETS: tuple\[str, \.\.\.\] = \(([^)]*)\)$", re.M
+)
+UPLOADS_LISTED = re.compile(r'^USER_FILE_BUCKETS: [^\n]*"uploads"', re.M)
+
+
+def edit_erasure(t: str) -> str:
+    """Account deletion empties every bucket in USER_FILE_BUCKETS (purge_storage(), before
+    the auth user goes), so registering the bucket there is the whole deletion wiring."""
+    m = USER_FILE_BUCKETS.search(t)
     if not m:
         raise Missing(
-            "backend/routers/me.py: call `uploads_service.delete_user_files(db, user_id)` "
-            "inside _delete_user_files()"
+            'backend/services/erasure_service.py: add "uploads" to USER_FILE_BUCKETS'
         )
-    body = (
-        "def _delete_user_files(db: Any, user_id: str) -> None:\n"
-        '    """Storage objects do NOT cascade from auth.users: empty the caller\'s uploads\n'
-        "    folder (recipe-uploads) BEFORE the auth user goes. Raises if Storage fails, so an\n"
-        '    account is never deleted with its files left behind."""\n'
-        "    uploads_service.delete_user_files(db, user_id)\n"
-    )
-    return t[: m.start()] + body + t[m.end() :]
+    names = [n.strip() for n in m.group(1).split(",") if n.strip()] + ['"uploads"']
+    listed = ", ".join(names) + ("," if len(names) == 1 else "")  # ("uploads",) is a tuple
+    return t[: m.start(1)] + listed + t[m.end(1) :]
 
 
 def edit_export(t: str) -> str:
     what = "backend/routers/export.py"
-    t = insert_after(
-        t,
-        "from backend.routers.me import Wire\n",
-        "from backend.services import uploads_service\n",
-        what,
-    )
+    m = re.search(r"^from backend\.services import ([\w, ]+)$", t, re.M)
+    if m:  # join the existing import, kept sorted (ruff's isort)
+        names = sorted({*(n.strip() for n in m.group(1).split(",")), "uploads_service"})
+        t = t[: m.start(1)] + ", ".join(names) + t[m.end(1) :]
+    else:
+        t = insert_after(
+            t,
+            "from backend.routers.me import Wire\n",
+            "from backend.services import uploads_service\n",
+            what,
+        )
     t = insert_before(
         t,
         "# table -> scoped reader.",
@@ -291,10 +289,11 @@ def edit_app_json(t: str) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-# (path, already-applied marker, edit). A file containing its marker is skipped.
-EDITS: list[tuple[str, str, Callable[[str], str]]] = [
+# (path, already-applied marker, edit). A file containing its marker (a substring, or a
+# pattern that matches) is skipped.
+EDITS: list[tuple[str, str | re.Pattern[str], Callable[[str], str]]] = [
     ("backend/main.py", "uploads.router", edit_main),
-    ("backend/routers/me.py", "uploads_service.delete_user_files", edit_me),
+    ("backend/services/erasure_service.py", UPLOADS_LISTED, edit_erasure),
     ("backend/routers/export.py", "_read_uploads", edit_export),
     ("tests/test_wire_contract.py", "UploadTicketWire", edit_wire_contract),
     ("tests/test_prod_fakes.py", "class FakeStorage", edit_fakes),
@@ -352,7 +351,7 @@ def main(argv: list[str]) -> int:
             missing.append(f"{rel}: file not found")
             continue
         text = path.read_text(encoding="utf-8")
-        if marker in text:
+        if marker.search(text) if isinstance(marker, re.Pattern) else marker in text:
             skipped.append(rel)
             continue
         try:
