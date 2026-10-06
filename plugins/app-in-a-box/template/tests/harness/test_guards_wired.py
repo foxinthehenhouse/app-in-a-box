@@ -185,6 +185,7 @@ def test_pytest_collection_is_not_narrowed() -> None:
         "tests/harness/test_workflow_lint.py",
         "tests/harness/test_skills_lint.py",
         "tests/harness/test_hook_scripts.py",
+        "tests/harness/test_supply_chain.py",
         "supabase/tests/database/rls.test.sql",
         "supabase/ci/schema_snapshot.sql",
         "supabase/schema-snapshot.txt",

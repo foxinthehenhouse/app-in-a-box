@@ -1,6 +1,11 @@
 # Weekly, grouped dependency PRs: one PR per ecosystem per week (plus separate
 # security-fix PRs as advisories land), each gated by the same CI as any other PR.
 # Security updates also need "Dependabot security updates" on in repo settings.
+# Cooldown: a release must be 7 days old before a version-update PR proposes it (30
+# for a new major). Most malicious publishes and broken releases are caught and pulled
+# within days; this keeps them out of the PR. Security updates skip the cooldown.
+# pip PRs bump the ranges in requirements*.txt; Dependabot can't regenerate the hashed
+# lock files, so run scripts/lock-deps.sh on the branch and push (CI says so).
 # The npm entry reports "dependency file not found" until the scaffold phase has
 # created mobile/package.json; that is expected.
 version: 2
@@ -11,6 +16,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
     groups:
       python:
         patterns: ["*"]
@@ -22,6 +30,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
     # Expo pins react-native and friends to the SDK; bump those with
     # `npx expo install --fix` during an SDK upgrade, not one by one.
     ignore:
@@ -42,6 +53,9 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # Actions are pinned by SHA and rarely follow semver, so one flat cooldown.
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ["*"]
