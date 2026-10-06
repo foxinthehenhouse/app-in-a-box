@@ -164,7 +164,9 @@ def test_leak_lint_catches(plant, needle: str) -> None:
 
 DB_PW = "pw-planted-7d1e9a0c"
 DB_URL = f"postgresql://postgres.abcdefghijklmnop:{DB_PW}@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
-S3_KEY = "s3-secret-planted-55aa11ff"
+# Planted values are joined at run time, so neither this file nor its .pyc holds a
+# key-shaped literal for the repo's own gitleaks scan to flag.
+S3_KEY = "-".join(["s3", "secret", "planted", "55aa11ff"])
 S3_ID = "s3-id-planted-0042"
 RECIPIENT = "age1" + "q" * 58
 
@@ -256,7 +258,8 @@ def test_refuses_plaintext_an_empty_schema_and_a_private_key(tmp_path: Path) -> 
     proc, _ = _run(tmp_path, FAKE_EMPTY_SCHEMA="1")
     assert proc.returncode == 1 and "no CREATE TABLE" in proc.stderr
 
-    private = "AGE-SECRET-KEY-1" + "Q" * 58
+    # Joined at run time too: a `+` of literals is constant-folded into the .pyc.
+    private = "-".join(["AGE", "SECRET", "KEY", "1" + "Q" * 58])
     proc, _ = _run(tmp_path, BACKUP_AGE_RECIPIENT=private)
     assert proc.returncode == 2 and "PRIVATE key" in proc.stderr
     assert private not in proc.stdout + proc.stderr

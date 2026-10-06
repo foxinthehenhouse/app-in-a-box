@@ -89,8 +89,10 @@ def test_smtp_and_other_features_are_scoped_apart(monkeypatch) -> None:
 def test_health_status_reads_as_the_uptime_keyword(monkeypatch) -> None:
     # The uptime monitor (provision step 8) alerts when the body lacks `"status":"ok"`,
     # byte for byte. Pretty-printed or reordered JSON would page the owner all night.
-    for name in ("SUPABASE_URL", "SUPABASE_SECRET_KEY", "SENTRY_DSN"):
-        monkeypatch.setenv(name, "x")
+    # Wire every registered feature (a recipe may add its own), then unwire one.
+    for need in FEATURE_CONFIG.values():
+        for name in need:
+            monkeypatch.setenv(name if isinstance(name, str) else name[0], "x")
     assert '"status":"ok"' in TestClient(create_app()).get("/health").text
-    monkeypatch.delenv("SENTRY_DSN")
+    monkeypatch.delenv("SUPABASE_URL")
     assert '"status":"ok"' not in TestClient(create_app()).get("/health").text
