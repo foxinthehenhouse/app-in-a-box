@@ -177,6 +177,7 @@ def test_health_deep_pings_db_and_lists_optional_features(
     assert deep["status"] == "ok"
     assert deep["features_optional_unconfigured"] == {
         "scheduled jobs (cron)": ["CRON_SECRET"],
+        "feature flags (PostHog)": ["POSTHOG_API_KEY"],
         "account erasure: PostHog": ["POSTHOG_ERASURE_KEY", "POSTHOG_PROJECT_ID", "POSTHOG_API_HOST"],
         "account erasure: Sentry": ["SENTRY_ERASURE_TOKEN", "SENTRY_ORG", "SENTRY_PROJECTS"],
     }
