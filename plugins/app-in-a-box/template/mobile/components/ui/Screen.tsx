@@ -5,15 +5,20 @@
  * deprecated) and draws edge-to-edge: the background runs under the status bar
  * and home indicator, content is inset. Native tabs float over the bottom on
  * iOS 26, so the scroll view adjusts its insets automatically.
+ *
+ * Behind the content sits the frozen atmosphere (<ScreenAtmosphere>; sheets keep
+ * their plain surface), and the content arrives on the settle spring
+ * (`screenEntrance`), static under reduce motion.
  */
 import type { ReactNode } from "react";
-import { RefreshControl, ScrollView, View, type StyleProp, type ViewStyle } from "react-native";
+import { RefreshControl, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated from "react-native-reanimated";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
-import { entrance, useReducedMotion } from "../../lib/motion";
+import { entrance, screenEntrance, useReducedMotion } from "../../lib/motion";
 import { makeStyles, useTheme } from "../../lib/theme";
 import { PressableScale } from "./PressableScale";
+import { ScreenAtmosphere } from "./ScreenAtmosphere";
 import { Meta } from "./Text";
 
 export interface ScreenProps {
@@ -41,11 +46,14 @@ export function Screen({
 }: ScreenProps) {
   const t = useTheme();
   const s = useStyles();
+  const reduced = useReducedMotion();
   const bg = { backgroundColor: sheet ? t.color.surface : t.color.bg };
   return (
     <SafeAreaView style={[s.fill, bg]} edges={edges} testID={testID}>
+      {sheet ? null : <ScreenAtmosphere testID={testID ? `${testID}-atmosphere` : undefined} />}
       {scroll ? (
-        <ScrollView
+        <Animated.ScrollView
+          entering={screenEntrance(reduced)}
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
@@ -58,9 +66,11 @@ export function Screen({
           }
         >
           {children}
-        </ScrollView>
+        </Animated.ScrollView>
       ) : (
-        <View style={[s.fill, s.content]}>{children}</View>
+        <Animated.View entering={screenEntrance(reduced)} style={[s.fill, s.content]}>
+          {children}
+        </Animated.View>
       )}
     </SafeAreaView>
   );

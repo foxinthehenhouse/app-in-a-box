@@ -3,7 +3,8 @@
 Every filter really filters, so a handler that forgets `.eq("user_id", ...)` touches
 other users' rows and the test fails. `rpc()` dispatches to Python stand-ins for the
 Postgres functions (the SQL itself is exercised by test_prod_migrations.py's
-integration test against a real Postgres).
+integration test against a real Postgres). `storage` is an in-memory Storage whose
+`list()` returns only the folder asked for, so a path built from the wrong id misses.
 """
 
 from __future__ import annotations
@@ -251,6 +252,60 @@ class FakeAuth:
         self.admin = FakeAdmin()
 
 
+class FakeBucket:
+    """One Storage bucket: `db.storage.from_("x")`. Objects are `{path: metadata}`."""
+
+    def __init__(self, storage: FakeStorage, bucket: str) -> None:
+        self.storage = storage
+        self.bucket = bucket
+        self.objects = storage.objects.setdefault(bucket, {})
+
+    def create_signed_upload_url(self, path: str) -> dict[str, str]:
+        self.storage.calls.append((self.bucket, "sign_upload", path))
+        base = "https://example.supabase.co/storage/v1/object/upload/sign"
+        url = f"{base}/{self.bucket}/{path}?token=t"
+        return {"signed_url": url, "signedUrl": url, "token": "t", "path": path}
+
+    def create_signed_urls(self, paths: list[str], expires_in: int) -> list[dict[str, Any]]:
+        self.storage.calls.extend((self.bucket, "sign", p) for p in paths)
+        return [
+            {"path": p, "signedURL": f"https://cdn.example/{p}?ttl={expires_in}", "error": None}
+            for p in paths
+        ]
+
+    def list(
+        self, path: str | None = None, options: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        if self.storage.error:
+            raise self.storage.error
+        opts = options or {}
+        prefix = f"{path}/" if path else ""
+        names = sorted(
+            k[len(prefix) :]
+            for k in self.objects
+            if k.startswith(prefix) and "/" not in k[len(prefix) :]
+        )
+        start = int(opts.get("offset", 0))
+        page = names[start : start + int(opts.get("limit", 100))]
+        return [{"name": n, "id": n, "metadata": self.objects[prefix + n]} for n in page]
+
+    def remove(self, paths: list[str]) -> list[dict[str, Any]]:
+        if self.storage.error:
+            raise self.storage.error
+        self.storage.calls.extend((self.bucket, "remove", p) for p in paths)
+        return [{"name": p} for p in paths if self.objects.pop(p, None) is not None]
+
+
+class FakeStorage:
+    def __init__(self) -> None:
+        self.objects: dict[str, dict[str, dict[str, Any]]] = {}  # bucket -> path -> metadata
+        self.calls: list[tuple[str, str, str]] = []  # (bucket, op, path)
+        self.error: Exception | None = None
+
+    def from_(self, bucket: str) -> FakeBucket:
+        return FakeBucket(self, bucket)
+
+
 class FakeDB:
     def __init__(self, tables: dict[str, list[dict[str, Any]]] | None = None) -> None:
         self.tables: dict[str, list[dict[str, Any]]] = tables or {}
@@ -260,6 +315,7 @@ class FakeDB:
         self.counters: dict[str, int] = {}
         self.rpc_error: Exception | None = None
         self.auth = FakeAuth()
+        self.storage = FakeStorage()
         self._ids = itertools.count(1)
 
     def table(self, name: str) -> FakeQuery:
@@ -354,6 +410,14 @@ def test_fake_enforces_job_runs_primary_key() -> None:
     db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
     with pytest.raises(FakeAPIError):
         db.table("job_runs").insert({"job": "j", "run_key": "k"}).execute()
+
+
+def test_fake_storage_lists_only_the_folder_asked_for() -> None:
+    bucket = FakeDB().storage.from_("files")
+    bucket.objects.update({"a/1": {}, "b/2": {}, "a/sub/3": {}})
+    assert [e["name"] for e in bucket.list("a")] == ["1"]
+    bucket.remove(["b/2"])
+    assert set(bucket.objects) == {"a/1", "a/sub/3"}
 
 
 def test_fake_order_breaks_ties_with_later_keys() -> None:
