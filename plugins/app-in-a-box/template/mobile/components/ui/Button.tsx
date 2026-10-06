@@ -1,12 +1,13 @@
 /**
  * Button and IconButton. 48px minimum, a purpose label, press feedback and a
- * haptic graded by commitment: primary = "medium" (an earned action), the rest
- * "light". While `loading`, the button is busy + disabled so a mutation can't
- * double-fire.
+ * haptic graded by commitment (`hapticFor` in lib/motion.ts): primary = "medium"
+ * (an earned action), the rest "light". While `loading`, the button is busy +
+ * disabled so a mutation can't double-fire.
  */
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import type { AndroidSymbol, SFSymbol } from "expo-symbols";
 
+import { hapticFor } from "../../lib/motion";
 import { makeStyles, useTheme, type Palette } from "../../lib/theme";
 import { Icon } from "./Icon";
 import { PressableScale } from "./PressableScale";
@@ -54,7 +55,7 @@ export function Button({
     <PressableScale
       onPress={onPress}
       disabled={inactive}
-      haptic={variant === "primary" ? "medium" : "light"}
+      haptic={variant === "primary" ? hapticFor.primary : hapticFor.secondary}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: inactive, busy: loading }}
@@ -92,7 +93,7 @@ export function IconButton({ sf, md, accessibilityLabel, onPress, tone = "plain"
     <PressableScale
       onPress={onPress}
       disabled={disabled}
-      haptic="light"
+      haptic={hapticFor.secondary}
       scaleTo={0.9}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}

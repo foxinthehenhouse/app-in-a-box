@@ -30,6 +30,9 @@ RUNTIME=(
   # Native UI: @expo/ui gives the platform's own segmented control (SwiftUI / Compose,
   # Liquid Glass on iOS 26); expo-image gives cached, placeholder-first images.
   @expo/ui expo-image
+  # expo-glass-effect: Liquid Glass chrome (tab bar, sheet header) when the frozen theme
+  # chose glass surfaces; lib/atmosphere.ts falls back to solid below iOS 26.
+  expo-glass-effect
   @supabase/supabase-js @react-native-async-storage/async-storage react-native-url-polyfill
   posthog-react-native expo-file-system expo-application expo-device expo-localization
   @sentry/react-native

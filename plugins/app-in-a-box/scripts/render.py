@@ -21,6 +21,7 @@ Then it generates the per-agent adapters from the shared, agent-neutral sources:
     .mcp.json                       synced to the services appbox.yaml's stack chose
     .codex/hooks.json               <- .claude/settings.json hooks (same scripts)
     mobile/lib/tokens.ts            <- design/tokens.json
+    DESIGN.md                       <- design/tokens.json (generated blocks only; prose kept)
     docs/design/TASTE.md            <- KIT/docs/TASTE.md (the taste rubric; never overwritten)
     docs/DEFAULTS.md                <- KIT/docs/DEFAULTS.md (the baked-in product defaults; same)
 
@@ -31,6 +32,7 @@ the summary lists every skip. Standard library only.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -60,7 +62,10 @@ TEXT_SUFFIXES = {
     "",
 }
 # User decisions: written by the interview/design phases, never clobbered by --force.
+# README.md is rendered once and is the owner's from then on (it carries the removable
+# "Built with App in a Box" badge; a re-render must not put back a badge they deleted).
 PROTECTED = {
+    "README.md",
     "design/tokens.json",
     "design/brief.json",
     "appbox.yaml",
@@ -131,6 +136,8 @@ DEFAULT_ELEVATION = {
     "overlay": {"elevation": 12, "shadowOpacity": 0.2, "shadowRadius": 32, "shadowOffsetY": 12},
 }
 DEFAULT_OPACITY = {"disabled": 0.45, "pressed": 0.12, "scrim": 0.45, "muted": 0.7}
+# A token file from before atmospheres existed never chose a light, so it gets none.
+DEFAULT_ATMOSPHERE = {"mode": "none", "intensity": "medium", "grain": False, "surface": "solid"}
 MODES = ("light", "dark")
 
 
@@ -168,6 +175,33 @@ def theme_palettes(tokens: dict) -> tuple[dict[str, dict], list[str]]:
         raise ValueError("design/tokens.json has no colour palette")
     fallback = pals[supported[0]]
     return {m: pals.get(m, fallback) for m in MODES}, supported
+
+
+def atmosphere_tokens(tokens: dict, pals: dict[str, dict]) -> dict:
+    """design/tokens.json -> `atmosphere` as the app paints it. `freeze` writes the light
+    colours and their contrast-capped alpha; a hand-written block without them gets them
+    from the same function the prototype uses, so the app never paints an unchecked
+    colour. Mode none paints nothing (alpha 0)."""
+    from prototype import ATMO_DEFAULT, ATMO_LIGHTS, atmo_errors, atmo_lights
+
+    raw = tokens.get("atmosphere")
+    if not isinstance(raw, dict):
+        raw = DEFAULT_ATMOSPHERE
+    bad = atmo_errors({k: v for k, v in raw.items() if k in ATMO_DEFAULT})
+    if bad:
+        raise ValueError("; ".join("atmosphere" + e for e in bad))
+    a = {**ATMO_DEFAULT, **{k: raw[k] for k in ATMO_DEFAULT if k in raw}}
+    color = raw.get("color") if isinstance(raw.get("color"), dict) else {}
+    a["lights"] = raw.get("lights") or [list(x) for x in ATMO_LIGHTS]
+
+    def lit(m: str) -> dict:
+        if a["mode"] == "none":  # never painted; the ground colour keeps the shape honest
+            c = color.get(m) or {"light1": pals[m]["bg"], "light2": pals[m]["bg"]}
+            return {**c, "alpha": 0}
+        return color.get(m) or atmo_lights(pals[m], m, a["intensity"])
+
+    a["color"] = {m: lit(m) for m in MODES}
+    return a
 
 
 def tokens_ts(tokens: dict) -> str:
@@ -213,6 +247,37 @@ def tokens_ts(tokens: dict) -> str:
     lines.append(
         f"export const opacity = {js({**DEFAULT_OPACITY, **tokens.get('opacity', {})})} as const;\n"
     )
+    from make_icon import grain_png
+    from prototype import settle_spring
+
+    motion = {**DEFAULT_MOTION, **tokens.get("motion", {})}
+    gentle = (motion.get("spring") or {}).get("gentle") or DEFAULT_MOTION["spring"]["gentle"]
+    lines.append(
+        "/** The settle spring: `gentle` damped to at least critical, so screens and content"
+        " arrive without passing the mark (the prototype's settle_spring). */"
+    )
+    lines.append(f"export const settle = {js(settle_spring(gentle))} as const;\n")
+    lines += [
+        "export interface AtmosphereLight {",
+        "  light1: string;",
+        "  light2: string;",
+        "  /** Peak alpha of both lights, capped so every ink keeps AA on the lit ground. */",
+        "  alpha: number;",
+        "}",
+        "export interface Atmosphere {",
+        '  mode: "none" | "glow" | "field";',
+        '  intensity: "low" | "medium" | "high";',
+        "  grain: boolean;",
+        '  surface: "solid" | "glass";',
+        "  /** Each light as fractions of the screen: [centre x, centre y, radius x, radius y]. */",
+        "  lights: readonly (readonly [number, number, number, number])[];",
+        "  color: Readonly<Record<ColorScheme, AtmosphereLight>>;",
+        "}",
+        "/** The light the app sits in, frozen from the prototype (components/ui/ScreenAtmosphere). */",
+        f"export const atmosphere: Atmosphere = {js(atmosphere_tokens(tokens, pals))};\n",
+        "/** A tileable film-grain square, laid over the atmosphere when `grain` is on. */",
+        f'export const grainTile = "data:image/png;base64,{base64.b64encode(grain_png()).decode()}";\n',
+    ]
     lines.append(f"export const minTapTarget = {int(tokens.get('minTapTarget', 48))};")
     lines.append(f"export const themeName = {json.dumps(tokens.get('name', 'custom'))};\n")
     return "\n".join(lines)
@@ -275,7 +340,12 @@ def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str 
         return made
     out = target / "mobile" / "lib" / "tokens.ts"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(tokens_ts(tokens))
+    try:
+        ts = tokens_ts(tokens)
+    except (KeyError, ValueError) as e:  # no usable palette, or a bad atmosphere knob
+        print(f"ERROR: design/tokens.json can't be rendered: {e}")
+        raise ContrastGateError([str(e)]) from e
+    out.write_text(ts)
     from check_contrast import check
 
     problems = check(tokens)
@@ -316,6 +386,23 @@ def theme_outputs(target: Path, tokens_file: Path, dry_run: bool, app_name: str 
     (brand / ".stamp").write_text(stamp)
     made.append("mobile/assets/brand/*.png (icon, adaptive, splash, favicon)")
     return made
+
+
+def design_doc(target: Path, tokens_file: Path, dry_run: bool) -> list[str]:
+    """DESIGN.md at the repo root, from design/tokens.json. Created when absent; when it
+    exists only the frontmatter and the generated blocks are refreshed, so the founder's
+    prose and Decisions log are never overwritten (--force or not). The generated repo
+    checks it with the same code: `python3 scripts/design_md.py --check`."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from design_md import write
+
+    if dry_run:
+        return ["DESIGN.md (from design/tokens.json)"]
+    tokens = json.loads(tokens_file.read_text())
+    if not isinstance(tokens, dict):
+        return []
+    changed = write(target / "DESIGN.md", tokens)
+    return ["DESIGN.md (from design/tokens.json)"] if changed else []
 
 
 def _frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -546,6 +633,7 @@ def render(a: argparse.Namespace) -> int:
             "tests",
             "railway.json",
             "requirements.txt",
+            "requirements.lock",
             "run.sh",
         }:
             continue
@@ -596,6 +684,7 @@ def render(a: argparse.Namespace) -> int:
         except ContrastGateError:
             contrast_failed = True
             written.append("mobile/lib/tokens.ts (from design/tokens.json)")
+        written += design_doc(target, tokens_file, a.dry_run)
 
     if not a.dry_run:
         written += adapters(target)

@@ -2,13 +2,13 @@
 
 # 📦 App in a Box
 
-**Go from a rambled app idea to a beautiful, working MVP in an afternoon.**
-**A product-advisor team shapes it with you, and you click through a prototype before anything is built.**
-**Works in Claude Code and Codex.**
+**Idea to clickable prototype to production iOS and Android app, with Claude Code or Codex**
 
-[Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Status](#status) · [FAQ](#faq)
+A free, open-source plugin for Claude Code and Codex. A product advisor shapes your idea, you click through a prototype of every screen, then your agent builds and wires an Expo + FastAPI + Supabase app with auth, analytics, CI, store builds and an agent harness.
 
-![status](https://img.shields.io/badge/status-alpha%20v0.6.0-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
+[Quickstart](#quickstart) · [What you get](#what-you-get) · [How it works](#how-it-works) · [Guides](#guides) · [Status](#status) · [FAQ](#faq) · [Showcase](SHOWCASE.md)
+
+![status](https://img.shields.io/badge/status-alpha%20v0.7.0-orange) ![license](https://img.shields.io/badge/license-MIT-blue) ![agents](https://img.shields.io/badge/agents-Claude%20Code%20%7C%20Codex-6b4fbb) ![stack](https://img.shields.io/badge/stack-Expo%20%C2%B7%20FastAPI%20%C2%B7%20Supabase-2f7a67)
 
 </div>
 
@@ -146,6 +146,19 @@ need your consent, email verification and often a CAPTCHA. It automates everythi
 GitHub · Supabase · Expo/EAS · Railway (about $5/mo after the trial) · PostHog ·
 Sentry · optionally Linear, Anthropic/OpenAI · Apple Developer.
 
+## Guides
+
+Each one answers a single question, start to finish.
+
+- [Build an iPhone and Android app with Claude Code](docs/guides/build-an-app-with-claude-code.md)
+- [Build an iPhone and Android app with Codex](docs/guides/build-an-app-with-codex.md)
+- [Turn an app idea into a clickable prototype before writing code](docs/guides/idea-to-clickable-prototype.md)
+- [What's in the generated repo, and why](docs/guides/what-you-get.md)
+- [Ship to TestFlight and Google Play](docs/guides/ship-to-testflight-and-google-play.md)
+- [Add payments, AI, push, offline and social sign-in](docs/guides/add-payments-ai-push-offline-social-sign-in.md)
+
+Release notes: [CHANGELOG.md](CHANGELOG.md). For LLMs and tools: [llms.txt](llms.txt).
+
 ## Repository layout
 
 ```
@@ -172,6 +185,10 @@ plugins/app-in-a-box/
 scripts/fixtures/                    test-only inputs for the selftest (not example apps)
 scripts/selftest.sh                  proves the kit works (see below)
 scripts/selftest.d/                  one check file per area, sourced by the selftest
+scripts/check_discoverability.py     manifests, README and llms.txt describe the kit
+                                     the same way, and every doc link resolves
+docs/guides/                         one page per question (see Guides above)
+llms.txt                             a map of these docs for LLMs (llmstxt.org)
 ```
 
 ## Verify it yourself
@@ -196,7 +213,7 @@ env var must each fail.
 
 ## Status
 
-**Alpha (v0.6.0): the v1.0 roadmap is code-complete, community verification in progress.**
+**Alpha (v0.7.0): the v1.0 roadmap is code-complete, community verification in progress.**
 Everything on the original roadmap has shipped, and it's all checked by the selftest, the strict kit CI and the
 skill evals:
 
@@ -244,6 +261,14 @@ backend module and the rest of the logic stays deterministic.
 Both run the same skills. Claude Code gets auto-injected path rules and memory
 recall through its hooks. Codex gets the same content through `AGENTS.md` and its own
 hook system, which asks you to trust each hook once.
+
+## Built with App in a Box
+
+Shipped something with the kit, or just got a prototype you like? Add it to
+[SHOWCASE.md](SHOWCASE.md): open a
+[Show your app](https://github.com/foxinthehenhouse/app-in-a-box/issues/new?template=show-your-app.yml)
+issue, or send a PR that adds one line. Every generated repo's README carries a small
+"Built with App in a Box" badge; it's yours to keep or delete.
 
 ## Contributing
 
