@@ -97,7 +97,8 @@ recommendation below.
     the backlog starts with, and the event that shows whether they work.
 12. **Anything sensitive?** None · Health data · Financial data · Children under 13 ·
     Location. *Why:* each one adds a rule file the agents must follow, and store
-    privacy answers you'll need at launch.
+    privacy answers you'll need at launch. The risk screen (`skills/shape` → "The risk
+    screen") asks only the follow-ups that change the architecture.
 13. **What does success look like in 30 days?** Pick one north-star metric (offer
     3 suggestions derived from the core loop, e.g. "users who complete the core
     action 3× in week 1"). *Why:* the 5 analytics events, the weekly north-star

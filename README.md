@@ -123,7 +123,7 @@ flowchart LR
 | Phase | Your agent does | You do |
 |---|---|---|
 | 0 Preflight | Checks and installs git, Node, Python 3.12 and the service CLIs | Approve installs |
-| 1a Shape | Rae, your product advisor, lets you ramble (or paste notes), plays it back in one page, asks only what's missing and gently challenges what might not work. Writes the brief | Talk; answer a few questions |
+| 1a Shape | Rae, your product advisor, lets you ramble (or paste notes), plays it back in one page, asks only what's missing and gently challenges what might not work. Screens the idea for privacy and safety risk, so guardrails are in from the first commit. Writes the brief | Talk; answer a few questions |
 | 1b Idea check | Runs in the background while you talk: competitors, real complaints, what people pay. A cited Go / Sharpen / Rethink verdict | Read it; carry on, sharpen or park |
 | 2 Prototype | A team of design agents builds a clickable prototype of every screen. Switch the look, each screen's layout, minimal↔rich, calm↔playful, the atmosphere and optional features, then freeze the one you love | Click, tune, approve |
 | 3 Accounts | Opens each free service's signup, then logs in the CLIs | Click "Continue with GitHub" ~6× |

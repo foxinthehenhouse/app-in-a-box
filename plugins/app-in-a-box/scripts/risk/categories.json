@@ -1,0 +1,670 @@
+{
+  "version": 1,
+  "about": "The risk screen's data: sensitive categories, the keyword backstop, combinations, stop rules and guardrail packs. Read by scripts/risk_screen.py and check_intake.py. Regimes say what MAY apply and why; this file is not legal advice. Triggers are lowercase phrases matched on word boundaries, with an optional plural or possessive ending; {name} expands to the words in vocab.name.",
+  "not_legal_advice": "This is a map of what may apply and why, written to help you ask better questions. It is not legal advice and it does not make the app compliant with anything. At tier high, talk to a lawyer who knows your countries before launch.",
+  "tiers": ["standard", "elevated", "high", "stop"],
+  "official_domains": ["ftc.gov", "hhs.gov", "fda.gov", "consumerfinance.gov", "eur-lex.europa.eu", "ico.org.uk", "legislation.gov.uk", "oag.ca.gov", "app.leg.wa.gov", "ilga.gov", "nyc.gov", "law.cornell.edu", "pcisecuritystandards.org", "developer.apple.com", "support.google.com"],
+  "vocab": {
+    "poss": ["my", "our", "their", "his", "her", "your", "the"],
+    "pp": ["my", "his", "her", "their", "your"],
+    "kin": ["kid", "kids", "child", "children", "son", "sons", "daughter", "daughters", "teen", "teens", "teenager", "teenagers", "toddler", "toddlers"],
+    "partner": ["partner", "wife", "husband", "girlfriend", "boyfriend", "spouse", "fiance", "fiancee", "ex", "ex-partner", "ex-wife", "ex-husband", "ex-girlfriend", "ex-boyfriend"],
+    "staff": ["employee", "employees", "staff", "worker", "workers", "contractor", "contractors", "driver", "drivers"],
+    "other": ["kid", "kids", "child", "children", "son", "sons", "daughter", "daughters", "teen", "teens", "teenager", "teenagers", "toddler", "toddlers", "partner", "wife", "husband", "girlfriend", "boyfriend", "spouse", "ex", "employee", "employees", "staff", "worker", "workers", "family", "friend", "friends", "parent", "parents", "mum", "mom", "dad", "grandparent", "grandparents"],
+    "covert": ["secretly", "in secret", "secret tracking", "covert", "covertly", "hidden from", "keep it hidden", "hidden app", "hide the app", "hides the app", "hide the icon", "hides its icon", "without them knowing", "without him knowing", "without her knowing", "without them noticing", "without their knowledge", "without his knowledge", "without her knowledge", "without consent", "without their consent", "without his consent", "without her consent", "without permission", "without telling", "without them finding out", "so they don't know", "so he doesn't know", "so she doesn't know", "behind their back", "behind his back", "behind her back", "undetectable", "spy on", "spying on"]
+  },
+  "packs": {
+    "baseline": {
+      "title": "Baseline",
+      "guards": "Row-level security on every table, no personal data or free text in analytics events, secrets kept out of the repo, account deletion that removes the person's rows, and a data map that every table, event and permission must appear in."
+    },
+    "location": {
+      "title": "Location",
+      "guards": "Foreground and approximate location unless the core feature needs more, background location only with a stated purpose, a retention on every location column, location never sent to analytics, and the person being located can see who sees them."
+    },
+    "minors": {
+      "title": "Children",
+      "guards": "High-privacy defaults for children, no ads or third-party tracking on a child's data, parent-owned child profiles with recorded consent, no contact from people the parent didn't add, and an obvious sign on the child's screen while they are located or monitored."
+    },
+    "health": {
+      "title": "Health",
+      "guards": "Health data readable only by its owner and whoever they choose, never in analytics, ads, logs or notification text, a retention on every health column, and a clear 'not medical advice' line where the app shows health information."
+    },
+    "ugc": {
+      "title": "User content and messaging",
+      "guards": "Report and block on every piece of user content and every profile, a filter before content is shown, terms accepted before posting, a moderation queue the owner can work, and a published contact (Apple guideline 1.2, Google Play's User Generated Content policy)."
+    },
+    "financial": {
+      "title": "Money",
+      "guards": "Money stored as integer minor units, card numbers never stored or logged (the payment provider holds them), an audit trail on balance changes, and financial fields kept out of analytics."
+    },
+    "biometric": {
+      "title": "Biometrics",
+      "guards": "Biometric processing on the device by default, a written consent that names the purpose and retention before anything is captured, a published retention schedule, and deletion when the purpose ends."
+    }
+  },
+  "combinations": [
+    {
+      "all": ["minors", "location"],
+      "why": "a child's location is the most dangerous data an app can hold: whoever gets it can find the child"
+    },
+    {
+      "all": ["minors", "ugc"],
+      "why": "user content and messaging that children can reach is how adults groom children"
+    },
+    {
+      "any_with": "surveillance",
+      "why": "monitoring another person makes every other category's data a tool for control"
+    },
+    {
+      "all": ["health", "ai_decisions"],
+      "why": "automated decisions about health can harm someone before a human notices"
+    },
+    {
+      "all": ["minors", "intimate"],
+      "why": "anything sexual or romantic that children can reach is how children are exploited"
+    },
+    {
+      "all": ["intimate", "location"],
+      "why": "distance on a dating or sexuality app can be narrowed to a home address (trilateration), outing or endangering people"
+    }
+  ],
+  "stop_rules": [
+    {
+      "id": "covert_monitoring",
+      "category": "surveillance",
+      "pattern": "Tracking or monitoring a person without their knowledge, or a monitoring app that hides itself.",
+      "when": {"vocab_any": ["covert"], "categories_any": ["location", "surveillance"]},
+      "triggers": ["stalkerware", "spyware", "spy app", "spy on {poss} {other}", "hidden tracker", "hidden tracking", "secret tracker", "read {poss} {partner}'s messages", "read {poss} {partner}'s texts"],
+      "reframe": "Location sharing both people turn on and can see: each person sees who can see them, a persistent notice shows while sharing is on, either person pauses or stops it in one tap and the other is told, and sharing can expire on its own (after a trip, an hour, a day). For a parent and a young child: a family safety app the child can see is on."
+    },
+    {
+      "id": "face_search",
+      "category": "biometric",
+      "pattern": "Identifying people from their face who never signed up to be found.",
+      "when": {},
+      "triggers": ["identify strangers", "identify people from a photo", "identify anyone from a photo", "find anyone by their face", "face search", "reverse face search", "who is this person from a photo"],
+      "reframe": "People find each other only when both opted in: a username, a QR code or an invite link, never a face."
+    },
+    {
+      "id": "deanonymise",
+      "category": "ugc",
+      "pattern": "De-anonymising or doxxing people: unmasking accounts, exposing home addresses or identities.",
+      "when": {},
+      "triggers": ["de-anonymize", "de-anonymise", "deanonymize", "deanonymise", "unmask anonymous", "unmask accounts", "doxx", "doxxing", "dox", "find out who is behind", "find someone's home address", "find anyone's address"],
+      "reframe": "Report and block, with a moderation queue that acts on abuse without revealing who anyone is."
+    },
+    {
+      "id": "sexual_minors",
+      "category": "minors",
+      "pattern": "Content that sexualises minors, or matching adults with minors romantically or sexually.",
+      "when": {},
+      "triggers": ["sexualise minors", "sexualize minors", "sexualised images of children", "sexualized images of children"],
+      "reframe": null
+    },
+    {
+      "id": "nonconsensual_intimate",
+      "category": "intimate",
+      "pattern": "Sharing or generating sexual images of real people without their consent.",
+      "when": {},
+      "triggers": ["nudify", "undress app", "undress photos", "deepfake nudes", "deepfake porn", "revenge porn", "leak nudes"],
+      "reframe": null
+    }
+  ],
+  "sensitive_map": {
+    "health": "health",
+    "financial": "financial",
+    "children": "minors",
+    "location": "location",
+    "biometric": "biometric"
+  },
+  "social_map": {"community": "ugc", "two_sided": "ugc"},
+  "derive": [
+    {
+      "category": "surveillance",
+      "categories_all": ["location"],
+      "triggers": ["{pp} {partner}", "{pp} {staff}"],
+      "why": "locates a partner or a worker"
+    }
+  ],
+  "categories": [
+    {
+      "id": "minors",
+      "title": "Children",
+      "tier_floor": "elevated",
+      "triggers": ["{kin}", "baby", "babies", "infant", "infants", "under 13", "under-13", "under 16", "under 18", "minors", "pupils", "schoolkids", "school kids", "young people", "preteen", "preteens", "tween", "tweens"],
+      "questions": [
+        {
+          "id": "minors.age",
+          "theme": "age",
+          "ask_at": "shape",
+          "text": "Will children use the app themselves, or only adults about them? If children use it, what's the youngest?",
+          "why": "A user under 13 means verifiable parental consent (COPPA) and children's store rules; under-18s in the UK get high-privacy defaults (the Children's code). It changes sign-up, the account model and the age rating."
+        },
+        {
+          "id": "minors.consent",
+          "theme": "consent",
+          "ask_at": "shape",
+          "text": "Who sets up a child's profile and agrees on their behalf, and what stops someone who isn't their parent or guardian from doing it?",
+          "why": "It picks the account model (parent-owned child profiles or child accounts) and where consent is recorded."
+        },
+        {
+          "id": "minors.contact",
+          "theme": "safety",
+          "ask_at": "first-feature",
+          "text": "Can anyone other than the child's own grown-ups see or contact the child in the app?",
+          "why": "The default is no. Anything else needs moderation, reporting and blocking built for children first."
+        }
+      ],
+      "guardrails": ["minors"],
+      "regimes": [
+        {
+          "name": "COPPA (US): the FTC's Children's Online Privacy Protection Rule, 16 CFR Part 312",
+          "applies_when": "the app is aimed at children under 13, or you know a user is under 13. Verifiable parental consent before collecting their data; the rule was amended in 2025.",
+          "link": "https://www.ftc.gov/legal-library/browse/rules/childrens-online-privacy-protection-rule-coppa"
+        },
+        {
+          "name": "GDPR Art. 8 (EU) and UK GDPR",
+          "applies_when": "you offer the app to children in the EU or UK and rely on consent. Parental consent below 16 in the EU unless a member state set a lower age (no lower than 13); 13 in the UK.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+        },
+        {
+          "name": "UK Age Appropriate Design Code (the Children's code), ICO",
+          "applies_when": "under-18s in the UK are likely to use the app. 15 standards, including high-privacy defaults, geolocation off by default (standard 10) and an obvious sign to the child when a parent monitors or locates them (standard 11).",
+          "link": "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/childrens-code-guidance-and-resources/age-appropriate-design-a-code-of-practice-for-online-services/code-standards/"
+        },
+        {
+          "name": "Apple App Review Guidelines 1.3 (Kids Category) and 5.1.4 (Kids)",
+          "applies_when": "the app is for children or in the Kids Category: no third-party analytics or ads, parental gates before links out or purchases, care with children's data under COPPA and GDPR.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Google Play Families Policies",
+          "applies_when": "children are in the app's target audience: child-appropriate content, no ad ID or device identifiers from children, apps solely for children may not request location, and social features need an online-safety reminder and adult controls.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/9893335"
+        }
+      ],
+      "stop_patterns": ["Content that sexualises minors, or matching adults with minors romantically or sexually. There is no version of this the kit builds."],
+      "abuse_prompts": ["A non-custodial parent, or a relative a court has kept away, uses the app to find or watch the child. Design against it: only the guardian who set up the child's profile can add a viewer, every viewer is listed on the child's screen and to the other guardian, and removing one takes one tap.", "An adult stranger reaches a child through the app (grooming). Design against it: no way for anyone the parent didn't add to see or message a child.", "A child's data ends up with an ad network or data broker. Design against it: no ads, no third-party analytics SDKs and no advertising identifiers on a child's data."]
+    },
+    {
+      "id": "location",
+      "title": "Location",
+      "tier_floor": "elevated",
+      "triggers": ["gps", "location tracking", "track location", "track {poss} location", "tracks location", "live location", "real-time location", "realtime location", "location sharing", "share location", "share {poss} location", "shares {poss} location", "location history", "whereabouts", "geofence", "geofencing", "background location", "where {poss} {other}", "{other}'s location", "location of {poss} {other}", "locate {poss} {other}", "find {poss} {other}", "map of {poss} {other}", "{other} on a map", "see {poss} {other} on a map"],
+      "questions": [
+        {
+          "id": "location.consent",
+          "theme": "consent",
+          "ask_at": "shape",
+          "text": "Whose location does the app use: the person holding the phone, or someone else's? If someone else's, how do they agree, and can they see it's on and stop it?",
+          "why": "Locating someone else changes the data model (who owns a location, who may read it) and is the line between a safety app and stalkerware."
+        },
+        {
+          "id": "location.visibility",
+          "theme": "visibility",
+          "ask_at": "shape",
+          "text": "Who can see a location, how precisely, and is it live or only the last check-in?",
+          "why": "Live, precise and visible to others is the riskiest combination. It decides background location (a store review on both platforms) versus a check-in, and what the location table holds."
+        },
+        {
+          "id": "location.retention",
+          "theme": "retention",
+          "ask_at": "first-feature",
+          "text": "How long is a location kept: the latest point only, or a history?",
+          "why": "The default is the latest point only. A history is a record of where someone lives, works and sleeps, and needs a retention and a reason."
+        }
+      ],
+      "guardrails": ["location"],
+      "regimes": [
+        {
+          "name": "GDPR and UK GDPR",
+          "applies_when": "people in the EU or UK use the app. Location is personal data: you need a lawful basis, the least data that does the job, and a set retention.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+        },
+        {
+          "name": "CCPA/CPRA (California)",
+          "applies_when": "your business meets the CCPA thresholds. Precise geolocation (within 1,850 feet) is sensitive personal information, which people can limit.",
+          "link": "https://oag.ca.gov/privacy/ccpa"
+        },
+        {
+          "name": "Apple App Review Guidelines 5.1.5 (Location Services)",
+          "applies_when": "the app uses Location Services: only when directly relevant to the app's features, with a purpose string that says why.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Google Play: location in the background",
+          "applies_when": "the app reads location in the background: only for core functionality, declared and approved in Play Console, never for ads or analytics.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/9799150"
+        },
+        {
+          "name": "Google Play: stalkerware and the isMonitoringTool flag",
+          "applies_when": "the app tracks another person. Monitoring is allowed only in apps designed and marketed exclusively for parental (family) monitoring or enterprise management, with a persistent notification and a unique icon, never hidden.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/12955211"
+        }
+      ],
+      "stop_patterns": ["Locating someone who hasn't agreed to share: looking a person up from their phone number, photos or accounts, or tracking them without their knowledge."],
+      "abuse_prompts": ["An abusive partner adds the victim's phone to a sharing circle and watches where they go. Design against it: the person sharing always sees who can see them, a persistent notice shows while sharing is on, and they can pause or stop in one tap.", "A stalker uses a shared location or trip link to learn someone's home or routine. Design against it: links expire, precise location is never public, and a location history is off by default.", "Someone grabs an unlocked phone and turns sharing on for themselves. Design against it: adding a viewer needs the account holder to confirm, and the person being shared is told."]
+    },
+    {
+      "id": "health",
+      "title": "Health",
+      "tier_floor": "elevated",
+      "triggers": ["health", "medical", "symptom", "symptoms", "diagnosis", "medication", "medications", "prescription", "prescriptions", "therapy", "therapist", "mental health", "depression", "anxiety", "mood tracker", "mood tracking", "period tracker", "period tracking", "menstrual", "fertility", "ovulation", "pregnancy", "pregnant", "contraception", "blood pressure", "blood sugar", "glucose", "diabetes", "heart rate", "sleep tracking", "weight loss", "calorie", "calories", "patient", "patients", "clinic", "clinician", "doctor", "hipaa", "disease", "illness", "allergy", "allergies", "eating disorder", "addiction", "sobriety", "sober", "fitness tracker", "fitness tracking"],
+      "questions": [
+        {
+          "id": "health.source",
+          "theme": "purpose",
+          "ask_at": "shape",
+          "text": "What health information does it hold, and does any of it come from or go to a clinic, insurer or employer, or only the person themselves?",
+          "why": "Working for a provider or health plan can bring HIPAA; a consumer's own entries usually don't, but the FTC Health Breach Notification Rule and state health-data laws can. It decides integrations and where the data may live."
+        },
+        {
+          "id": "health.sharing",
+          "theme": "visibility",
+          "ask_at": "shape",
+          "text": "Does anyone besides the person ever see it (a coach, a clinician, family)?",
+          "why": "Owner-only is the default. Sharing changes the row-level security and needs a consent the person can withdraw."
+        },
+        {
+          "id": "health.ads",
+          "theme": "purpose",
+          "ask_at": "pre-launch",
+          "text": "Will the app ever run ads or share data with partners?",
+          "why": "The default is never. Health data may not be used for advertising on the App Store (5.1.3), and an unauthorised disclosure counts as a breach under the FTC rule."
+        }
+      ],
+      "guardrails": ["health"],
+      "regimes": [
+        {
+          "name": "HIPAA (US), HHS",
+          "applies_when": "you are a health care provider, health plan or clearinghouse, or build the app for one (a business associate). An app people fill in for themselves usually isn't covered; HHS's health-app guidance walks through the cases.",
+          "link": "https://www.hhs.gov/hipaa/for-professionals/special-topics/health-apps/index.html"
+        },
+        {
+          "name": "FTC Health Breach Notification Rule, 16 CFR Part 318",
+          "applies_when": "the app holds health records not covered by HIPAA. Since 2024 it plainly covers health apps, and sharing health data without authorisation (for example with an ad platform) counts as a breach you must report.",
+          "link": "https://www.ftc.gov/legal-library/browse/rules/health-breach-notification-rule"
+        },
+        {
+          "name": "GDPR Art. 9 (special categories) and UK GDPR",
+          "applies_when": "people in the EU or UK use the app. Health data needs explicit consent or another Art. 9 condition.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+        },
+        {
+          "name": "Washington My Health My Data Act, RCW 19.373",
+          "applies_when": "you handle consumer health data of people in Washington State, with no size threshold. Consent before collecting, a separate health-data privacy policy, and a private right of action.",
+          "link": "https://app.leg.wa.gov/RCW/default.aspx?cite=19.373"
+        },
+        {
+          "name": "Apple App Review Guidelines 5.1.3 (Health and Health Research) and 1.4.1 (Medical Apps)",
+          "applies_when": "the app handles health, fitness or medical data: no advertising or data mining with it, and accuracy claims must be backed.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Google Play: Health Content and Services, and the Health apps declaration",
+          "applies_when": "the app has health features or reads health data: declare them in Play Console, no misleading health claims, and regulatory proof or a disclaimer for medical functionality.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/16679511"
+        }
+      ],
+      "stop_patterns": [],
+      "abuse_prompts": ["A controlling partner or parent reads someone's period, pregnancy or mental-health entries. Design against it: owner-only by default, an app lock, and no health detail in notification text on the lock screen.", "Health data leaks to an ad platform through an analytics SDK. Design against it: health fields never go to analytics or ads, checked by the data map.", "An insurer or employer gets a person's health data. Design against it: no sharing with third parties, and an export the person controls."]
+    },
+    {
+      "id": "biometric",
+      "title": "Biometrics",
+      "tier_floor": "high",
+      "triggers": ["biometric", "biometrics", "face recognition", "facial recognition", "face scan", "face scanning", "faceprint", "face matching", "match faces", "fingerprint scan", "fingerprints", "voiceprint", "voice print", "iris scan", "retina scan", "selfie verification", "hand geometry"],
+      "questions": [
+        {
+          "id": "biometric.need",
+          "theme": "purpose",
+          "ask_at": "shape",
+          "text": "Does the app itself process faces, fingerprints or voices, beyond the phone's own Face ID or fingerprint unlock (which the app never sees)? What for?",
+          "why": "Phone unlock adds nothing. Processing them yourself brings Illinois BIPA (written release, retention schedule, statutory damages) and GDPR Art. 9."
+        },
+        {
+          "id": "biometric.storage",
+          "theme": "retention",
+          "ask_at": "shape",
+          "text": "Can it stay on the device, and when is it deleted?",
+          "why": "On-device processing keeps biometrics off your servers entirely; storing templates needs a published retention schedule and changes the architecture."
+        }
+      ],
+      "guardrails": ["biometric"],
+      "regimes": [
+        {
+          "name": "Illinois Biometric Information Privacy Act (BIPA), 740 ILCS 14",
+          "applies_when": "you collect face geometry, fingerprints, voiceprints or iris scans from people in Illinois: written notice and a written release first, a public retention schedule, no selling, and statutory damages per violation through private lawsuits.",
+          "link": "https://www.ilga.gov/Legislation/ILCS/Articles?ActID=3004&ChapterID=57"
+        },
+        {
+          "name": "GDPR Art. 9 (biometric data for identification) and UK GDPR",
+          "applies_when": "people in the EU or UK use the app and you use biometrics to identify them: explicit consent or another Art. 9 condition.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+        },
+        {
+          "name": "CCPA/CPRA (California)",
+          "applies_when": "your business meets the CCPA thresholds. Biometric information processed to identify someone is sensitive personal information.",
+          "link": "https://oag.ca.gov/privacy/ccpa"
+        },
+        {
+          "name": "Apple App Review Guidelines 5.1.2(vi)",
+          "applies_when": "the app uses depth or facial mapping (ARKit, camera or photo APIs): that data may not be used for marketing, advertising or data mining.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        }
+      ],
+      "stop_patterns": ["Identifying people from their face who never signed up to be found (face search of strangers)."],
+      "abuse_prompts": ["A stranger photographs someone in public and uses the app to identify them. Design against it: matching only against people who enrolled themselves, never an open face search.", "A breach exposes face templates, which can't be changed like a password. Design against it: process on the device, keep nothing on the server you don't need, delete on schedule."]
+    },
+    {
+      "id": "financial",
+      "title": "Money",
+      "tier_floor": "elevated",
+      "triggers": ["bank account", "bank accounts", "banking", "link your bank", "credit card numbers", "card numbers", "card details", "plaid", "open banking", "send money", "transfer money", "money transfer", "pay each other", "p2p payments", "peer-to-peer payments", "digital wallet", "e-wallet", "loan", "loans", "lending", "credit score", "investing", "stock trading", "net worth", "budgeting", "budget tracker", "expense tracker", "tax return", "payroll"],
+      "questions": [
+        {
+          "id": "financial.scope",
+          "theme": "purpose",
+          "ask_at": "shape",
+          "text": "Does the app move money, link to bank accounts, or hold card details, or does the person only type in their own numbers?",
+          "why": "Moving money or linking accounts means a payments or bank-data provider, possible licensing (money transmission), and the FTC Safeguards Rule; typed-in numbers need none of that."
+        },
+        {
+          "id": "financial.cards",
+          "theme": "safety",
+          "ask_at": "scaffold",
+          "text": "Will card numbers ever be typed into the app?",
+          "why": "The default is no: payments go through the payment provider's own sheet, so card data never touches your servers and PCI DSS scope stays minimal."
+        }
+      ],
+      "guardrails": ["financial"],
+      "regimes": [
+        {
+          "name": "FTC Safeguards Rule (GLBA), 16 CFR Part 314",
+          "applies_when": "the business is significantly engaged in financial activities (lending, money transmission, financial advice and others): a written security program, MFA, encryption and breach reporting to the FTC.",
+          "link": "https://www.ftc.gov/legal-library/browse/rules/safeguards-rule"
+        },
+        {
+          "name": "PCI DSS",
+          "applies_when": "card numbers are stored, processed or transmitted by your systems. Using the payment provider's hosted sheet keeps you out of most of it.",
+          "link": "https://www.pcisecuritystandards.org/"
+        },
+        {
+          "name": "Apple App Review Guidelines 3.2.1(viii), 3.2.2(ix) and 5.1.1(ix)",
+          "applies_when": "the app does trading, investing, money management or personal loans, or serves a regulated field: submitted by the licensed institution or a legal entity, not an individual; loans capped at 36% APR with no repayment in 60 days or less.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Google Play Financial Services policy",
+          "applies_when": "the app offers financial products or services (loans, crypto, banking): the Financial features declaration, loan-term disclosures and country rules.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/9876821"
+        },
+        {
+          "name": "CCPA/CPRA (California)",
+          "applies_when": "your business meets the CCPA thresholds. Account log-ins and financial account numbers are sensitive personal information.",
+          "link": "https://oag.ca.gov/privacy/ccpa"
+        }
+      ],
+      "stop_patterns": [],
+      "abuse_prompts": ["A controlling partner uses shared finances to watch and restrict someone's spending (financial abuse). Design against it: each person's accounts stay private unless they share them, and leaving a shared space is one tap.", "Someone with a stolen phone moves money out. Design against it: re-authentication before any transfer, and notifications on every transfer."]
+    },
+    {
+      "id": "ugc",
+      "title": "User content and messaging",
+      "tier_floor": "elevated",
+      "triggers": ["chat with", "in-app chat", "message each other", "messaging", "direct message", "direct messages", "dms", "post photos", "post videos", "public profile", "public profiles", "followers", "forum", "forums", "social network", "social feed", "news feed", "activity feed", "share posts", "user reviews", "write reviews", "livestream", "live stream", "meet strangers", "connect with strangers", "match with", "comment on posts", "comment on each other's", "public comments"],
+      "questions": [
+        {
+          "id": "ugc.audience",
+          "theme": "visibility",
+          "ask_at": "shape",
+          "text": "Can people see or contact strangers, or only people they invite?",
+          "why": "Strangers mean filtering, reporting, blocking and a moderation plan (Apple 1.2, Play's UGC policy); invite-only is far lighter. It shapes profiles, invites and row-level security."
+        },
+        {
+          "id": "ugc.moderation",
+          "theme": "safety",
+          "ask_at": "pre-launch",
+          "text": "Who reviews reports, and how fast?",
+          "why": "Apple 1.2 asks for timely responses to reports; someone has to own the queue before launch."
+        }
+      ],
+      "guardrails": ["ugc"],
+      "regimes": [
+        {
+          "name": "Apple App Review Guidelines 1.2 (User-Generated Content)",
+          "applies_when": "people post content or interact: a filter for objectionable material, a way to report it with timely responses, blocking, and published contact details. Random or anonymous chat apps don't belong on the App Store.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Google Play User Generated Content policy",
+          "applies_when": "the app hosts user content: terms accepted before posting, defined prohibited content, in-app reporting and blocking, and ongoing moderation.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/9876937"
+        },
+        {
+          "name": "EU Digital Services Act, Regulation (EU) 2022/2065",
+          "applies_when": "you host content for people in the EU: notice-and-action for illegal content, reasons for removals, and more as you grow.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2022/2065/oj"
+        },
+        {
+          "name": "UK Online Safety Act 2023",
+          "applies_when": "people in the UK can share content with each other: illegal-content risk assessments, and child-safety duties if children are likely to use it (Ofcom's codes).",
+          "link": "https://www.legislation.gov.uk/ukpga/2023/50"
+        },
+        {
+          "name": "18 U.S.C. 2258A (US)",
+          "applies_when": "you host user uploads: a provider that learns of apparent child sexual abuse material must report it to NCMEC.",
+          "link": "https://www.law.cornell.edu/uscode/text/18/2258A"
+        }
+      ],
+      "stop_patterns": ["De-anonymising or doxxing people: unmasking anonymous accounts, or exposing someone's identity or home address."],
+      "abuse_prompts": ["A harasser keeps contacting someone who blocked them, through new accounts. Design against it: block hides both ways, and reports can act on the person, not only the post.", "Someone posts an intimate image of another person without consent. Design against it: report on every image, fast takedown, and no re-upload of removed content.", "A scammer messages new users pretending to be support. Design against it: verified badges only for the real team, and in-app reporting on every message."]
+    },
+    {
+      "id": "intimate",
+      "title": "Dating, sex and sexuality",
+      "tier_floor": "elevated",
+      "triggers": ["dating", "hookup", "hook up", "sex life", "sexual health", "sexuality", "sexual orientation", "lgbtq", "lgbt", "gay", "lesbian", "queer", "bisexual", "transgender", "gender identity", "sti", "stis", "std", "stds", "hiv", "nudes", "sexting", "intimate photos", "kink", "fetish", "escort", "escorts", "swipe right"],
+      "questions": [
+        {
+          "id": "intimate.age",
+          "theme": "age",
+          "ask_at": "shape",
+          "text": "Is it 18+ only, and how do people show they're adults?",
+          "why": "Dating and sexual content are adults-only on both stores; any matching that includes minors is something the kit won't build."
+        },
+        {
+          "id": "intimate.exposure",
+          "theme": "visibility",
+          "ask_at": "shape",
+          "text": "What could reveal someone's sexuality, sexual health or dating to others (their profile, photos, notifications, the app icon), and who sees what?",
+          "why": "Being outed can cost someone their safety, job or family. It decides profile visibility, discreet notifications and what is stored at all."
+        }
+      ],
+      "guardrails": ["health", "ugc"],
+      "regimes": [
+        {
+          "name": "GDPR Art. 9 (sex life or sexual orientation) and UK GDPR",
+          "applies_when": "people in the EU or UK use the app: explicit consent or another Art. 9 condition.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+        },
+        {
+          "name": "CCPA/CPRA (California)",
+          "applies_when": "your business meets the CCPA thresholds. Sex life and sexual orientation are sensitive personal information.",
+          "link": "https://oag.ca.gov/privacy/ccpa"
+        },
+        {
+          "name": "Apple App Review Guidelines 1.1.4 and 1.2",
+          "applies_when": "the app involves sexual content or meeting people: hookup apps count as overtly sexual material, and random or anonymous chat doesn't belong on the App Store.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Washington My Health My Data Act, RCW 19.373",
+          "applies_when": "you handle sexual or reproductive health data of people in Washington State.",
+          "link": "https://app.leg.wa.gov/RCW/default.aspx?cite=19.373"
+        }
+      ],
+      "stop_patterns": ["Outing people: inferring or revealing someone's sexuality, sexual health or dating activity without their consent.", "Sharing or generating sexual images of real people without their consent."],
+      "abuse_prompts": ["Someone narrows a 'distance away' figure to a person's home by measuring from several spots (trilateration). Design against it: rounded, jittered distances and never exact coordinates to other users.", "A person is outed to family or an employer by a notification, a screenshot or the app's icon. Design against it: discreet notification text, a neutral icon option, and an app lock.", "A minor joins by lying about their age. Design against it: 18+ age gate, reporting for suspected minors, and no matching until the age check passes."]
+    },
+    {
+      "id": "surveillance",
+      "title": "Monitoring another person",
+      "tier_floor": "high",
+      "triggers": ["monitor {poss} {other}", "monitoring {poss} {other}", "track {poss} {partner}", "track {poss} {staff}", "keep tabs on", "{partner}'s phone", "check {poss} {partner}'s phone", "read {poss} {other}'s messages", "see {poss} {other}'s messages", "see {poss} {other}'s texts", "parental control", "parental controls", "screen time monitoring", "employee monitoring", "monitor employees", "monitor staff", "keylogger", "{other}'s browsing history", "{other}'s call log", "{other}'s call logs"],
+      "questions": [
+        {
+          "id": "surveillance.knowledge",
+          "theme": "consent",
+          "ask_at": "shape",
+          "text": "Does the person being monitored know, agree, and see that it's on every time?",
+          "why": "This is the line between a safety app and stalkerware. Monitoring an adult without their knowledge is something the kit won't build; Google Play allows monitoring only for parents or employers, with a persistent notice."
+        },
+        {
+          "id": "surveillance.relationship",
+          "theme": "purpose",
+          "ask_at": "shape",
+          "text": "Who monitors whom: a parent and their child, an employer and their staff, or adults sharing with each other?",
+          "why": "It decides the store policy that applies (Play's isMonitoringTool flag) and the consent design."
+        },
+        {
+          "id": "surveillance.stop",
+          "theme": "safety",
+          "ask_at": "first-feature",
+          "text": "How does the monitored person pause or end it?",
+          "why": "The default: one tap, and the other person is told it ended (not why)."
+        }
+      ],
+      "guardrails": ["location"],
+      "regimes": [
+        {
+          "name": "Google Play: stalkerware and the isMonitoringTool flag",
+          "applies_when": "the app monitors another person. Allowed only in apps designed and marketed exclusively for parental (family) monitoring or enterprise management, with a persistent notification and a unique icon, never hidden, and declared with the isMonitoringTool flag.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/12955211"
+        },
+        {
+          "name": "Apple App Review Guidelines 2.5.14 and 5.1.1(vi)",
+          "applies_when": "the app records or monitors activity: explicit consent and a clear visual or audible indication while recording; surreptitious collection of private data gets a developer removed.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "US Wiretap Act, 18 U.S.C. 2511, and state consent laws",
+          "applies_when": "the app intercepts someone's calls, messages or other communications. The FTC has banned a stalkerware maker from the surveillance business (SpyFone, 2021).",
+          "link": "https://www.law.cornell.edu/uscode/text/18/2511"
+        },
+        {
+          "name": "GDPR and UK GDPR (monitoring workers)",
+          "applies_when": "an employer monitors staff in the EU or UK: a lawful basis, proportionality, telling workers, and usually a data protection impact assessment.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+        },
+        {
+          "name": "UK Age Appropriate Design Code, standard 11 (parental controls)",
+          "applies_when": "a parent monitors or locates a child in the UK: the child gets age-appropriate information and an obvious sign while it happens.",
+          "link": "https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/childrens-information/childrens-code-guidance-and-resources/age-appropriate-design-a-code-of-practice-for-online-services/code-standards/"
+        }
+      ],
+      "stop_patterns": ["Tracking or monitoring an adult without their knowledge or ongoing consent (a partner, an ex, a worker off the clock).", "A monitoring app that hides its icon, runs without a persistent notice, or disguises itself as something else.", "Reading another person's messages, calls, photos or browsing without their knowledge."],
+      "abuse_prompts": ["An abusive partner installs it on the victim's phone, or pressures them to 'agree'. Design against it: a persistent notice on the monitored phone, a private way to stop it, and no mode that hides the app.", "An employer keeps tracking a worker off shift. Design against it: monitoring only in working hours the worker can see, and nothing collected outside them.", "A parent keeps monitoring an older teen in ways the teen doesn't know about. Design against it: an obvious sign on the teen's screen whenever they are monitored or located."]
+    },
+    {
+      "id": "ai_decisions",
+      "title": "Automated decisions about people",
+      "tier_floor": "elevated",
+      "triggers": ["credit scoring", "credit decision", "credit decisions", "loan approval", "loan approvals", "approve loans", "screen candidates", "screen applicants", "candidate screening", "resume screening", "cv screening", "hiring decision", "hiring decisions", "rank candidates", "rank applicants", "tenant screening", "insurance pricing", "risk score", "risk scores", "automated decision", "automated decisions", "grade students", "exam proctoring", "proctoring", "performance scoring", "eligibility decision", "eligibility decisions", "ai triage", "ai diagnosis"],
+      "questions": [
+        {
+          "id": "ai_decisions.scope",
+          "theme": "purpose",
+          "ask_at": "shape",
+          "text": "Does the app decide or rank anything about a person that affects their life: a job, a loan, housing, insurance, school, or a medical step?",
+          "why": "Those are high-risk uses under the EU AI Act and GDPR Art. 22, and US hiring and credit rules ask for audits and explanations. It decides whether a human stays in the loop."
+        },
+        {
+          "id": "ai_decisions.human",
+          "theme": "safety",
+          "ask_at": "first-feature",
+          "text": "Who reviews a decision before it lands, and how does a person contest it?",
+          "why": "The default: a human reviews any adverse outcome, and the person sees the main reasons and can ask for a review."
+        }
+      ],
+      "guardrails": [],
+      "regimes": [
+        {
+          "name": "GDPR Art. 22 and UK GDPR",
+          "applies_when": "a decision with legal or similarly significant effects on someone in the EU or UK is made solely by automated means: a right to human review and to contest it.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
+        },
+        {
+          "name": "EU AI Act, Regulation (EU) 2024/1689",
+          "applies_when": "AI is used in employment, education, credit, essential services and other Annex III areas (high-risk), or for practices the Act prohibits outright, such as social scoring.",
+          "link": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj"
+        },
+        {
+          "name": "New York City Local Law 144 (automated employment decision tools)",
+          "applies_when": "a tool substantially assists hiring or promotion decisions for jobs in NYC: a bias audit within a year of use, published results, and notice to candidates.",
+          "link": "https://www.nyc.gov/site/dca/about/automated-employment-decision-tools.page"
+        },
+        {
+          "name": "ECOA and Regulation B adverse action notices, 12 CFR 1002.9",
+          "applies_when": "the app makes or helps make credit decisions in the US: applicants who are turned down get the specific principal reasons, whatever the model.",
+          "link": "https://www.consumerfinance.gov/rules-policy/regulations/1002/9/"
+        }
+      ],
+      "stop_patterns": ["Scoring people's trustworthiness, danger or worth from scraped data for others to look up (social scoring)."],
+      "abuse_prompts": ["The model quietly turns down people of one group more often (a proxy for race, sex or age). Design against it: measure outcomes by group before launch and keep a human on adverse decisions.", "Someone is rejected and can't find out why or appeal. Design against it: the main reasons shown, and a way to ask a person to review."]
+    },
+    {
+      "id": "regulated",
+      "title": "Regulated activity",
+      "tier_floor": "high",
+      "triggers": ["gambling", "betting", "sports betting", "lottery", "real money", "real-money", "crypto", "cryptocurrency", "bitcoin", "crypto wallet", "nft", "nfts", "token sale", "trading platform", "medical device", "insulin dose", "legal advice", "financial advice", "investment advice", "tax advice", "cannabis", "marijuana", "diagnose symptoms", "diagnose conditions", "medical diagnosis", "prescribe medication", "medication dosage"],
+      "questions": [
+        {
+          "id": "regulated.licence",
+          "theme": "purpose",
+          "ask_at": "shape",
+          "text": "Does it involve real-money betting, holding or trading crypto, diagnosing or treating a condition, or personalised legal or financial advice?",
+          "why": "Each needs a licence, clearance or a registered entity before it can be listed (Apple 5.1.1(ix), Play's gambling and financial policies, FDA for medical device software). It can change who publishes the app."
+        },
+        {
+          "id": "regulated.where",
+          "theme": "purpose",
+          "ask_at": "pre-launch",
+          "text": "Which countries or states will it launch in?",
+          "why": "Licences are per place, and real-money gaming must be geo-restricted to where it is licensed."
+        }
+      ],
+      "guardrails": ["financial"],
+      "regimes": [
+        {
+          "name": "Apple App Review Guidelines 5.3.3 and 5.3.4 (gambling) and 3.1.5 (cryptocurrencies)",
+          "applies_when": "real-money gaming or lotteries (licensed, geo-restricted, free on the store, no in-app purchase for credits) or crypto wallets and exchanges (an organisation account, licensing where offered).",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Apple App Review Guidelines 5.1.1(ix) (highly regulated fields)",
+          "applies_when": "banking, healthcare, gambling, legal cannabis, air travel or crypto exchanges: submitted by a legal entity that provides the service, not an individual developer.",
+          "link": "https://developer.apple.com/app-store/review/guidelines/"
+        },
+        {
+          "name": "Google Play Real-Money Gambling, Games, and Contests",
+          "applies_when": "the app offers real-money gambling: Google's application process, a valid licence, free to download, no Play billing, and no access for minors or unlicensed places.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/9877032"
+        },
+        {
+          "name": "FDA device software functions (US)",
+          "applies_when": "the software diagnoses, treats or prevents a condition, or drives a medical device: it may be a medical device under FDA oversight.",
+          "link": "https://www.fda.gov/medical-devices/digital-health-center-excellence/device-software-functions-including-mobile-medical-applications"
+        },
+        {
+          "name": "Google Play Financial Services policy",
+          "applies_when": "crypto exchanges and wallets, loans or other financial products: the Financial features declaration and country rules.",
+          "link": "https://support.google.com/googleplay/android-developer/answer/9876821"
+        }
+      ],
+      "stop_patterns": ["Real-money gambling open to minors, or offered where it isn't licensed."],
+      "abuse_prompts": ["A person with a gambling problem chases losses through the app. Design against it: deposit limits, self-exclusion and cool-off periods that are easy to find.", "Someone acts on the app's output as if a doctor or lawyer said it. Design against it: clear limits on what the app does, and a route to a professional."]
+    }
+  ]
+}
