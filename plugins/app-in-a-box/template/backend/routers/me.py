@@ -11,6 +11,7 @@ from pydantic.alias_generators import to_camel
 
 from backend.auth import CurrentUser, get_current_user
 from backend.db import get_db
+from backend.idempotency import idempotent
 from backend.ratelimit import rate_limit
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,8 @@ def read_me(user: CurrentUser = Depends(get_current_user), db: Any = Depends(get
     "/me",
     response_model=Profile,
     response_model_by_alias=True,
-    dependencies=[Depends(rate_limit("me.update", 30))],
+    # The app replays this edit after an offline spell, with the same Idempotency-Key.
+    dependencies=[Depends(rate_limit("me.update", 30)), Depends(idempotent())],
 )
 def update_me(
     body: ProfileUpdate,

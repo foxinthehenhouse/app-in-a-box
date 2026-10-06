@@ -11,6 +11,10 @@
  * - Gives up after DEFAULT_TIMEOUT_MS (15s; `timeoutMs` per call). A request that
  *   hangs on a bad network fails as offline (status 0, reason "timeout"), which every
  *   screen already shows with Retry, instead of spinning forever.
+ * - Sends `Idempotency-Key` when a write passes `idempotencyKey`. lib/query.ts gives
+ *   every queued write one key for life, so a replay after an offline spell (or a
+ *   restart) that the server already ran gets the stored response back instead of
+ *   running twice (backend/idempotency.py).
  * - Fires analytics for failures, so a silent failure still leaves a trail.
  * - In demo mode (EXPO_PUBLIC_DEMO=1) the same path answers from lib/demo.ts.
  *
@@ -29,9 +33,13 @@ const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 /** How long a request may take, headers and body, before it fails as offline. */
 export const DEFAULT_TIMEOUT_MS = 15_000;
 
-/** RequestInit plus how long to wait before giving up (default DEFAULT_TIMEOUT_MS). */
+/**
+ * RequestInit plus how long to wait before giving up (default DEFAULT_TIMEOUT_MS), and
+ * the write's Idempotency-Key: the SAME key on every retry and replay of one write.
+ */
 export interface ApiInit extends RequestInit {
   timeoutMs?: number;
+  idempotencyKey?: string;
 }
 
 export class ApiError extends Error {
@@ -61,6 +69,16 @@ export function newRequestId(): string {
     Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
   const variant = "89ab"[Math.floor(Math.random() * 4)];
   return `${hex(8)}-${hex(4)}-4${hex(3)}-${variant}${hex(3)}-${hex(12)}`;
+}
+
+/**
+ * A fresh Idempotency-Key: one per write the user meant, reused by every replay of it.
+ * Same shape as a request id (the backend accepts `[A-Za-z0-9._:-]{8,128}`). Math.random
+ * is enough: a key only has to be unique among one user's writes in a day, and a
+ * collision can't replay the wrong response (the server also matches the request body).
+ */
+export function newIdempotencyKey(): string {
+  return newRequestId();
 }
 
 async function authHeader(): Promise<{ header: Record<string, string>; userId: string | undefined }> {
@@ -125,12 +143,13 @@ async function send(path: string, init: ApiInit, requestId: string): Promise<Raw
   }
   if (!API_URL) throw new ApiError("EXPO_PUBLIC_API_URL is not set", 0, undefined, requestId, "misconfigured");
   const auth = await authHeader();
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...request } = init;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, idempotencyKey, ...request } = init;
   const headers: Record<string, string> = {
     Accept: "application/json",
     ...(request.body && !(request.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
     ...auth.header,
     ...((request.headers as Record<string, string>) ?? {}),
+    ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
     "X-Request-ID": requestId,
   };
   // The timer covers the body too: a server that sends headers and then stalls is
@@ -255,10 +274,19 @@ export interface ProfilePatchWire {
 
 export type ProfilePatch = Partial<Pick<Profile, "displayName" | "onboarded">>;
 
-export async function updateMe(patch: ProfilePatch): Promise<Profile> {
+/** Options every write adapter takes: the key its replays share (see lib/query.ts `keyed`). */
+export interface WriteOptions {
+  idempotencyKey?: string;
+}
+
+export async function updateMe(patch: ProfilePatch, opts: WriteOptions = {}): Promise<Profile> {
   const body: ProfilePatchWire = patch;
   return toProfile(
-    await apiFetch<ProfileWire>("/api/v1/me", { method: "PATCH", body: JSON.stringify(body) }),
+    await apiFetch<ProfileWire>("/api/v1/me", {
+      method: "PATCH",
+      body: JSON.stringify(body),
+      idempotencyKey: opts.idempotencyKey,
+    }),
   );
 }
 
@@ -319,4 +347,33 @@ export function toDataExport(w: DataExportWire): DataExport {
 
 export async function exportMyData(): Promise<DataExport> {
   return toDataExport(await apiFetch<DataExportWire>("/api/v1/me/export"));
+}
+
+// ---- Pagination ---------------------------------------------------------------
+
+/**
+ * One page of a list, as backend/pagination.py `Page[T]` sends it. Mirror each list
+ * endpoint's `Page[Thing]` as `interface ThingPageWire { items: ThingWire[]; nextCursor:
+ * string | null; }` (tests/test_wire_contract.py pairs it), then adapt with `toPage`.
+ */
+export interface Page<T> {
+  items: T[];
+  /** Pass back verbatim for the next page; null on the last one. Opaque: never parse it. */
+  nextCursor: string | null;
+}
+
+export function toPage<W, T>(w: { items: W[]; nextCursor: string | null }, adapt: (item: W) => T): Page<T> {
+  return { items: (w.items ?? []).map(adapt), nextCursor: w.nextCursor ?? null };
+}
+
+/**
+ * `path?cursor=...&limit=...`, leaving out what isn't set. Built by hand: React Native's
+ * URLSearchParams has no `set`.
+ */
+export function pagePath(path: string, cursor: string | null, limit?: number): string {
+  const parts: string[] = [];
+  if (cursor) parts.push(`cursor=${encodeURIComponent(cursor)}`);
+  if (limit !== undefined) parts.push(`limit=${limit}`);
+  if (!parts.length) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}${parts.join("&")}`;
 }

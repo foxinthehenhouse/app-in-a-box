@@ -24,6 +24,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from backend import idempotency
 from backend.services import push_service
 
 logger = logging.getLogger(__name__)
@@ -144,8 +145,12 @@ def weekly_digest(
 
 
 def prune_rate_limits(db: Any, *, now: datetime | None = None) -> dict[str, Any]:
-    """Delete rate-limit windows older than a day (the longest window we use)."""
+    """Delete rate-limit windows older than a day (the longest window we use), and
+    idempotency keys past their TTL (backend/idempotency.py). Both are short-lived
+    request bookkeeping, so one daily job prunes both."""
     now = now or datetime.now(UTC)
     cutoff = (now - timedelta(days=1)).isoformat()
     db.table("rate_limits").delete().lt("window_start", cutoff).execute()
-    return {"job": "prune_rate_limits", "before": cutoff}
+    keys_cutoff = (now - timedelta(seconds=idempotency.TTL_SECONDS)).isoformat()
+    db.table("idempotency_keys").delete().lt("created_at", keys_cutoff).execute()
+    return {"job": "prune_rate_limits", "before": cutoff, "idempotency_keys_before": keys_cutoff}
