@@ -41,6 +41,15 @@ OPTIONAL_FEATURE_CONFIG: dict[str, tuple[str | tuple[str, ...], ...]] = {
     "scheduled jobs (cron)": ("CRON_SECRET",),
     # Without it every flag is its registered default (backend/flags.py), which is safe.
     "feature flags (PostHog)": ("POSTHOG_API_KEY",),
+    # Account deletion also erases the user in PostHog and Sentry once these are set
+    # (backend/services/erasure_service.py); unset, those steps are a no-op. Use keys
+    # scoped to that one job: a PostHog personal key with only `person:write` on this
+    # project, and a Sentry token with only `event:admin`. POSTHOG_API_HOST is the
+    # private API host (https://us.posthog.com or https://eu.posthog.com), not the
+    # ingestion host the app sends events to. SENTRY_PROJECTS is comma-separated (the
+    # API's project and the app's); SENTRY_API_URL is optional (https://sentry.io).
+    "account erasure: PostHog": ("POSTHOG_ERASURE_KEY", "POSTHOG_PROJECT_ID", "POSTHOG_API_HOST"),
+    "account erasure: Sentry": ("SENTRY_ERASURE_TOKEN", "SENTRY_ORG", "SENTRY_PROJECTS"),
 }
 
 

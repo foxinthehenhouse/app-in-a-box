@@ -196,6 +196,15 @@ read its `api_token`. That token is the **public** project key; write it as
 (`https://us.i.posthog.com` or `https://eu.i.posthog.com`). Check the current
 endpoint path in PostHog's API docs before calling it.
 
+**Account erasure (optional, the owner's keys).** Deleting an account can also delete
+the user's PostHog person and Sentry issues (`backend/services/erasure_service.py`).
+It stays dormant until the Railway API service has `POSTHOG_ERASURE_KEY`,
+`POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`, `SENTRY_ERASURE_TOKEN`, `SENTRY_ORG` and
+`SENTRY_PROJECTS` (`/health?deep=1` lists what's missing). Never reuse the
+provisioning keys: ask the owner for a PostHog personal key with only `person:write`
+and a Sentry token with only `event:admin`, pasted into `.env` themselves (accounts
+phase, "Pasted secrets"), then set them on Railway with step 6's variables.
+
 ## 5. Expo / EAS
 
 ```
