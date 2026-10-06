@@ -27,6 +27,13 @@ care about.
       sign-in code reaches a fresh address from that domain, and the deployed API's
       `/health` (`APP_ENV=production`) stops listing "email sign-in (custom SMTP)".
       Before the step, it lists it.
+- [ ] **Ops defaults (Better Stack, Cloudflare R2 free tiers):** provision step 8 creates
+      a Better Stack monitor on `/health?deep=1` (re-running it reuses the monitor),
+      and removing a Railway variable the API needs turns it red within a few minutes.
+      `gh workflow run backup.yml` goes green and the bucket holds a `db/db-*.tar.age`
+      that `head -c 21` shows as `age-encryption.org/v1`; the run's log shows no part
+      of the database URL. `scripts/restore-drill.sh` restores it into a fresh local
+      stack and lists your tables with plausible row counts.
 - [ ] **On a phone:** the app runs in Expo Go or a dev build. You can sign in with a real
       email OTP, see Home, edit your name, toggle settings and sign out. The events
       show up in PostHog, and `GET /debug/sentry` on a non-production API shows up in Sentry.

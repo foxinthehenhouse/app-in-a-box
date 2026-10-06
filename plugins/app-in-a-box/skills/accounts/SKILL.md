@@ -36,6 +36,8 @@ isn't on it, and neither is Linear when `tracker: github`. Skip anything already
 | 9 | Claude GitHub App | https://github.com/apps/claude | install on the new repo (after phase 5 creates it); `claude setup-token` for `CLAUDE_CODE_OAUTH_TOKEN` | AI PR review |
 | 10 | Apple Developer | https://developer.apple.com/programs/enroll/ | **$99/yr + identity check, can take days.** Start now; nothing blocks on it until TestFlight. | iOS release |
 | 11 | Resend (recommended for sign-in email) | https://resend.com/signup | nothing yet: provision step 2.7 verifies the domain and has the user paste an API key into `.env` as `SMTP_PASS` | real users signing in (a prototype can wait) |
+| 12 | Better Stack (recommended for uptime alerts) | https://betterstack.com/users/sign-up | nothing yet: provision step 8.1 has the user paste an Uptime API token into `.env` as `BETTERSTACK_API_TOKEN` (or use Sentry Uptime: add `alerts:write` to the Sentry token) | before real users |
+| 13 | Cloudflare R2 (recommended for backups) | https://dash.cloudflare.com/sign-up | nothing yet: provision step 8.2 has the user create the bucket and a bucket-scoped token | before real users |
 
 ### How to run it
 
