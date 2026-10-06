@@ -144,6 +144,22 @@ def risk_open() -> list[str]:
         return []
 
 
+def stale_flags() -> list[dict]:
+    """Feature flags past their `expires` date (scripts/check_flags.py reads both registries)."""
+    try:
+        import datetime
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_flags", ROOT / "scripts" / "check_flags.py")
+        if spec is None or spec.loader is None:
+            return []
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.stale(ROOT, datetime.date.today())
+    except Exception:
+        return []
+
+
 def local() -> dict:
     box = appbox()
     prog = box["progress"]
@@ -167,6 +183,7 @@ def local() -> dict:
         "overdue_rituals": rituals(),
         "decisions_due": decisions_due(prog),
         "risk_open": risk_open(),
+        "stale_flags": stale_flags(),
         "brief": (ROOT / "docs" / "product" / "BRIEF.md").is_file(),
     }
 
@@ -224,6 +241,11 @@ def line(sig: dict) -> str:
     if due:
         return (f"{len(due)} product decision(s) are due, starting with `{due[0]['id']}` "
                 f"(parked until {due[0]['ask_at']})")  # fmt: skip
+    stale = sig.get("stale_flags") or []
+    if stale:
+        f = stale[0]
+        return (f"{len(stale)} feature flag(s) are past their expiry, starting with `{f['flag']}` "
+                f"({f['days_over']}d over, {f['owner']}): remove it or extend it")  # fmt: skip
     return "no local blockers"
 
 

@@ -39,6 +39,8 @@ FEATURE_CONFIG: dict[str, tuple[str | tuple[str, ...], ...]] = {
 # into FEATURE_CONFIG once production depends on it (e.g. you scheduled the cron).
 OPTIONAL_FEATURE_CONFIG: dict[str, tuple[str | tuple[str, ...], ...]] = {
     "scheduled jobs (cron)": ("CRON_SECRET",),
+    # Without it every flag is its registered default (backend/flags.py), which is safe.
+    "feature flags (PostHog)": ("POSTHOG_API_KEY",),
     # Account deletion also erases the user in PostHog and Sentry once these are set
     # (backend/services/erasure_service.py); unset, those steps are a no-op. Use keys
     # scoped to that one job: a PostHog personal key with only `person:write` on this
