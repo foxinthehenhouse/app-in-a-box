@@ -22,6 +22,7 @@ from pydantic import Field
 
 from backend.auth import CurrentUser, get_current_user
 from backend.db import get_db
+from backend.idempotency import idempotent
 from backend.ratelimit import rate_limit
 from backend.routers.me import Wire, WireIn
 from backend.services import uploads_service
@@ -73,7 +74,7 @@ def _upload(row: dict[str, Any]) -> Upload:
     "/uploads",
     response_model=UploadTicket,
     response_model_by_alias=True,
-    dependencies=[Depends(rate_limit("uploads.create", 20))],
+    dependencies=[Depends(rate_limit("uploads.create", 20)), Depends(idempotent())],
 )
 def create_upload(
     body: UploadRequest,  # validating it IS the check: a bad type or size is a 422 here
@@ -87,7 +88,7 @@ def create_upload(
     "/uploads/{upload_id}/complete",
     response_model=Upload,
     response_model_by_alias=True,
-    dependencies=[Depends(rate_limit("uploads.complete", 30))],
+    dependencies=[Depends(rate_limit("uploads.complete", 30)), Depends(idempotent())],
 )
 def complete_upload(
     upload_id: UUID,

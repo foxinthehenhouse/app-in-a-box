@@ -107,13 +107,13 @@ def _fake_get(status: int, body: dict[str, Any] | None = None, error: bool = Fal
 
 
 def test_legacy_hs256_falls_back_to_the_auth_api(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(auth.httpx, "get", _fake_get(200, {"id": "user-2", "email": None}))
+    monkeypatch.setattr(auth.outbound, "get", _fake_get(200, {"id": "user-2", "email": None}))
     assert auth.get_current_user(_creds(_token("HS256"))).id == "user-2"
 
 
 def test_jwks_unreachable_falls_back_to_the_auth_api(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(auth, "_jwks_client", lambda: _Jwks(fail=True))
-    monkeypatch.setattr(auth.httpx, "get", _fake_get(200, {"id": "user-3"}))
+    monkeypatch.setattr(auth.outbound, "get", _fake_get(200, {"id": "user-3"}))
     assert auth.get_current_user(_creds(_token())).id == "user-3"
 
 
@@ -123,21 +123,21 @@ def test_unknown_kid_is_401_without_calling_the_auth_api(monkeypatch: pytest.Mon
     def must_not_call(*_a: Any, **_k: Any) -> Any:
         raise AssertionError("an unknown kid must not trigger a remote Auth API call")
 
-    monkeypatch.setattr(auth.httpx, "get", must_not_call)
+    monkeypatch.setattr(auth.outbound, "get", must_not_call)
     with pytest.raises(HTTPException) as exc:
         auth.get_current_user(_creds(_token()))
     assert exc.value.status_code == 401
 
 
 def test_auth_api_rejection_is_401(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(auth.httpx, "get", _fake_get(401))
+    monkeypatch.setattr(auth.outbound, "get", _fake_get(401))
     with pytest.raises(HTTPException) as exc:
         auth.get_current_user(_creds(_token("HS256")))
     assert exc.value.status_code == 401
 
 
 def test_auth_api_down_is_503_not_401(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(auth.httpx, "get", _fake_get(0, error=True))
+    monkeypatch.setattr(auth.outbound, "get", _fake_get(0, error=True))
     with pytest.raises(HTTPException) as exc:
         auth.get_current_user(_creds(_token("HS256")))
     assert exc.value.status_code == 503
@@ -164,7 +164,7 @@ def test_remote_verify_sends_a_real_apikey_under_each_key_config(
         seen.append(kw["headers"])
         return type("R", (), {"status_code": 200, "json": lambda self: {"id": "user-9"}})()
 
-    monkeypatch.setattr(auth.httpx, "get", get)
+    monkeypatch.setattr(auth.outbound, "get", get)
     assert auth.get_current_user(_creds(_token())).id == "user-9"
     assert seen[0]["apikey"] == f"key-from-{var}"
 
@@ -184,14 +184,14 @@ def test_jwks_blip_with_no_project_key_is_503_not_401(monkeypatch: pytest.Monkey
     def must_not_call(*_a: Any, **_k: Any) -> Any:
         raise AssertionError("must not call the Auth API with an empty apikey")
 
-    monkeypatch.setattr(auth.httpx, "get", must_not_call)
+    monkeypatch.setattr(auth.outbound, "get", must_not_call)
     with pytest.raises(HTTPException) as exc:
         auth.get_current_user(_creds(_token()))
     assert exc.value.status_code == 503
 
 
 def test_garbage_token_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(auth.httpx, "get", _fake_get(401))
+    monkeypatch.setattr(auth.outbound, "get", _fake_get(401))
     with pytest.raises(HTTPException) as exc:
         auth.get_current_user(_creds("not-a-jwt"))
     assert exc.value.status_code == 401

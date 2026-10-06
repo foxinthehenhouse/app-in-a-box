@@ -27,3 +27,14 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("APP_ENV", "test")
     os.environ.pop("SENTRY_ENVIRONMENT", None)
+
+
+@pytest.fixture(autouse=True)
+def _closed_circuits() -> None:
+    # backend/http.py keeps one circuit breaker per upstream per process; a test that
+    # trips one must not make the next test's calls fail fast.
+    try:
+        from backend import http as outbound
+    except ImportError:  # a guard test copied out without backend/ (selftest plants)
+        return
+    outbound.reset_breakers()

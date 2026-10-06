@@ -93,11 +93,11 @@ jobs:
           curl -fsSL -o actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           echo "${ACTIONLINT_SHA256}  actionlint.tgz" | sha256sum -c -
           mkdir -p "$HOME/.local/bin" && tar -xzf actionlint.tgz -C "$HOME/.local/bin" actionlint
-          python -m pip install "zizmor==1.30.1" "pyyaml==6.0.2"
+          python -m pip install "zizmor==1.30.1" "pyyaml==6.0.2" "uv==0.8.17"
           npm install -g --no-audit --no-fund "squawk-cli@${SQUAWK_VERSION}"
           squawk --version
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - name: Throwaway Postgres with pgTAP + pgvector (the generated repo's DB gate runs against it; pgvector for the AI recipe's retrieval tables), and age (the backup round trip)
+      - name: Throwaway Postgres with pgTAP + pgvector (the generated repo's DB gate and recipe-search run against it; pgvector for the AI recipe's retrieval tables), and age (the backup round trip)
         run: |
           PGV="$(find /usr/lib/postgresql -mindepth 1 -maxdepth 1 -printf '%f\n' | sort -n | tail -1)"
           sudo apt-get update -q
