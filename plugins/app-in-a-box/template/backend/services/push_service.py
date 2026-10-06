@@ -15,7 +15,8 @@ How Expo push works, and what this module does about each step:
 
 Every token read/delete is scoped by the owning user's id. Pure helpers
 (`chunks`, `parse_tickets`, `parse_receipts`) carry the logic and are unit-tested;
-the HTTP client takes an injectable httpx transport so tests never hit Expo.
+the HTTP client (backend/http.py: timeout, retries, circuit breaker) takes an
+injectable transport so tests never hit Expo.
 """
 
 from __future__ import annotations
@@ -27,8 +28,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import httpx
-
+from backend import http as outbound
 from backend.config import env
 
 logger = logging.getLogger(__name__)
@@ -133,19 +133,19 @@ def parse_receipts(body: Any) -> tuple[set[str], set[str]]:
 class ExpoPushClient:
     """Thin HTTP wrapper. Pass `transport=httpx.MockTransport(...)` in tests."""
 
-    def __init__(self, transport: httpx.BaseTransport | None = None, timeout: float = 15) -> None:
+    def __init__(self, transport: outbound.Transport | None = None, timeout: float = 15) -> None:
         headers = {"Accept": "application/json", "Accept-Encoding": "gzip"}
         token = env("EXPO_ACCESS_TOKEN")
         if token:
             headers["Authorization"] = f"Bearer {token}"
-        self._http = httpx.Client(
-            base_url=EXPO_BASE, headers=headers, timeout=timeout, transport=transport
+        self._http = outbound.client(
+            "expo-push", base_url=EXPO_BASE, headers=headers, timeout=timeout, transport=transport
         )
 
-    def _post(self, path: str, json: Any) -> Any:
+    def _post(self, path: str, json: Any, *, idempotent: bool = False) -> Any:
         try:
-            resp = self._http.post(path, json=json)
-        except httpx.HTTPError as exc:
+            resp = self._http.post(path, json=json, idempotent=idempotent)
+        except outbound.HTTPError as exc:
             raise PushError(f"expo unreachable: {type(exc).__name__}") from exc
         if resp.status_code >= 400:
             raise PushError(f"expo HTTP {resp.status_code}")
@@ -170,7 +170,9 @@ class ExpoPushClient:
         done: set[str] = set()
         dead: set[str] = set()
         for batch in chunks(list(ticket_ids), RECEIPT_BATCH):
-            d, x = parse_receipts(self._post("/getReceipts", {"ids": list(batch)}))
+            # A read sent as POST: safe to repeat on a 5xx, unlike /send.
+            body = self._post("/getReceipts", {"ids": list(batch)}, idempotent=True)
+            d, x = parse_receipts(body)
             done |= d
             dead |= x
         return done, dead

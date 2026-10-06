@@ -65,7 +65,10 @@ it("a paused edit replayed after a restart rolls back and reports when the serve
     await after.resumePausedMutations();
   });
 
-  expect(api.updateMe).toHaveBeenCalledWith({ displayName: "Riley" });
+  // The replay carries the Idempotency-Key minted when the user saved, from disk.
+  const persisted = onDisk.mutations[0]?.state.variables as { idempotencyKey: string };
+  expect(persisted.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+  expect(api.updateMe).toHaveBeenCalledWith({ displayName: "Riley" }, { idempotencyKey: persisted.idempotencyKey });
   expect(after.getQueryData<Profile>(queryKeys.me)?.displayName).toBe("Sam"); // rolled back
   expect(analytics.profileUpdated).toHaveBeenCalledWith({ success: false, error_code: "http_422", duration_ms: 0 });
 });
@@ -93,4 +96,74 @@ it("a paused edit replayed after a restart that succeeds records success", async
   });
   expect(after.getQueryData<Profile>(queryKeys.me)?.displayName).toBe("Riley");
   expect(analytics.profileUpdated).toHaveBeenCalledWith({ success: true, error_code: null, duration_ms: 0 });
+});
+
+it("a replay that runs again after the app died mid-request sends the SAME key (the server answers it once)", async () => {
+  // The worst case the key exists for: the replay reached the server and committed, and
+  // the app died before the response, so the paused mutation is still on disk.
+  const before = makeQueryClient();
+  before.setQueryData(queryKeys.me, SAM);
+  onlineManager.setOnline(false);
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={before}>{children}</QueryClientProvider>;
+  const { result } = await renderHook(() => useUpdateMe(), { wrapper });
+  await act(async () => {
+    result.current.mutate({ displayName: "Riley" });
+  });
+  await waitFor(() => expect(result.current.isPaused).toBe(true));
+  const onDisk = JSON.parse(JSON.stringify(dehydrate(before))) as ReturnType<typeof dehydrate>;
+  before.getMutationCache().clear();
+
+  api.updateMe.mockResolvedValue({ ...SAM, displayName: "Riley" });
+  for (let restart = 0; restart < 2; restart++) {
+    const after = makeQueryClient();
+    hydrate(after, onDisk);
+    onlineManager.setOnline(true);
+    await act(async () => {
+      await after.resumePausedMutations();
+    });
+  }
+  const keys = api.updateMe.mock.calls.map((c) => (c[1] as { idempotencyKey: string }).idempotencyKey);
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBe(keys[1]);
+});
+
+it("two saves are two intents: each gets its own key", async () => {
+  const client = makeQueryClient();
+  client.setQueryData(queryKeys.me, SAM);
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  api.updateMe.mockResolvedValue(SAM);
+  const { result, unmount } = await renderHook(() => useUpdateMe(), { wrapper });
+  await act(async () => {
+    await result.current.mutateAsync({ displayName: "A" });
+    await result.current.mutateAsync({ displayName: "B" });
+  });
+  await act(async () => unmount()); // no late cache notifications after the test
+  const [a, b] = api.updateMe.mock.calls.map((c) => (c[1] as { idempotencyKey: string }).idempotencyKey);
+  expect(a).toBeTruthy();
+  expect(a).not.toBe(b);
+});
+
+it("a write queued by a build from before keys still replays (as its bare patch, without a key)", async () => {
+  const before = makeQueryClient();
+  before.setQueryData(queryKeys.me, SAM);
+  onlineManager.setOnline(false);
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={before}>{children}</QueryClientProvider>;
+  const { result } = await renderHook(() => useUpdateMe(), { wrapper });
+  await act(async () => {
+    result.current.mutate({ displayName: "Riley" });
+  });
+  await waitFor(() => expect(result.current.isPaused).toBe(true));
+  const onDisk = JSON.parse(JSON.stringify(dehydrate(before))) as ReturnType<typeof dehydrate>;
+  before.getMutationCache().clear();
+  // What the previous build persisted: the patch itself as the variables.
+  (onDisk.mutations[0] as { state: { variables: unknown } }).state.variables = { displayName: "Riley" };
+
+  const after = makeQueryClient();
+  hydrate(after, onDisk);
+  api.updateMe.mockResolvedValue({ ...SAM, displayName: "Riley" });
+  onlineManager.setOnline(true);
+  await act(async () => {
+    await after.resumePausedMutations();
+  });
+  expect(api.updateMe).toHaveBeenCalledWith({ displayName: "Riley" }, { idempotencyKey: undefined });
 });

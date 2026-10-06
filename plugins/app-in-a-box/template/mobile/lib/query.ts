@@ -16,9 +16,12 @@
  *   user A's cache.
  *
  * Every read is a hook here over a lib/api.ts adapter (so the cache holds UI
- * types). Every write is ONE exported option set (mutationKey, scope, optimistic
- * `onMutate`, rollback in `onError`, success + failure analytics, invalidate in
- * `onSettled`) registered with `setMutationDefaults` AND spread into its hook.
+ * types); a list is `usePagedQuery()` over a keyset-paged endpoint. Every write is ONE
+ * exported option set (mutationKey, scope, optimistic `onMutate`, rollback in
+ * `onError`, success + failure analytics, invalidate in `onSettled`) registered with
+ * `setMutationDefaults` AND spread into its hook, and its variables are `Keyed`: the
+ * Idempotency-Key is minted once per write, persisted with it, and sent on every
+ * replay, so a write the server already ran isn't run twice.
  * `updateMeOptions` / `useUpdateMe` is the worked example.
  */
 import { useSyncExternalStore } from "react";
@@ -26,12 +29,24 @@ import { AppState, type AppStateStatus } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { QueryClient, focusManager, onlineManager, useMutation, useQuery, type MutationOptions } from "@tanstack/react-query";
+import {
+  QueryClient,
+  focusManager,
+  onlineManager,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  type InfiniteData,
+  type MutateOptions,
+  type MutationOptions,
+  type QueryKey,
+  type UseMutationResult,
+} from "@tanstack/react-query";
 import type { PersistedClient, Persister } from "@tanstack/react-query-persist-client";
 import Constants from "expo-constants";
 
 import { analytics, startTimer } from "./analytics";
-import { ApiError, getMe, updateMe, type Profile, type ProfilePatch } from "./api";
+import { ApiError, getMe, newIdempotencyKey, updateMe, type Page, type Profile, type ProfilePatch } from "./api";
 import { currentUserId } from "./supabase";
 
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -53,6 +68,30 @@ export function shouldRetry(failureCount: number, error: unknown): boolean {
 }
 
 // ---- Writes: option sets ---------------------------------------------------
+
+/**
+ * A write's variables: what the user asked for, plus the Idempotency-Key minted when
+ * they asked. Variables are persisted with a paused mutation, so the key survives a
+ * restart and every replay sends the same one (two taps are two keys: two intents).
+ */
+export interface Keyed<T> {
+  input: T;
+  idempotencyKey: string;
+}
+
+export function keyed<T>(input: T): Keyed<T> {
+  return { input, idempotencyKey: newIdempotencyKey() };
+}
+
+/**
+ * Read a write's variables, tolerating ones persisted by a build from before keys: an OTA
+ * update keeps the persisted cache (the buster is the native app version), so a paused
+ * write can come back as the bare input. It replays without a key rather than as garbage.
+ */
+export function unkey<T>(v: Keyed<T> | T): { input: T; idempotencyKey?: string } {
+  if (v && typeof v === "object" && "input" in v && "idempotencyKey" in v) return v as Keyed<T>;
+  return { input: v as T };
+}
 // Declared BEFORE makeQueryClient: `queryClient` is built at import time, and a const
 // declared later would reach setMutationDefaults as undefined (no error, no defaults;
 // lib/__tests__/query-resume.test.tsx asserts the module-level client has them).
@@ -78,11 +117,15 @@ function elapsedMs(context: UpdateMeContext | undefined): number {
  * never racing). Every write in this file follows this shape; see mobile/AGENTS.md
  * "Offline" for what a POST that creates something must add (a client-generated id).
  */
-export const updateMeOptions: MutationOptions<Profile, unknown, ProfilePatch, UpdateMeContext> = {
+export const updateMeOptions: MutationOptions<Profile, unknown, Keyed<ProfilePatch>, UpdateMeContext> = {
   mutationKey: mutationKeys.updateMe,
   scope: { id: "me" },
-  mutationFn: (patch) => updateMe(patch),
-  onMutate: async (patch, ctx) => {
+  mutationFn: (v) => {
+    const { input, idempotencyKey } = unkey(v);
+    return updateMe(input, { idempotencyKey });
+  },
+  onMutate: async (v, ctx) => {
+    const patch = unkey(v).input;
     await ctx.client.cancelQueries({ queryKey: queryKeys.me });
     const previous = ctx.client.getQueryData<Profile>(queryKeys.me);
     if (previous) ctx.client.setQueryData<Profile>(queryKeys.me, { ...previous, ...patch });
@@ -238,13 +281,52 @@ export function useMe() {
   return useQuery({ queryKey: queryKeys.me, queryFn: getMe });
 }
 
+/**
+ * A keyset-paged list (backend/pagination.py) as an infinite query: `fetchPage(cursor)`
+ * is a lib/api.ts adapter returning `Page<T>`; the first page is `null`, the next is
+ * the last page's `nextCursor`, and `hasNextPage` turns false when it is null. Flatten
+ * for a FlatList with `pageItems(query.data)` and load more in `onEndReached`:
+ *
+ *     const things = usePagedQuery(queryKeys.things, (cursor) => listThings(cursor));
+ *     <FlatList data={pageItems(things.data)}
+ *       onEndReached={() => things.hasNextPage && !things.isFetchingNextPage && things.fetchNextPage()} />
+ */
+export function usePagedQuery<T>(queryKey: QueryKey, fetchPage: (cursor: string | null) => Promise<Page<T>>) {
+  return useInfiniteQuery({
+    queryKey,
+    queryFn: ({ pageParam }) => fetchPage(pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last: Page<T>) => last.nextCursor ?? undefined,
+  });
+}
+
+/** Every loaded item, in order, across the pages an infinite query holds. */
+export function pageItems<T>(data: InfiniteData<Page<T>> | undefined): T[] {
+  return data ? data.pages.flatMap((p) => p.items) : [];
+}
+
 // ---- Writes: hooks -------------------------------------------------------------
 
 /**
  * Optimistic profile edit: the new name shows everywhere immediately, rolls back
  * if the server says no, and refetches either way. Offline, it queues and
- * replays on reconnect (even after a restart). Fires success AND failure analytics.
+ * replays on reconnect (even after a restart), with the same Idempotency-Key.
+ * Fires success AND failure analytics. Callers pass a plain patch; the key is added here.
  */
 export function useUpdateMe() {
-  return useMutation<Profile, unknown, ProfilePatch, UpdateMeContext>({ ...updateMeOptions });
+  return withKeys(useMutation<Profile, unknown, Keyed<ProfilePatch>, UpdateMeContext>({ ...updateMeOptions }));
+}
+
+/**
+ * A mutation over `Keyed<TInput>` variables whose `mutate` / `mutateAsync` take the plain
+ * input and mint its key. Screens never handle keys; every write hook returns this.
+ */
+export function withKeys<TData, TInput, TContext>(m: UseMutationResult<TData, unknown, Keyed<TInput>, TContext>) {
+  type Options = MutateOptions<TData, unknown, Keyed<TInput>, TContext>;
+  const { mutate, mutateAsync } = m;
+  return {
+    ...m,
+    mutate: (input: TInput, o?: Options) => mutate(keyed(input), o),
+    mutateAsync: (input: TInput, o?: Options) => mutateAsync(keyed(input), o),
+  };
 }
