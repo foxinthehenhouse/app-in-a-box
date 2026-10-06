@@ -119,7 +119,8 @@ def test_a_replay_returns_the_stored_response_without_running_again() -> None:
     db = FakeDB({"profiles": []})
     client = client_for(db, "u1")
     first = _patch(client, {"displayName": "Riley"})
-    assert first.status_code == 200 and "idempotent-replayed" not in first.headers
+    assert first.status_code == 200
+    assert "idempotent-replayed" not in first.headers
     db.tables["profiles"][0]["display_name"] = "Changed elsewhere"
     again = _patch(client, {"displayName": "Riley"})
     assert again.status_code == 200
@@ -160,7 +161,8 @@ def test_a_request_still_running_is_409_with_retry_after() -> None:
         content=body,
         headers={"Idempotency-Key": KEY, "Content-Type": "application/json"},
     )
-    assert resp.status_code == 409 and resp.headers["retry-after"] == "1"
+    assert resp.status_code == 409
+    assert resp.headers["retry-after"] == "1"
     assert _profile_writes(db) == 0
 
 
@@ -168,7 +170,8 @@ def test_keys_are_per_user() -> None:
     db = FakeDB({"profiles": []})
     _patch(client_for(db, "u1"), {"displayName": "Riley"})
     other = _patch(client_for(db, "u2"), {"displayName": "Riley"})
-    assert other.status_code == 200 and "idempotent-replayed" not in other.headers
+    assert other.status_code == 200
+    assert "idempotent-replayed" not in other.headers
     assert other.json()["id"] == "u2"  # never u1's stored response
     assert _profile_writes(db) == 2
 
@@ -199,7 +202,8 @@ def test_a_crash_frees_its_key() -> None:
 
 def test_a_malformed_key_is_400() -> None:
     resp = _patch(client_for(FakeDB({"profiles": []}), "u1"), {}, key="short")
-    assert resp.status_code == 400 and resp.json()["detail"] == "invalid_idempotency_key"
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "invalid_idempotency_key"
 
 
 def test_the_claim_failing_is_503_not_an_unprotected_write() -> None:
@@ -209,7 +213,8 @@ def test_the_claim_failing_is_503_not_an_unprotected_write() -> None:
 
     resp = _patch(client_for(db, "u1"), {"displayName": "Riley"})
     assert backend.ratelimit.FAIL_OPEN  # the limiter let it through; the claim did not
-    assert resp.status_code == 503 and resp.json()["detail"] == "idempotency_unavailable"
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == "idempotency_unavailable"
     assert _profile_writes(db) == 0
 
 
@@ -222,7 +227,8 @@ def test_a_204_replays_as_a_204(monkeypatch: pytest.MonkeyPatch) -> None:
     first = client.post("/api/v1/me/push-token", json=body, headers=headers)
     again = client.post("/api/v1/me/push-token", json=body, headers=headers)
     assert (first.status_code, again.status_code) == (204, 204)
-    assert again.content == b"" and again.headers["idempotent-replayed"] == "true"
+    assert again.content == b""
+    assert again.headers["idempotent-replayed"] == "true"
     assert [c[0] for c in db.rpc_calls].count("register_push_token") == 1
 
 

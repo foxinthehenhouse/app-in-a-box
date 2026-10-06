@@ -173,8 +173,7 @@ class Client:
         if not self.breaker.allow():
             raise CircuitOpen(f"{self.name}: circuit open, retry in {self.breaker.retry_in():.0f}s")
         if idempotent is None:
-            headers = {k.lower() for k in (kwargs.get("headers") or {})}
-            idempotent = method in IDEMPOTENT_METHODS or "idempotency-key" in headers
+            idempotent = _repeatable(method, kwargs.get("headers"))
         for attempt in range(self.attempts):
             last = attempt == self.attempts - 1
             try:
@@ -192,16 +191,22 @@ class Client:
                 self.breaker.abandon()  # our bug (a bad URL), not the upstream's: no verdict
                 raise
             else:
-                if resp.status_code < 500:
-                    self.breaker.record(True)
+                if self._final(resp, retry=idempotent and not last):
                     return resp
-                if last or not idempotent:
-                    self.breaker.record(False)
-                    return resp
-                resp.close()
                 logger.info("%s: HTTP %d, retrying", self.name, resp.status_code)
             self._sleep(backoff(attempt, self.base_delay, self.max_delay))
         raise AssertionError("unreachable")  # pragma: no cover
+
+    def _final(self, resp: httpx.Response, *, retry: bool) -> bool:
+        """Record the breaker's verdict on a response; False means close it and retry."""
+        if resp.status_code < 500:
+            self.breaker.record(True)
+            return True
+        if not retry:
+            self.breaker.record(False)
+            return True
+        resp.close()
+        return False
 
     def get(self, url: str, **kwargs: Any) -> httpx.Response:
         return self.request("GET", url, **kwargs)
@@ -217,6 +222,12 @@ class Client:
 
     def __exit__(self, *_exc: object) -> None:
         self.close()
+
+
+def _repeatable(method: str, headers: Any) -> bool:
+    """Safe to retry after a 5xx: an idempotent method, or a request with an Idempotency-Key."""
+    names = {k.lower() for k in (headers or {})}
+    return method in IDEMPOTENT_METHODS or "idempotency-key" in names
 
 
 def client(name: str, *, timeout: float, **kwargs: Any) -> Client:

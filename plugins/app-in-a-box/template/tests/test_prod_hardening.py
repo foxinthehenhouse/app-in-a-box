@@ -256,7 +256,8 @@ def test_429_carries_ratelimit_and_policy_headers() -> None:
     h = client.patch("/api/v1/me", json={}).headers
     assert h["ratelimit-policy"] == '"me.update";q=30;w=60'
     m = re.fullmatch(r'"me\.update";r=0;t=(\d+)', h["ratelimit"])
-    assert m and m.group(1) == h["retry-after"]
+    assert m
+    assert m.group(1) == h["retry-after"]
 
 
 def test_ratelimit_header_names_are_structured_field_strings() -> None:
