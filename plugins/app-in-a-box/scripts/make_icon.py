@@ -173,6 +173,30 @@ class Canvas:
         )
 
 
+def grain_png(size: int = 48, seed: int = 7) -> bytes:
+    """A tileable film-grain square: greyscale noise around mid-grey, the same every run.
+    The app lays it over its atmosphere at a few percent (components/ui/ScreenAtmosphere),
+    as the prototype does with its SVG noise."""
+    x, rows = seed, []
+    for _ in range(size):
+        row = bytearray(b"\x00")
+        for _ in range(size):
+            x = (x * 1103515245 + 12345) & 0x7FFFFFFF  # LCG: deterministic, no imports
+            row.append(64 + (x >> 16) % 128)
+        rows.append(bytes(row))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        crc = struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        return struct.pack(">I", len(data)) + kind + data + crc
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 0, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(b"".join(rows), 9))
+        + chunk(b"IEND", b"")
+    )
+
+
 def icon_pair(tokens: dict) -> tuple[str, str]:
     """(background, foreground) hexes: accent/onAccent of the default mode's palette."""
     color = tokens.get("color", {})
