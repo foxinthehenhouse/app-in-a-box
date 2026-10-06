@@ -1,0 +1,37 @@
+# PR title lint. PRs squash-merge, so the title IS the commit on main: `<type>: <summary>`
+# (feat, fix, chore, docs, refactor), at most 72 characters, no WIP marker, no full stop.
+# Rules and examples: scripts/check_pr_title.py. Editing the title re-runs this check.
+# Dependabot/Renovate PRs pass: their titles are machine-made and triaged by a routine.
+name: PR title
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  merge_group: # a required check must also report in a merge queue
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: PR title is a good commit subject
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            echo "Merge queue: the PR already passed this check."; exit 0
+          fi
+          if [ "$AUTHOR" = "dependabot[bot]" ] || [ "$AUTHOR" = "renovate[bot]" ]; then
+            echo "Dependency bot PR: its title is machine-made."; exit 0
+          fi
+          python3 scripts/check_pr_title.py

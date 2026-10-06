@@ -1,10 +1,10 @@
 # CI: the merge gate. Required checks for branch protection: `python`, `mobile`.
-#   python: ruff + pyright + lint-imports (architecture boundaries) + pytest with a
-#           coverage floor. pytest collects tests/ AND tests/harness/ (skills, agents,
-#           rules, memory, hooks, AGENTS.md, workflows, JSON/TOML configs), so the
-#           agent harness is linted on every PR too.
-#   mobile: `npm run gates` (tsc + eslint + guard scripts + jest).
-# Sibling workflows: workflow-lint.yml, security.yml, db.yml.
+#   python: generated files current + ruff + vulture + pyright + lint-imports (architecture
+#           boundaries) + pytest with a coverage floor. pytest collects tests/ AND
+#           tests/harness/ (skills, agents, rules, memory, hooks, AGENTS.md, workflows,
+#           JSON/TOML configs), so the agent harness is linted on every PR too.
+#   mobile: `npm run gates` (tsc + eslint + knip + guard scripts + jest).
+# Sibling workflows: workflow-lint.yml, security.yml, db.yml, ticket.yml, pr-title.yml.
 name: CI
 on:
   pull_request:
@@ -65,12 +65,18 @@ jobs:
         # the App Store / Play answers, PrivacyInfo and the policy draft are generated from
         # it. A migration or event nobody mapped is data the store answers don't disclose.
         run: python scripts/check_data_map.py
+      - name: Generated files match their sources (tokens.ts, Codex adapters)
+        # Rebuilt in memory with the renderer's own code; a hand edit or a source edited
+        # without regenerating fails here. Fix: python3 scripts/check_generated.py --fix
+        run: python3 scripts/check_generated.py
       - name: Feature flags have an owner and an expiry (mobile/lib/flags.ts, backend/flags.py)
         # A flag nobody owns, with no date to remove it, lives forever. Expired flags only
         # warn here (a passing date is not a code change); the `next` skill surfaces them.
         run: python3 scripts/check_flags.py
-      - name: Ruff
+      - name: Ruff (incl. complexity C90 <= 10, config in pyproject.toml)
         run: ruff check backend tests scripts
+      - name: Vulture (dead code, config in pyproject.toml)
+        run: vulture
       - name: Pyright (basic mode, config in pyproject.toml)
         run: pyright
       - name: Architecture boundaries (import-linter, contracts in pyproject.toml)
@@ -115,7 +121,7 @@ jobs:
         # binaries (sentry-cli, a resolver's prebuilt binding, macOS fsevents) that npm
         # already installs as optional packages. EAS builds run their own install.
         run: npm ci --ignore-scripts
-      - name: Gates (tsc + eslint + guard scripts + jest)
+      - name: Gates (tsc + eslint + knip + guard scripts + jest)
         if: steps.app.outputs.present == 'true'
         run: npm run gates
 

@@ -41,12 +41,14 @@ export function toAskAnswer(w: AskAnswerWire): AskAnswer {
   return w.found && w.answer ? { found: true, answer: w.answer, citations: w.citations } : { found: false };
 }
 
-/** 429 `ai_daily_limit` and 502 `ai_unavailable` arrive as ApiError: show them honestly, with retry. */
+/** 429 `ai_daily_limit` and 502 `ai_unavailable` arrive as ApiError: show them honestly, with retry.
+ * @public The ask screen you build calls it; the recipe ships no screen (knip). */
 export async function askQuestion(question: string): Promise<AskAnswer> {
   const body: AskQuestionWire = { question };
   return toAskAnswer(await apiFetch<AskAnswerWire>("/api/v1/ask", { method: "POST", body: JSON.stringify(body) }));
 }
 
+/** @public Call it wherever a source is saved; the recipe ships no caller (knip). */
 export async function indexAskSource(sourceId: string, text: string, title = ""): Promise<number> {
   const body: AskSourceWire = { title, text };
   const w = await apiFetch<AskSourceIndexedWire>(`/api/v1/ask/sources/${encodeURIComponent(sourceId)}`, {
@@ -56,6 +58,7 @@ export async function indexAskSource(sourceId: string, text: string, title = "")
   return w.chunks;
 }
 
+/** @public Call it wherever a source is deleted; the recipe ships no caller (knip). */
 export async function removeAskSource(sourceId: string): Promise<void> {
   await apiFetch<void>(`/api/v1/ask/sources/${encodeURIComponent(sourceId)}`, { method: "DELETE" });
 }

@@ -95,7 +95,8 @@ def test_page_size_never_drops_or_repeats_a_tie(limit: int) -> None:
 
 def test_an_exact_last_page_has_no_cursor() -> None:
     body = TestClient(_app(_db())).get("/api/v1/things", params={"limit": 10}).json()
-    assert len(body["items"]) == 10 and body["nextCursor"] is None
+    assert len(body["items"]) == 10
+    assert body["nextCursor"] is None
 
 
 def test_rows_inserted_before_the_cursor_do_not_shift_the_next_page() -> None:
@@ -110,7 +111,8 @@ def test_rows_inserted_before_the_cursor_do_not_shift_the_next_page() -> None:
 @pytest.mark.parametrize("cursor", ["!!!", "bm90IGpzb24", encode_cursor({"a": 1}, ["a"])])
 def test_a_garbage_cursor_is_400(cursor: str) -> None:
     resp = TestClient(_app(_db())).get("/api/v1/things", params={"cursor": cursor})
-    assert resp.status_code == 400 and resp.json()["detail"] == "invalid_cursor"
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "invalid_cursor"
 
 
 def test_limit_is_bounded() -> None:
@@ -142,7 +144,7 @@ def test_after_filter_quotes_values_and_expands_the_tuple_comparison() -> None:
 
 
 def test_keyset_needs_an_order() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="at least one order column"):
         keyset(FakeDB().table("x").select("*"), (), cursor=None, limit=1)
 
 

@@ -1,0 +1,30 @@
+// knip: dead code in the app. `npm run gates` runs it, so an unused file, export or
+// dependency fails the push instead of reading as code someone still needs.
+// Its Expo and Jest plugins find the real entry points (app/ routes, tests, jest.setup.ts);
+// this file only names what they can't know. Keep every exception here with its reason.
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "entry": [
+    // A CLI the owner runs by hand (universal links), not imported by the app.
+    "scripts/set-app-domain.js",
+    // The component library's public surface: screens you haven't written yet import
+    // from it. A component nothing uses is still caught in its own file.
+    "components/ui/index.ts",
+    // GENERATED from design/tokens.json; `color` and `themeName` are for Node tooling.
+    "lib/tokens.ts"
+  ],
+  // An export the file itself uses is not dead, it's just visible.
+  "ignoreExportsUsedInFile": true,
+  "ignoreDependencies": [
+    // Installed up front so the first list and the first idempotency key use the
+    // conventions in mobile/AGENTS.md (FlashList; expo-crypto randomUUID()).
+    "@shopify/flash-list",
+    "expo-crypto",
+    // expo-font's loader needs it at runtime; nothing imports it by name.
+    "expo-asset",
+    // Pinned to the installed React for @testing-library/react-native (mobile-deps.sh).
+    "react-test-renderer",
+    // babel-preset-expo loads it because app.json sets experiments.reactCompiler.
+    "babel-plugin-react-compiler"
+  ]
+}

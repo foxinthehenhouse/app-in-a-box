@@ -9,6 +9,8 @@ pytest-cov>=5,<8
 ruff>=0.8,<0.16
 black>=24,<27
 pyright>=1.1.390,<2
+# Dead code: CI runs `vulture` (backend/ at 80% confidence, [tool.vulture] in pyproject.toml).
+vulture>=2.14,<3
 # tests/harness parses YAML frontmatter and workflow files.
 pyyaml>=6,<7
 # lint-imports: the architecture boundaries in pyproject.toml [tool.importlinter].

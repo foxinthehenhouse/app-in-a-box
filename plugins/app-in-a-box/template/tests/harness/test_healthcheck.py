@@ -23,7 +23,8 @@ HEALTHCHECK = HOOKS_DIR / "harness-healthcheck.py"
 
 def _load(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
     spec.loader.exec_module(mod)
@@ -76,9 +77,11 @@ def test_local_only_note_is_nudged_by_the_real_hook(tmp_path: Path) -> None:
     root, local = _project(tmp_path)
     (local / "local_only.md").write_text("only here")
     out = run_session(root, tmp_path)
-    assert "machine-local memory note" in out and "local_only.md" in out
+    assert "machine-local memory note" in out
+    assert "local_only.md" in out
     assert "shared.md" not in out, "a note already in the vault was reported"
-    assert ".agents/memory" in out and "PR" in out
+    assert ".agents/memory" in out
+    assert "PR" in out
 
 
 def test_nothing_to_port_means_no_nudge(tmp_path: Path) -> None:

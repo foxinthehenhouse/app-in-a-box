@@ -220,7 +220,9 @@ def test_pre_push_refuses_a_push_to_a_merged_branch(repo: Path, tmp_path: Path) 
         repo, "refs/heads/feat/test", PUSHED, fake_gh(tmp_path, MERGED_JSON), SKIP_GATES="1"
     )
     assert out.returncode != 0
-    assert "#17" in out.stderr and "MERGED" in out.stderr and "new branch" in out.stderr.lower()
+    assert "#17" in out.stderr
+    assert "MERGED" in out.stderr
+    assert "new branch" in out.stderr.lower()
 
 
 def test_pre_push_allows_repushing_exactly_the_merged_head(repo: Path, tmp_path: Path) -> None:
@@ -232,7 +234,8 @@ def test_pre_push_allows_repushing_exactly_the_merged_head(repo: Path, tmp_path:
 
 def test_pre_push_allows_when_no_pr_merged(repo: Path, tmp_path: Path) -> None:
     out = _pre_push(repo, "refs/heads/feat/test", PUSHED, fake_gh(tmp_path, "[]"), SKIP_GATES="1")
-    assert out.returncode == 0 and (tmp_path / "gh-called").exists()
+    assert out.returncode == 0
+    assert (tmp_path / "gh-called").exists()
 
 
 def test_pre_push_fails_open_when_gh_fails(repo: Path, tmp_path: Path) -> None:
@@ -240,7 +243,8 @@ def test_pre_push_fails_open_when_gh_fails(repo: Path, tmp_path: Path) -> None:
     out = _pre_push(
         repo, "refs/heads/feat/test", PUSHED, fake_gh(tmp_path, "", rc=1), SKIP_GATES="1"
     )
-    assert out.returncode == 0 and "skipped" in out.stderr
+    assert out.returncode == 0
+    assert "skipped" in out.stderr
 
 
 def test_pre_push_fails_open_when_gh_is_absent(repo: Path, tmp_path: Path) -> None:
@@ -257,7 +261,8 @@ def test_pre_push_fails_open_when_gh_is_absent(repo: Path, tmp_path: Path) -> No
             (only / tool).symlink_to(real)
     assert shutil.which("gh", path=str(only)) is None
     out = _pre_push(repo, "refs/heads/feat/test", PUSHED, SKIP_GATES="1", PATH=str(only))
-    assert out.returncode == 0 and "gh not on PATH" in out.stderr
+    assert out.returncode == 0
+    assert "gh not on PATH" in out.stderr
 
 
 def test_pre_push_skips_the_check_for_a_branch_delete(repo: Path, tmp_path: Path) -> None:
@@ -266,4 +271,5 @@ def test_pre_push_skips_the_check_for_a_branch_delete(repo: Path, tmp_path: Path
     out = _pre_push(
         repo, "refs/heads/feat/test", "0" * 40, fake_gh(tmp_path, MERGED_JSON), SKIP_GATES="1"
     )
-    assert out.returncode == 0 and not (tmp_path / "gh-called").exists()
+    assert out.returncode == 0
+    assert not (tmp_path / "gh-called").exists()

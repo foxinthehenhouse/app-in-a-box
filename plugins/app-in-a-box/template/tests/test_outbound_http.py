@@ -167,7 +167,8 @@ def test_5xx_on_a_plain_post_is_not_repeated() -> None:
 def test_5xx_on_a_post_with_an_idempotency_key_or_flag_is_retried() -> None:
     up = Upstream(500, 200)
     resp = _client(up).post("/charge", json={}, headers={"Idempotency-Key": "k-12345678"})
-    assert resp.status_code == 200 and len(up.calls) == 2
+    assert resp.status_code == 200
+    assert len(up.calls) == 2
     up = Upstream(500, 200)
     assert _client(up).post("/receipts", json={}, idempotent=True).status_code == 200
 
@@ -213,7 +214,8 @@ def test_breaker_opens_fails_fast_then_trials_one_call() -> None:
         c.get("/x")
     assert len(up.calls) == 2  # refused without sending
     clock.now += 31
-    assert breaker.allow() and not breaker.allow()  # half-open: one trial at a time
+    assert breaker.allow()
+    assert not breaker.allow()
     breaker.record(False)  # the trial failed: open again, for another reset_after
     with pytest.raises(outbound.CircuitOpen):
         c.get("/x")
@@ -250,7 +252,7 @@ def test_our_own_bug_leaves_no_verdict_on_the_upstream() -> None:
         raise ValueError("bad request object")
 
     c = outbound.client("t", timeout=5, transport=httpx.MockTransport(broken), breaker=breaker)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="bad request object"):
         c.get("https://up.example/x")
     assert breaker.allow()  # the trial slot was freed, not stuck taken
 
@@ -264,22 +266,24 @@ def test_breakers_are_per_upstream_name_and_resettable() -> None:
 
 
 def test_breaker_rejects_nonsense_settings() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="threshold must be >= 1"):
         outbound.CircuitBreaker(threshold=0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="attempts must be >= 1"):
         outbound.client("x", timeout=1, attempts=0)
 
 
 def test_module_get_uses_the_same_policy() -> None:
     up = Upstream(503, 200)
     resp = outbound.get("one-shot", "https://up.example/x", timeout=1, transport=httpx.MockTransport(up))
-    assert resp.status_code == 200 and len(up.calls) == 2
+    assert resp.status_code == 200
+    assert len(up.calls) == 2
 
 
 def test_module_post_never_repeats_a_5xx_and_attempts_1_never_retries() -> None:
     up = Upstream(503)
     resp = outbound.post("one-shot", "https://up.example/x", timeout=1, transport=httpx.MockTransport(up))
-    assert resp.status_code == 503 and len(up.calls) == 1  # a POST may have run: no repeat
+    assert resp.status_code == 503
+    assert len(up.calls) == 1
     up = Upstream(httpx.ConnectError("refused"))
     with pytest.raises(outbound.HTTPError):
         outbound.post(

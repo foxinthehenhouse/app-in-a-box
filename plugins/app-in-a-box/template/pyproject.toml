@@ -42,6 +42,15 @@ reportMissingModuleSource = false
 #   scrub_event takes a plain dict. Correct at runtime; fix with typing.cast, then drop.
 ignore = ["backend/observability.py"]
 
+[tool.vulture]
+# Dead code in the API. CI runs bare `vulture`, which reads this table. At 80% confidence
+# it reports what is certainly dead (unused imports and variables, unreachable code) and
+# stays quiet on functions, which FastAPI and pydantic call by decorator, not by name.
+paths = ["backend"]
+min_confidence = 80
+# Pydantic validators are classmethods that never touch `cls`; the signature is fixed.
+ignore_names = ["cls"]
+
 [tool.importlinter]
 # Architecture boundaries as checks, not prose (AGENTS.md rules 1 and 8, backend/AGENTS.md
 # "Layout"). CI runs `lint-imports`; locally, `scripts/dev-venv.sh lint-imports`. A broken
@@ -81,7 +90,13 @@ target-version = "py312"
 
 [tool.ruff.lint]
 # Pinned so a ruff upgrade can't change what CI enforces underneath you.
-select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+#   C90 cyclomatic complexity (max 10, below), ASYNC blocking calls in async code,
+#   SIM/RET simpler control flow, PT pytest idiom. Split a function that trips C901;
+#   don't raise the number.
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "C90", "ASYNC", "SIM", "RET", "PT"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's dependency-injection defaults are intentional, not a mutable-default bug.

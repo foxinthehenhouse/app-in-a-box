@@ -193,9 +193,10 @@ def test_platforms_are_independent(path: Path) -> None:
             platform = job.get("params", {}).get("platform")
             assert platform in {"android", "ios"}, f"{path.name}:{job_id}: set params.platform"
             lookups = [n for n in job.get("needs", []) if jobs[n].get("type") == "get-build"]
-            assert lookups and all(
-                jobs[n]["params"]["platform"] == platform for n in lookups
-            ), f"{path.name}:{job_id}: depends on another platform's build lookup"
+            assert lookups, f"{path.name}:{job_id}: no build lookup"
+            assert all(jobs[n]["params"]["platform"] == platform for n in lookups), (
+                f"{path.name}:{job_id}: depends on another platform's build lookup"
+            )
 
 
 def test_release_submits_what_it_builds() -> None:
@@ -244,9 +245,9 @@ def test_production_otas_roll_out_in_stages() -> None:
     assert updates, "release.yml publishes no OTA"
     for job_id, job in updates.items():
         pct = job.get("params", {}).get("rollout_percentage")
-        assert isinstance(pct, int) and 0 < pct < 100, (
-            f"release.yml:{job_id}: rollout_percentage {pct!r}; production OTAs start staged (1-99)"
-        )
+        why = f"release.yml:{job_id}: rollout_percentage {pct!r}; production OTAs start staged (1-99)"
+        assert isinstance(pct, int), why
+        assert 0 < pct < 100, why
         promotes = [
             j
             for j in jobs.values()

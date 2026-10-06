@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -235,7 +235,7 @@ def _files(*paths: str) -> dict[str, dict[str, int]]:
 
 
 @pytest.fixture
-def buckets(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeDB]:
+def buckets(monkeypatch: pytest.MonkeyPatch) -> FakeDB:
     monkeypatch.setattr(es, "USER_FILE_BUCKETS", ("avatars", "uploads"))
     db = FakeDB()
     db.storage.objects = {
@@ -243,7 +243,7 @@ def buckets(monkeypatch: pytest.MonkeyPatch) -> Iterator[FakeDB]:
         "uploads": _files("u1/a.pdf", "u1/2026/b.pdf", "u1/2026/09/c.pdf", "u2/z.pdf"),
         "public-assets": _files("u1/not-ours-to-touch.png"),
     }
-    yield db
+    return db
 
 
 def _paths(db: FakeDB) -> dict[str, set[str]]:
@@ -277,7 +277,7 @@ def test_storage_no_buckets_is_a_no_op(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.mark.parametrize("bad", ["", "u1/..", "../u2"])
 def test_storage_refuses_anything_but_a_bare_user_id(buckets: FakeDB, bad: str) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="bare user id"):
         es.purge_storage(buckets, bad)
 
 
@@ -347,7 +347,8 @@ def test_a_vendor_outage_does_not_block_deletion_and_is_audited(
 def test_a_storage_failure_stops_before_the_auth_user_goes(buckets: FakeDB) -> None:
     buckets.storage.error = RuntimeError("storage down")
     resp = _delete(buckets)
-    assert resp.status_code == 500 and resp.json()["error_id"]
+    assert resp.status_code == 500
+    assert resp.json()["error_id"]
     assert buckets.auth.admin.deleted == []
 
 

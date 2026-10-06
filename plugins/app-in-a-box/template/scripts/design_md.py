@@ -180,6 +180,26 @@ def _yaml(d: dict, indent: int = 0) -> list[str]:
     return out
 
 
+def _type_entry(t: dict, fonts: dict) -> dict:
+    """One type role in Stitch's typography shape."""
+    entry: dict = {}
+    fam = fonts.get(t.get("font"), t.get("font"))
+    if isinstance(fam, str):
+        entry["fontFamily"] = fam
+    if "size" in t:
+        entry["fontSize"] = _px(t["size"])
+    if "weight" in t:
+        try:
+            entry["fontWeight"] = int(str(t["weight"]))
+        except ValueError:
+            entry["fontWeight"] = str(t["weight"])
+    if "lineHeight" in t:
+        entry["lineHeight"] = _px(t["lineHeight"])
+    if "letterSpacing" in t:
+        entry["letterSpacing"] = _px(t["letterSpacing"])
+    return entry
+
+
 def frontmatter_data(tokens: dict) -> dict:
     """Stitch's schema, projected from tokens.json. Only STITCH_KEYS at the top."""
     pals = palettes(tokens)
@@ -187,26 +207,11 @@ def frontmatter_data(tokens: dict) -> dict:
     pal = pals.get(mode, {})
     colors = {_stitch_color(k): v for k, v in pal.items() if isinstance(v, str)}
     fonts = _group(tokens, "font")
-    typography = {}
-    for role, t in _group(tokens, "type").items():
-        if not isinstance(t, dict):
-            continue
-        entry: dict = {}
-        fam = fonts.get(t.get("font"), t.get("font"))
-        if isinstance(fam, str):
-            entry["fontFamily"] = fam
-        if "size" in t:
-            entry["fontSize"] = _px(t["size"])
-        if "weight" in t:
-            try:
-                entry["fontWeight"] = int(str(t["weight"]))
-            except ValueError:
-                entry["fontWeight"] = str(t["weight"])
-        if "lineHeight" in t:
-            entry["lineHeight"] = _px(t["lineHeight"])
-        if "letterSpacing" in t:
-            entry["letterSpacing"] = _px(t["letterSpacing"])
-        typography[role] = entry
+    typography = {
+        role: _type_entry(t, fonts)
+        for role, t in _group(tokens, "type").items()
+        if isinstance(t, dict)
+    }
     rounded = {k: _px(v) for k, v in _group(tokens, "radius").items()}
     spacing = {k: _px(v) for k, v in _group(tokens, "space").items()}
     tap = tokens.get("minTapTarget", 48)

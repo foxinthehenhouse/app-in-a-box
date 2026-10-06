@@ -1,0 +1,24 @@
+# Code owners: GitHub requests the owner's review on any PR touching these paths
+# (and, with "Require review from Code Owners" on in branch protection, waits for it).
+# They are the changes an agent must never land on its own: the database, the
+# pipeline that gates everything, the agents' own instructions, and sign-in.
+# The last matching line wins, so keep broad paths above narrow ones.
+# tests/harness/test_code_health.py fails if one of these areas loses its owner.
+
+# Database: migrations change live data and RLS, and can't be rolled back by revert.
+/supabase/migrations/ @__OWNER__
+
+# CI, workflows and this file: the gates themselves.
+/.github/ @__OWNER__
+
+# The agents' instructions, skills, rules and hooks.
+/.agents/ @__OWNER__
+/.claude/ @__OWNER__
+
+# Auth: who the caller is, and how the session is stored.
+/backend/auth.py @__OWNER__
+/mobile/lib/auth.tsx @__OWNER__
+/mobile/lib/session.ts @__OWNER__
+/mobile/lib/secure-store.ts @__OWNER__
+/mobile/lib/supabase.ts @__OWNER__
+/mobile/app/(auth)/ @__OWNER__

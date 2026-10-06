@@ -19,7 +19,8 @@ from tests.test_prod_fakes import FakeDB
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location("check_flags", ROOT / "scripts" / "check_flags.py")
-assert _spec and _spec.loader
+assert _spec
+assert _spec.loader
 check_flags = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(check_flags)
 
@@ -136,7 +137,8 @@ def test_kill_push_stops_every_send(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setenv("FLAG_KILL_PUSH", "true")
     result = ps.send_to_user(db, "u1", "t", "b", client=NeverCalled())  # type: ignore[arg-type]
-    assert result.sent == 0 and sent == []
+    assert result.sent == 0
+    assert sent == []
 
 
 # ---- the registry guard ---------------------------------------------------------------
@@ -145,7 +147,8 @@ def test_kill_push_stops_every_send(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_the_shipped_registries_pass() -> None:
     assert check_flags.problems(ROOT, TODAY) == []
     regs = check_flags.registries(ROOT)
-    assert "backend/flags.py" in regs and regs["backend/flags.py"], "registry read as empty"
+    assert "backend/flags.py" in regs, "no backend registry"
+    assert regs["backend/flags.py"], "registry read as empty"
     if (ROOT / "mobile" / "lib" / "flags.ts").exists():
         assert regs["mobile/lib/flags.ts"], "the mobile registry read as empty"
 
@@ -155,7 +158,8 @@ def test_backend_registry_reads_like_the_module() -> None:
     assert set(read) == set(flags.FLAGS)
     for name, spec in flags.FLAGS.items():
         assert read[name]["default"] == spec.default
-        assert read[name]["owner"] == spec.owner and read[name]["expires"] == spec.expires
+        assert read[name]["owner"] == spec.owner
+        assert read[name]["expires"] == spec.expires
 
 
 def _app(tmp_path: Path, ts_entry: str = "", py_entry: str = "") -> Path:

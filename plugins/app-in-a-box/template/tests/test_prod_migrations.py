@@ -89,7 +89,8 @@ def test_every_table_enables_rls() -> None:
     sql = _strip_comments(_sql()).lower()
     tables = set(re.findall(r"create table (?:if not exists )?public\.(\w+)", sql))
     rls = set(re.findall(r"alter table public\.(\w+) enable row level security", sql))
-    assert tables and tables <= rls, f"no RLS: {tables - rls}"
+    assert tables
+    assert tables <= rls, f"no RLS: {tables - rls}"
 
 
 def _functions(sql: str) -> list[str]:
