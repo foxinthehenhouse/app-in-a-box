@@ -30,7 +30,8 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 
 <!-- appbox:critical-rules: the scaffold phase adds domain rules from BRIEF.md here, e.g.
      "Money amounts are integers in minor units, never floats." -->
-1. **Backend computes, frontend displays.** No business logic in React Native.
+1. **Backend computes, frontend displays.** No business logic in React Native. Boundaries
+   are checks: `lint-imports` (`pyproject.toml`) and `mobile/eslint.boundaries.js`.
 2. **Supabase is the single source of truth.** No shadow databases, no in-process state
    (the API runs multiple workers; module-level dicts are per-process).
 3. **Scope every query by the caller's user id.** The backend uses the service key,
@@ -43,7 +44,7 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 7. **Mobile-first. Read `DESIGN.md` before any UI work**; change tokens via the design flow,
    never by hand. 48px taps, `accessibilityLabel` on every control, never colour alone.
 8. **LLM use is fenced.** <!-- appbox:ai-fence: "No LLM calls anywhere." OR "Claude API
-   only in backend/services/<module>*." -->
+   only in backend/services/<module>*." --> `lint-imports` fails an SDK import elsewhere.
 9. **Writes are rate-limited, atomic and idempotent.** `Depends(rate_limit(...))` on every
    write, `Depends(idempotent())` on every POST; multi-row → a Postgres function (`db.rpc()`).
    Outbound HTTP only via `backend/http.py`; lists page by keyset (`Page[T]`). See `backend/AGENTS.md`.
@@ -106,10 +107,9 @@ Skills are invoked as `/name` in Claude Code and `$name` in Codex; both agents a
    `policy.auto_merge_low_risk: true` (default `false`) AND a ✅ low-risk verdict with
    green CI; otherwise the owner merges. Squash merge, delete the branch; follow-ups get a new one.
 6. **Ask, don't decide, on product calls.** Scope, what users see, money, positioning,
-   data and priorities belong to the owner: ask with a structured question
-   (recommended option first) per `.agents/rules/product-judgement.md`. Calls you make
-   within authority you already have get a ⚖️ and the alternative, so they can be
-   overruled.
+   data and priorities belong to the owner: ask with a structured question (recommended
+   option first) per `.agents/rules/product-judgement.md`. Calls you make within authority
+   you already have get a ⚖️ and the alternative, so they can be overruled.
 
 **Keeping it moving.** Not sure what to do, or the owner asks "what's next?" → the
 `next` skill (it ranks CI, PRs, backlog, rituals and analytics; the session-start
