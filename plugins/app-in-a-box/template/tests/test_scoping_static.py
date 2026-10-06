@@ -59,7 +59,7 @@ ALLOWLIST: dict[str, str] = {
         "Updates the job_runs ledger row this cron run claimed; system table with no user data, reached only behind the cron secret."
     ),
     "backend/services/jobs_service.py:prune_rate_limits": (
-        "Deletes expired rate_limits buckets and idempotency_keys past their TTL for every caller by design; a global housekeeping job behind the cron secret, reads nothing back."
+        "Deletes expired rows (rate_limits buckets, idempotency_keys past their TTL, and any table in RETENTION) for every user by design: a global retention job behind the cron secret that reads nothing back."
     ),
     "backend/services/jobs_service.py:weekly_digest": (
         "The weekly digest is cross-user by design (iterates onboarded profiles to push each their own digest); only runs behind the cron secret, returns counts only."

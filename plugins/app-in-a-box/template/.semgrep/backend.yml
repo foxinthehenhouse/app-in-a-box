@@ -1,0 +1,104 @@
+# Semgrep rules for the backend: the security mistakes a reviewer skims past. Written
+# for this app (no registry pull at CI time: the rules here are the rules that run).
+# CI: .github/workflows/security.yml → `semgrep` job, pinned in requirements-semgrep.txt.
+#   semgrep --test .semgrep/                                 every rule's own test cases
+#   semgrep scan --config .semgrep/backend.yml --error backend
+# Each rule has `# ruleid:` (must fire) and `# ok:` (must not) cases in backend.py.
+# A finding you have a real reason to keep: `# nosemgrep: <rule-id>` on the line, with why.
+rules:
+  - id: no-eval-exec
+    languages: [python]
+    severity: ERROR
+    message: eval()/exec() run arbitrary code. Parse the input (json, ast.literal_eval) instead.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+
+  - id: subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: shell=True lets input become a command. Pass an argument list without a shell.
+    pattern: subprocess.$FN(..., shell=True, ...)
+
+  - id: tls-verification-disabled
+    languages: [python]
+    severity: ERROR
+    message: verify=False accepts any certificate, so anyone on the network can read and change the traffic.
+    pattern-either:
+      - pattern: requests.$FN(..., verify=False, ...)
+      - pattern: httpx.$FN(..., verify=False, ...)
+
+  - id: yaml-unsafe-load
+    languages: [python]
+    severity: ERROR
+    message: yaml.load without SafeLoader can build arbitrary Python objects. Use yaml.safe_load.
+    pattern-either:
+      - patterns:
+          - pattern: yaml.load(...)
+          - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+          - pattern-not: yaml.load(..., Loader=yaml.CSafeLoader, ...)
+      - pattern: yaml.unsafe_load(...)
+
+  - id: pickle-untrusted
+    languages: [python]
+    severity: ERROR
+    message: Unpickling runs code chosen by whoever wrote the bytes. Use JSON for anything that crosses a boundary.
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+
+  - id: jwt-signature-not-verified
+    languages: [python]
+    severity: ERROR
+    message: A JWT decoded without verifying its signature (or with alg "none") is whatever the caller says it is.
+    pattern-either:
+      - pattern: 'jwt.decode(..., options={..., "verify_signature": False, ...}, ...)'
+      - pattern: 'jwt.decode(..., algorithms=[..., "none", ...], ...)'
+
+  - id: sql-built-from-strings
+    languages: [python]
+    severity: ERROR
+    message: SQL built by string formatting is an injection. Pass parameters separately, or call a Postgres function via db.rpc().
+    pattern-either:
+      - pattern: $CUR.execute(f"...", ...)
+      - pattern: $CUR.execute("..." % $X, ...)
+      - pattern: $CUR.execute("..." + $X, ...)
+      - pattern: $CUR.execute("...".format(...), ...)
+      - pattern: sqlalchemy.text(f"...")
+
+  - id: cors-wildcard-with-credentials
+    languages: [python]
+    severity: ERROR
+    message: CORS allowing every origin WITH credentials lets any website make signed-in requests as your user.
+    pattern: '$APP.add_middleware(CORSMiddleware, ..., allow_origins=["*"], ..., allow_credentials=True, ...)'
+
+  - id: weak-hash-for-security
+    languages: [python]
+    severity: WARNING
+    message: MD5 and SHA-1 are broken for security. Use hashlib.sha256 (or pass usedforsecurity=False for a plain checksum).
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+      - pattern-not: hashlib.$H(..., usedforsecurity=False, ...)
+
+  - id: insecure-tempfile
+    languages: [python]
+    severity: ERROR
+    message: tempfile.mktemp races (another process can create the file first). Use tempfile.NamedTemporaryFile or mkstemp.
+    pattern: tempfile.mktemp(...)
+
+  - id: fastapi-debug-on
+    languages: [python]
+    severity: ERROR
+    message: FastAPI(debug=True) returns stack traces (and the values in them) to any caller.
+    pattern: FastAPI(..., debug=True, ...)
+
+  - id: request-body-logged
+    languages: [python]
+    severity: ERROR
+    message: Logging a request body copies whatever users typed into the logs, outside RLS and account deletion.
+    pattern-either:
+      - pattern: $LOG.$LEVEL(..., await $REQ.json(), ...)
+      - pattern: $LOG.$LEVEL(..., await $REQ.body(), ...)
+      - pattern: $LOG.$LEVEL(..., $REQ.json(), ...)

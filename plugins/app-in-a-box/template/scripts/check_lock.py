@@ -6,10 +6,12 @@ bounds). The lock files say what we INSTALL: every package, transitive ones too,
 one exact version with its sha256 hashes, so CI and scripts/dev-venv.sh install with
 `--require-hashes` and a tampered or swapped upload on PyPI cannot slip in.
 
-    requirements.lock      requirements.txt                       (what ships)
-    requirements-dev.lock  requirements.txt + requirements-dev.txt (CI + dev venv)
+    requirements.lock          requirements.txt                       (what ships)
+    requirements-dev.lock      requirements.txt + requirements-dev.txt (CI + dev venv)
+    requirements-semgrep.lock  requirements-semgrep.txt               (the Semgrep scan,
+                               alone: its pins conflict with the API's)
 
-scripts/lock-deps.sh regenerates both and stamps each with the sha256 of its inputs.
+scripts/lock-deps.sh regenerates them and stamps each with the sha256 of its inputs.
 This check fails when:
   - an input changed and its lock was not regenerated (the stamp no longer matches;
     comment-only edits don't count),
@@ -35,6 +37,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LOCKS: dict[str, tuple[str, ...]] = {
     "requirements.lock": ("requirements.txt",),
     "requirements-dev.lock": ("requirements.txt", "requirements-dev.txt"),
+    "requirements-semgrep.lock": ("requirements-semgrep.txt",),
 }
 STAMP = "# inputs-sha256: "
 FIX = "run scripts/lock-deps.sh and commit the lock files"
@@ -117,7 +120,7 @@ def check(root: Path) -> list[str]:
                 m = _NAME.match(line)
                 if m and normalize(m.group(1)) not in pins:
                     problems.append(f"{lock}: `{line}` is not in the lock; {FIX}")
-    if len(all_pins) == 2:
+    if "requirements.lock" in all_pins and "requirements-dev.lock" in all_pins:
         run, dev = all_pins["requirements.lock"], all_pins["requirements-dev.lock"]
         for name in sorted(run.keys() & dev.keys()):
             if run[name] != dev[name]:
@@ -152,7 +155,7 @@ def main(argv: list[str]) -> int:
     for p in problems:
         print(f"check_lock: {p}")
     if not problems:
-        print("check_lock: requirements.lock and requirements-dev.lock match their inputs")
+        print("check_lock: every lock file matches its inputs")
     return 1 if problems else 0
 
 

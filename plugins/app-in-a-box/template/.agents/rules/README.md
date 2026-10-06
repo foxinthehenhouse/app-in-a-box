@@ -15,5 +15,6 @@ Format:
     ---
     Rule body (markdown). A `!pattern` in globs excludes.
 
-`optional/` holds domain overlays (health, financial, children's data) that the
-scaffold copies up when `appbox.yaml.product.sensitive_data` names them.
+`optional/` holds domain overlays (health, financial, children's data, location, UGC,
+biometric) that the scaffold copies up when `appbox.yaml.product.sensitive_data` names
+them. The matching guardrail packs enforce them in code: `docs/privacy/GUARDRAILS.md`.

@@ -30,10 +30,14 @@ Auto-loaded under `backend/` (Claude Code via CLAUDE.md, Codex via AGENTS.md). S
   `Cursor` / `Limit` query params.
 - `middleware.py`: request id (`X-Request-ID`) + security headers.
 - `routers/`: I/O only. `me.py` (profile, account deletion), `push.py` (push tokens),
-  `internal.py` (`/internal/cron/*`, shared-secret auth; `prune-rate-limits` also
-  prunes expired idempotency keys).
-- `services/`: logic. `push_service.py` (Expo push), `jobs_service.py` (cron jobs).
+  `internal.py` (`/internal/cron/*`, shared-secret auth; `prune-rate-limits` prunes
+  every table in `RETENTION`, idempotency keys included).
+- `services/`: logic. `push_service.py` (Expo push), `jobs_service.py` (cron jobs, and
+  `RETENTION`: what the daily prune deletes, and after how long).
 - `observability.py`: Sentry with PII scrubbing, request-id logging, `LOG_FORMAT=json`.
+  Log ids and error types, never an email, a name or a body: `scripts/check_guardrails.py`
+  fails CI on a log call that passes one, and Semgrep (`.semgrep/backend.yml`) scans for
+  the rest of the usual security mistakes.
 
 **The layering is checked.** `lint-imports` (CI python job; locally
 `scripts/dev-venv.sh lint-imports`) runs the contracts in `pyproject.toml`

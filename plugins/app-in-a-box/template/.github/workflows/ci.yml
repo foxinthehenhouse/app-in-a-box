@@ -60,6 +60,10 @@ jobs:
         # projection of tokens.json: a hand edit there, or a token change nobody
         # regenerated, would tell every later session the wrong design.
         run: python3 scripts/design_md.py --check
+      - name: Guardrail packs (privacy/data-map.yaml → packs; docs/privacy/GUARDRAILS.md)
+        # No personal data in analytics payloads or log calls, plus whatever each enabled
+        # pack enforces (location, minors, health, ugc, financial, biometric).
+        run: python3 scripts/check_guardrails.py
       - name: Ruff
         run: ruff check backend tests scripts
       - name: Pyright (basic mode, config in pyproject.toml)

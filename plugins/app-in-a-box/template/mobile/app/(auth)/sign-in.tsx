@@ -4,7 +4,8 @@ import Animated from "react-native-reanimated";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 
-import { Badge, Body, Button, Display, ErrorText, FormField, Screen } from "../../components/ui";
+import { AgeGate, Badge, Body, Button, Display, ErrorText, FormField, Screen } from "../../components/ui";
+import { currentAgeStatus } from "../../lib/age";
 import { analytics, startTimer } from "../../lib/analytics";
 import { APP } from "../../lib/app";
 import { sendEmailCode, verifyEmailCode, type AuthErrorCode } from "../../lib/auth";
@@ -22,6 +23,9 @@ export default function SignIn() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<AuthErrorCode | null>(null);
+  // The minors guardrail pack: age first, before an email is collected (lib/age.ts).
+  // Without the pack this is "ofAge" from the start and the gate never renders.
+  const [age, setAge] = useState(currentAgeStatus);
   const emailForm = useForm<EmailForm>({ resolver: zodResolver(emailSchema), defaultValues: { email: "" }, mode: "onChange" });
   const codeForm = useForm<CodeForm>({ resolver: zodResolver(codeSchema), defaultValues: { code: "" }, mode: "onChange" });
   const email = useWatch({ control: emailForm.control, name: "email" }) ?? "";
@@ -65,6 +69,14 @@ export default function SignIn() {
     setError(null);
     codeForm.reset();
   };
+
+  if (age !== "ofAge") {
+    return (
+      <Screen testID="signin-screen" edges={["top", "left", "right", "bottom"]}>
+        <AgeGate status={age} onDone={setAge} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen testID="signin-screen" edges={["top", "left", "right", "bottom"]}>

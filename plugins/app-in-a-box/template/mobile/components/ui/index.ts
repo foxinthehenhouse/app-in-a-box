@@ -4,6 +4,7 @@
  * a purpose-stating accessibilityLabel on everything interactive.
  * See every component in both colour modes at the dev-only /gallery route.
  */
+export { AgeGate } from "./AgeGate";
 export { AnimatedNumber, countFrame } from "./AnimatedNumber";
 export { Button, IconButton, type ButtonProps, type ButtonVariant } from "./Button";
 export { Celebration, confettiPieces } from "./Celebration";

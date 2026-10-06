@@ -175,7 +175,10 @@ once that re-running the prototype phase would let them click it first.
    with a real call site.
 5. **Domain rules.** For each `sensitive_data` entry, copy
    `.agents/rules/optional/<domain>.md` up to `.agents/rules/` and add a row to the
-   path-rules table in `AGENTS.md`.
+   path-rules table in `AGENTS.md`. Once `privacy/data-map.yaml` lists the guardrail
+   `packs`, run `python3 scripts/check_guardrails.py --write` (the app's copy of the
+   packs, `mobile/lib/packs.ts`) and then `python3 scripts/check_guardrails.py`, which
+   must be clean (`docs/privacy/GUARDRAILS.md` says what each pack enforces).
 6. **Draft AGENTS.md from the brief.** It's the file every future agent reads
    first, so write it from `BRIEF.md`, `SCREENS.md` and `VALIDATION.md`, not from memory:
    - `appbox:product`: who it's for, their problem in their words, the core loop,

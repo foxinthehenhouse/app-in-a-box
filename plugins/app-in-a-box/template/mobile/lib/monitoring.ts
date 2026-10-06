@@ -1,6 +1,8 @@
 /**
  * Crash + error monitoring (Sentry). No-op without EXPO_PUBLIC_SENTRY_DSN or in
- * dev builds. Privacy defaults: no PII, no screenshots, no view hierarchy.
+ * dev builds. Privacy defaults: no PII, no screenshots, no view hierarchy, and every
+ * event passes through scrubSentryEvent() (lib/privacy.ts): no user, no request, no
+ * sensitive key in tags, extra, contexts or breadcrumbs.
  *
  * Every event says which JS it came from (`releaseInfo()`). An OTA update swaps the
  * bundle under the same store build, so the build number alone can't tell a crash in
@@ -19,6 +21,8 @@
 import * as Sentry from "@sentry/react-native";
 import * as Application from "expo-application";
 import * as Updates from "expo-updates";
+
+import { isSensitiveKey, scrubSentryEvent } from "./privacy";
 
 const DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
 
@@ -75,13 +79,14 @@ export function initMonitoring(): void {
     attachScreenshot: false,
     attachViewHierarchy: false,
     tracesSampleRate: 0,
+    beforeSend: scrubSentryEvent,
   });
 }
 
 export function reportError(error: unknown, context: Record<string, string> = {}): void {
   if (!DSN || __DEV__) return;
   Sentry.withScope((scope) => {
-    for (const [k, v] of Object.entries(context)) scope.setTag(k, v);
+    for (const [k, v] of Object.entries(context)) if (!isSensitiveKey(k)) scope.setTag(k, v);
     Sentry.captureException(error);
   });
 }

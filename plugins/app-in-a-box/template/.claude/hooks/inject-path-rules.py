@@ -14,6 +14,13 @@ Rules live in `.agents/rules/*.md` (shared with Codex via AGENTS.md) with frontm
     ---
     <markdown body — the rule the model should read before editing>
 
+A rule can also say WHAT in the edit makes it relevant, with an optional
+`match: <regex>` line (case-insensitive, tested against the text being written:
+Write's content, Edit's new_string, MultiEdit's edits). It then fires only when that
+text matches, and the injection names what matched. `privacy-columns.md` uses this to
+speak up when a migration adds a column that looks personal, not on every migration.
+Such a rule also carries `example:`, a line it must match (the rules lint checks it).
+
 To avoid re-injecting the same rule on every edit, each rule fires at most once
 per session (keyed by session_id). Fail open on any error.
 """
@@ -69,7 +76,21 @@ def parse_rule(path):
     # A pattern starting with `!` EXCLUDES (gitignore-style).
     globs = [g for g in raw if not g.startswith("!")]
     excludes = [g[1:] for g in raw if g.startswith("!") and len(g) > 1]
-    return {"globs": globs, "excludes": excludes, "body": body}
+    mm = re.search(r"^match:\s*(.+)$", fm, re.M)
+    em = re.search(r"^example:\s*(.+)$", fm, re.M)
+    try:
+        match = re.compile(mm.group(1).strip(), re.I) if mm else None
+    except re.error:
+        return None
+    return {"globs": globs, "excludes": excludes, "body": body, "match": match,
+            "example": em.group(1).strip() if em else ""}
+
+
+def written_text(ti):
+    """The text an Edit/Write/MultiEdit is about to put in the file."""
+    parts = [ti.get("content") or "", ti.get("new_string") or ""]
+    parts += [e.get("new_string") or "" for e in ti.get("edits") or [] if isinstance(e, dict)]
+    return "\n".join(p for p in parts if isinstance(p, str))
 
 
 def main():
@@ -107,7 +128,13 @@ def main():
         if any(glob_to_re(g).match(rel) for g in rule["globs"]) and not any(
             glob_to_re(g).match(rel) for g in rule.get("excludes", [])
         ):
-            out.append(f"**Path rule ({name})** — applies to `{rel}`:\n\n{rule['body']}")
+            why = ""
+            if rule.get("match"):
+                hits = sorted({m.group(0) for m in rule["match"].finditer(written_text(ti))})
+                if not hits:
+                    continue  # the path matches, but nothing in this edit is what the rule is about
+                why = " (this edit adds " + ", ".join(f"`{h.strip()}`" for h in hits[:8]) + ")"
+            out.append(f"**Path rule ({name})** — applies to `{rel}`{why}:\n\n{rule['body']}")
             fired.add(name)
             changed = True
 

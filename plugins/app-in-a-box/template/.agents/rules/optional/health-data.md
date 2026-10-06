@@ -8,3 +8,5 @@ globs: backend/**, mobile/lib/**, mobile/app/**, supabase/migrations/**
 - No diagnostic or treatment claims in copy. Describe, don't prescribe.
 - Any algorithm that changes what a user is told to do physically is a deterministic,
   tested pure function, not LLM output.
+- The `health` guardrail pack lints analytics payloads and log calls for these values,
+  and the PostHog/Sentry scrubbers strip them at runtime (docs/privacy/GUARDRAILS.md).
