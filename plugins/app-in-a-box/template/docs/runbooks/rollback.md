@@ -4,6 +4,13 @@ Roll back the layer that broke, newest first. Decide in under five minutes: if a
 release correlates with a new Sentry issue or a `/health` change, roll back first and
 debug after.
 
+## Kill switch (no release needed)
+
+If the broken feature sits behind a `kill-*` flag, turning it on is faster than any
+rollback: PostHog → Feature flags → the flag → on for everyone. The app and the API
+both read it ([incident.md](incident.md#kill-switches)). It doesn't undo a bad
+release, so still roll back whatever else that release broke.
+
 ## OTA
 
 An OTA update is live the next time users open the app, so rolling it back is the

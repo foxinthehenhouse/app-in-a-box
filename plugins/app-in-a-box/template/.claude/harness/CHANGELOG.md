@@ -4,6 +4,16 @@ Append-only record of changes to the self-learning harness. Each `harness-optimi
 run logs what it changed and the evidence behind it; each sunset logs its 3/3
 capability re-test. Newest first.
 
+## Debug fast: the incident skill (2026-10-05)
+
+- **`incident` skill** (15th skill; `complexity_budget.limits.skills` 14 → 15, on
+  purpose): walks `docs/runbooks/incident.md`, proposes the rollback or kill switch
+  before any diagnosis, and drafts a postmortem from `docs/postmortems/TEMPLATE.md`
+  whose guard `tests/test_postmortems.py` checks. Listed in `owner_asks`: rollbacks,
+  kill switches and user comms are the owner's call. Protected, not load-bearing.
+- **`next` reads `stale_flags`**: flags past their `expires` date
+  (`scripts/check_flags.py --stale`), rank 9b, and the SessionStart line names the first.
+
 ## Conformance teardown: instructions became mechanisms (2026-10-02)
 
 Each item replaced a sentence somebody had to remember with a check that fails, and each

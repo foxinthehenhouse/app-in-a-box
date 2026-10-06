@@ -116,6 +116,11 @@
       "removal_rule": "Release checklist (store requirements, OTA safety). Low use between releases is expected, not dormancy."
     },
     {
+      "file": ".agents/skills/incident/SKILL.md",
+      "load_bearing": false,
+      "removal_rule": "Walks the incident runbook and proposes the rollback before any diagnosis. Rarely used by design (incidents are rare); low use is never a pruning signal."
+    },
+    {
       "file": ".agents/skills/routines/SKILL.md",
       "load_bearing": false,
       "removal_rule": "Sets up scheduled rituals with consent. Used once or twice per project; never a pruning candidate for low use."
@@ -167,7 +172,7 @@
   },
   "owner_asks": {
     "_comment": "Skills and subagent roles that reach product-judgement calls (.agents/rules/product-judgement.md). tests/harness/test_owner_asks.py fails if a listed skill loses its '## Ask the owner' step or a listed role stops returning ⚖️ QUESTION blocks. Removing an entry is a harness change: say why in the PR.",
-    "skills": ["feature-discovery", "build-feature", "pr-review", "land", "backlog", "next", "ship", "north-star-report", "market-watch", "routines"],
+    "skills": ["feature-discovery", "build-feature", "pr-review", "land", "backlog", "next", "ship", "north-star-report", "market-watch", "routines", "incident"],
     "agents": ["product-manager", "ux-designer", "growth", "chair"]
   },
   "complexity_budget": {
@@ -176,7 +181,7 @@
       "agents_md_lines": 160,
       "rules": 9,
       "registered_hooks": 10,
-      "skills": 14,
+      "skills": 15,
       "agents": 12,
       "memory_entries": 45
     }

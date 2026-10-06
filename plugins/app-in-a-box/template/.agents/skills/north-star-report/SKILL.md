@@ -1,6 +1,6 @@
 ---
 name: north-star-report
-description: Weekly product-analytics readout. Pulls the funnel of the brief's 5 north-star events from PostHog, finds the biggest drop-offs and errors, compares with last week, and proposes (then, with a yes, files) tickets that target them. Use weekly, when the session-start line says it's overdue, when the backlog is empty, or when asked "how is the app doing?".
+description: Weekly product-analytics and reliability readout. Pulls the funnel of the brief's 5 north-star events from PostHog, finds the biggest drop-offs and errors, checks each SLO in docs/slo.yaml against its error budget, compares with last week, and proposes (then, with a yes, files) tickets that target them. Use weekly, when the session-start line says it's overdue, when the backlog is empty, or when asked "how is the app doing?".
 ---
 
 # North-star report
@@ -25,6 +25,19 @@ Exclude internal users (the owner's own distinct ids, or a `$internal`/test coho
 if one exists). Under ~30 users in the window: say "too few users to read drop-offs"
 and report counts only. Percentages on tiny numbers mislead.
 
+## 1b. Read the SLOs
+
+`docs/slo.yaml` lists the reliability targets (availability, p95 latency, crash-free
+sessions), each with its `source`. For each, read the value over the file's
+`window_days` from that source: Sentry (MCP, or the web UI the owner reads out),
+Railway HTTP metrics (Railway MCP), or PostHog `api_failed` as a rough stand-in for
+availability. Work out the error budget left: for a percent SLO,
+`1 - (100 - actual) / (100 - objective)`; for p95, whether it's under the objective.
+Backend traces are sampled (`SENTRY_TRACES_SAMPLE_RATE`, 5% by default), which is
+plenty for a p95 on real traffic but noisy under a few hundred requests a day: say so
+rather than reading a spike into it. A source you can't reach is "not read", never
+a guessed number.
+
 ## 2. Write it up
 
 `docs/product/reports/<YYYY-WW>-north-star.md`:
@@ -39,6 +52,9 @@ and report counts only. Percentages on tiny numbers mislead.
 Biggest drop-off: <step A → step B>, <x%> lost. Likely because: <evidence: failure events, errors, a recent PR>
 Failures: <event>: <n> (<+/->)
 Errors: <issue>: <n users>
+
+| SLO | Objective | Actual (<window_days>d) | Budget left |
+|-----|-----------|-------------------------|-------------|
 ```
 
 State the hypothesis as a guess with its evidence, not a finding. Mark it ⚖️ if
@@ -46,8 +62,9 @@ acting on it means a product tradeoff.
 
 ## 3. Propose tickets (at most 3)
 
-For the biggest drop-off, and any failure or error spike affecting > 5% of users,
-draft a ticket: problem (with the numbers), hypothesis, acceptance criteria that name
+For the biggest drop-off, any failure or error spike affecting > 5% of users, and any
+SLO with under a quarter of its budget left (that one goes first: users can't convert
+on an app that's down), draft a ticket: problem (with the numbers), hypothesis, acceptance criteria that name
 the event the fix should move. Show them to the owner and ask (structured) which to
 file. File the approved ones with the `backlog` skill (label `p1`, or `p0` if a
 failure/error blocks the core loop).
