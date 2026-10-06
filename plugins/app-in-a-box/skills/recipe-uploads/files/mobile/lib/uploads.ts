@@ -32,6 +32,10 @@ import {
   type UploadTicket,
 } from "./api";
 import { DEMO } from "./demo";
+
+// Re-exported so components/ui can type an upload without importing lib/api (the
+// boundary lint keeps the backend client out of the component library).
+export type { Upload } from "./api";
 import { i18n } from "./i18n";
 
 /** Mirrors backend/services/uploads_service.py. The server re-checks both. */
