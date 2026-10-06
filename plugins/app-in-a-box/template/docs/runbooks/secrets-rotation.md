@@ -15,6 +15,10 @@ system supports two active keys, that gives zero downtime.
 | `EXPO_ACCESS_TOKEN` | Railway | expo.dev → Account → Access tokens: create, set, redeploy, revoke old. | Send pushes as your app (with enhanced security on) |
 | `SMTP_PASS` (auth email; for Resend, an API key) | Supabase (Auth → SMTP) + `.env`, never Railway | Create a new key at the provider (resend.com/api-keys), put it in `.env`, re-run the kit's `supabase_smtp.py` (provision step 2.7), send yourself a sign-in code, then revoke the old key. | Mail sent as your domain (phishing your users, burned sender reputation) |
 | `SUPABASE_ACCESS_TOKEN` (provisioning only) | `.env` | supabase.com/dashboard/account/tokens: revoke, create, paste into `.env`. Delete it from `.env` when provisioning is done if you like. | **Total**: manages every project in your Supabase account |
+| `SUPABASE_DB_URL` (backups; holds the DB password) | GitHub secret | Reset the database password (Supabase → Database settings), update `SUPABASE_DB_PASSWORD` in `.env` and this secret together, run Actions → Backup by hand. | **Total**: full database access |
+| `BACKUP_S3_ACCESS_KEY_ID` / `BACKUP_S3_SECRET_ACCESS_KEY` | GitHub secrets | Create a new bucket-scoped token, update both secrets, run Actions → Backup, revoke the old token. | Read (ciphertext only) or delete backups |
+| Backup age private key | Owner's password manager, never the repo or GitHub | New pair, new `BACKUP_AGE_RECIPIENT`; keep the old private key until its backups age out ([backup-restore.md](backup-restore.md#rotating-the-keys)). | Read every backup, if the bucket leaks too |
+| `BETTERSTACK_API_TOKEN` (provisioning only) | `.env` | Better Stack → Settings → API tokens: revoke, create. | Edit or delete your monitors |
 | `SENTRY_DSN` | Railway, EAS env | Sentry → Client Keys: add key, switch, disable old. DSNs are semi-public (they ship in the app); rotate only if abused. | Junk events |
 | `SENTRY_AUTH_TOKEN` | EAS env (source maps) | Sentry → Auth Tokens. | Read your Sentry data |
 | `ANTHROPIC_API_KEY` (if AI enabled) | Railway | console.anthropic.com → create key, set, redeploy, delete old. | Spend on your account |

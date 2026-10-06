@@ -41,6 +41,10 @@ versions write.
       "email sign-in (custom SMTP)", and a code sent to a fresh address arrives from
       your domain within a minute. Supabase's built-in mailer allows a couple of
       emails an hour, so App Review (and your first users) can't sign in without it.
+- [ ] Ops defaults are on: the uptime monitor on `/health` exists (provision step 8.1),
+      last night's Backup run is green, a restore drill passed this month
+      ([backup-restore.md](backup-restore.md)), and the spend caps in `COST.md` are
+      ticked.
 - [ ] `version` bumped in `mobile/app.json` for a native release (build numbers are
       remote-managed: `appVersionSource: remote`).
 - [ ] Sentry release = git sha for the API (Railway sets `RAILWAY_GIT_COMMIT_SHA`).

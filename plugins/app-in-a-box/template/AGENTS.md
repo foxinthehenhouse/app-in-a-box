@@ -53,7 +53,7 @@ maestro test mobile/.maestro/                # E2E flows (docs/qa/MAESTRO.md)
 - `mobile/AGENTS.md`: React Native conventions, tokens, analytics, testIDs
 - `backend/AGENTS.md`: FastAPI conventions, auth, feature config, Supabase
 - `docs/decision-log.md`: architectural decisions (append-only)
-- `docs/runbooks/`: release, rollback, incident, secrets rotation
+- `docs/runbooks/`: release, rollback, incident, secrets rotation, backups; `COST.md`: running costs + spend caps
 - `docs/product/`: brief, PRDs, specs
 
 ## Where things live

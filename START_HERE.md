@@ -148,6 +148,8 @@ can, so each signup is one click.
 | Railway | Hosts the backend | Trial credit, then about $5/mo | Project, service, variables and domain: yes, via CLI/MCP |
 | PostHog | Product analytics, flags, session replay | 1M events/mo | Project: yes, via API/MCP with a personal key |
 | Sentry | Crash and error monitoring | Developer plan | Projects and DSNs: yes, via MCP/API |
+| Better Stack | Uptime alerts on `/health` (or Sentry Uptime, if you use Sentry) | 10 monitors, 3-minute checks | Monitor: yes, via API with a token you paste |
+| Cloudflare R2 | Nightly encrypted database backups (any S3-compatible store works) | 10 GB | Bucket and token: you. Wiring and the nightly job: yes |
 | Anthropic / OpenAI | Only if your app has an AI feature | Pay as you go | No. You create the key. |
 | Linear | Backlog (recommended; GitHub Issues is the alternative) | Free plan | Team: no. Projects and issues: yes. |
 | Apple Developer | TestFlight / App Store (iOS only) | **$99/yr, not free** | No. Enrolment needs identity verification. |
